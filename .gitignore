@@ -1,0 +1,25 @@
+# IntelliJ
+.idea/
+*.iml
+
+# Java / Spring Boot
+**/target/
+**/build/
+
+# Node / React Native / Expo
+**/node_modules/
+**/.expo/
+**/dist/
+**/web-build/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
