@@ -35,7 +35,7 @@ export default function HomeScreen() {
       setProfileError(isAr ? 'الاسم والبريد الإلكتروني إجباريان' : 'Le nom et l\'e-mail sont obligatoires');
       return;
     }
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(profileEmail.trim())) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileEmail.trim())) {
       setProfileError(isAr ? 'البريد الإلكتروني غير صالح' : 'Adresse e-mail invalide');
       return;
     }
@@ -140,6 +140,31 @@ export default function HomeScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>{t('home.welcome', { name: user?.name ?? '' })}</Text>
         <Text style={styles.email}>{user?.email}</Text>
+      </View>
+
+      <View style={[styles.card, styles.spaced]}>
+        <Text style={styles.section}>{isAr ? 'معلومات الحساب' : 'Profil du propriétaire'}</Text>
+        <TextField
+          label={isAr ? 'الاسم الكامل' : 'Nom complet'}
+          value={profileName}
+          onChangeText={setProfileName}
+          autoCapitalize="words"
+        />
+        <TextField
+          label={isAr ? 'البريد الإلكتروني' : 'Adresse e-mail'}
+          value={profileEmail}
+          onChangeText={setProfileEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+        />
+        {profileError ? <Text style={styles.error}>{profileError}</Text> : null}
+        {profileSuccess ? <Text style={styles.success}>{isAr ? 'تم تحديث المعلومات بنجاح' : 'Profil mis à jour avec succès'}</Text> : null}
+        <PrimaryButton
+          title={isAr ? 'حفظ المعلومات' : 'Enregistrer les modifications'}
+          onPress={() => void saveProfile()}
+          loading={profileSaving}
+        />
       </View>
 
       <View style={styles.block}>
