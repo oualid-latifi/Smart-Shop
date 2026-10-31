@@ -42,7 +42,7 @@ public class RefreshTokenService {
         return new IssuedRefreshToken(raw, expiry, user.getId());
     }
 
-    @Transactional
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
     public IssuedRefreshToken rotate(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) throw new IllegalArgumentException("Refresh token invalide");
         String hash = hash(rawToken);
