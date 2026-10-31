@@ -5,6 +5,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import type { Product } from '../api/types';
+import type { Category, Product } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
@@ -28,6 +29,8 @@ type Props = NativeStackScreenProps<ProductsStackParamList, 'ProductsList'>;
 export default function ProductsScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -36,8 +39,12 @@ export default function ProductsScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const data = await api<Product[]>('/api/products');
+      const [data, categoryData] = await Promise.all([
+        api<Product[]>('/api/products'),
+        api<Category[]>('/api/categories'),
+      ]);
       setProducts(data);
+      setCategories(categoryData);
     } catch (e) {
       setError(errorMessage(e, t));
     }
@@ -59,11 +66,14 @@ export default function ProductsScreen({ navigation }: Props) {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return products;
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query),
+    if (!query && !selectedCategory) return products;
+    return products.filter((p) =>
+      (p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query)
+        || (p.brand ?? '').toLowerCase().includes(query)
+        || (p.model ?? '').toLowerCase().includes(query))
+      && (!selectedCategory || p.categoryId === selectedCategory),
     );
-  }, [products, search]);
+  }, [products, search, selectedCategory]);
 
   function renderItem({ item }: { item: Product }) {
     return (
@@ -120,6 +130,29 @@ export default function ProductsScreen({ navigation }: Props) {
           placeholderTextColor={colors.muted}
           autoCorrect={false}
         /></View>
+        {categories.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+            <Pressable
+              onPress={() => setSelectedCategory(null)}
+              style={[styles.categoryChip, selectedCategory === null && styles.categoryChipActive]}
+            >
+              <Text style={[styles.categoryText, selectedCategory === null && styles.categoryTextActive]}>
+                {t('common.all', { defaultValue: 'All' })}
+              </Text>
+            </Pressable>
+            {categories.map((category) => (
+              <Pressable
+                key={category.id}
+                onPress={() => setSelectedCategory(category.id === selectedCategory ? null : category.id)}
+                style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipActive]}
+              >
+                <Text style={[styles.categoryText, selectedCategory === category.id && styles.categoryTextActive]}>
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
 
       {loading ? (
@@ -153,6 +186,11 @@ const styles = StyleSheet.create({
   pageHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headingIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   headingCopy: { flex: 1 }, pageTitle: { fontSize: 21, fontWeight: '900', color: colors.text }, pageSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  categoryRow: { gap: spacing.sm, paddingTop: spacing.xs },
+  categoryChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.card },
+  categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  categoryText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  categoryTextActive: { color: '#FFFFFF' },
   searchWrap: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: spacing.md },
   search: { flex: 1,
     paddingVertical: 10,
