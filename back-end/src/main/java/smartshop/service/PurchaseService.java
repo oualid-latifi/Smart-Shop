@@ -107,7 +107,8 @@ public class PurchaseService {
 
     @Transactional
     public Purchase addPayment(UUID purchaseId, BigDecimal amount) {
-        Purchase purchase = findById(purchaseId);
+        Purchase purchase = purchaseRepository.findByIdForUpdate(purchaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Achat introuvable"));
 
         if (amount.compareTo(purchase.getRemaining()) > 0) {
             throw new IllegalArgumentException(
