@@ -7,6 +7,7 @@ import smartshop.dto.RefundRequest;
 import smartshop.dto.RefundResponse;
 import smartshop.service.SaleRefundService;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -22,5 +23,12 @@ public class SaleRefundController {
     @ResponseStatus(HttpStatus.CREATED)
     public RefundResponse refund(@PathVariable UUID id, @Valid @RequestBody RefundRequest request) {
         return RefundResponse.from(refundService.refund(id, request));
+    }
+
+    @GetMapping("/{id}/refunds")
+    public List<RefundResponse> history(@PathVariable UUID id) {
+        return refundService.getRefundHistory(id).stream()
+                .map(RefundResponse::from)
+                .toList();
     }
 }
