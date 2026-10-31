@@ -397,13 +397,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
 
   brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,8 +417,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   hello: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 21,
+    fontWeight: '900',
     color: colors.text,
     marginTop: 2,
   },
@@ -441,10 +441,10 @@ const styles = StyleSheet.create({
   },
 
   saleHero: {
-    minHeight: 104,
+    minHeight: 116,
     backgroundColor: colors.primaryDark,
-    borderRadius: 22,
-    padding: spacing.md,
+    borderRadius: 24,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -455,9 +455,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   saleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 17,
     backgroundColor: '#d7faf2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -485,8 +485,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   section: {
     fontSize: 16,
@@ -537,13 +537,13 @@ const styles = StyleSheet.create({
   },
   stat: {
     flexGrow: 1,
-    flexBasis: '45%',
+    flexBasis: '47%',
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    minHeight: 126,
+    minHeight: 138,
   },
   statIcon: {
     width: 36,
@@ -577,7 +577,7 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
