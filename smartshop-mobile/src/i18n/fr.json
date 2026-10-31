@@ -20,7 +20,11 @@
     "passwordHint": "8 caractères minimum",
     "loginButton": "Se connecter",
     "registerButton": "Créer le compte",
-    "brandHint": "Gestion simple et intelligente de votre boutique"
+    "brandHint": "Gestion simple et intelligente de votre boutique",
+    "noAccount": "Vous n'avez pas de compte ?",
+    "registerLink": "Créer un compte",
+    "haveAccount": "Vous avez déjà un compte ?",
+    "loginLink": "Se connecter"
   },
   "errors": {
     "network": "Impossible de joindre le serveur. Vérifie que le backend est lancé et que l'adresse est correcte.",
