@@ -52,7 +52,7 @@ export default function SaleScreen() {
       const available = p.filter((item) => item.active);
       // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
       setProducts(shuffle(available));
-      setCustomers(c);
+      setCustomers(c.filter((customer) => customer.active));
     } catch (e) {
       setError(errorMessage(e, t));
     }
