@@ -25,7 +25,13 @@
       "expo-status-bar",
       "expo-secure-store",
       "expo-localization",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "SmartShop utilise la caméra pour photographier les produits."
+        }
+      ]
     ]
   }
 }
