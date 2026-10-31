@@ -23,6 +23,9 @@ public class Customer {
     @Column(name = "credit_limit", precision = 12, scale = 2)
     private BigDecimal creditLimit;
 
+    @Column(nullable = false, columnDefinition = "boolean default true")
+    private Boolean active = true;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -44,6 +47,9 @@ public class Customer {
 
     public BigDecimal getCreditLimit() { return creditLimit; }
     public void setCreditLimit(BigDecimal creditLimit) { this.creditLimit = creditLimit; }
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
 }
