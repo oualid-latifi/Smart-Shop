@@ -111,6 +111,8 @@ export interface ReportSummary {
   lowStockCount: number;
 }
 
+export interface SaleRefund { id: string; saleId: string; amount: number; reason: string; refundedAt: string; }
+
 export type SaleStatus = 'VALIDATED' | 'CANCELLED';
 
 export interface SaleLine {
