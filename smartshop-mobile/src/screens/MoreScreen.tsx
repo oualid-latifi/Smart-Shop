@@ -23,6 +23,12 @@ export default function MoreScreen({ navigation }: Props) {
 
   const items = [
     {
+      title: isAr ? 'الفئات' : 'Catégories',
+      subtitle: isAr ? 'إضافة وتعديل وتنظيم فئات المنتجات' : 'Créer, modifier et organiser les catégories',
+      icon: 'albums-outline' as const,
+      screen: 'Categories',
+    },
+    {
       title: isAr ? 'المشتريات' : 'Achats',
       subtitle: isAr
         ? 'تدبير المشتريات والموردين'
