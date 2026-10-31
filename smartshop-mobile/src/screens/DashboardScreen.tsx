@@ -324,11 +324,12 @@ function StatCard({
 
   return (
     <View style={styles.stat}>
-      <View style={[styles.statIcon, toneStyle]}>
-        <Ionicons name={icon} size={19} color={toneColor} />
+      <View style={styles.statTop}>
+        <View style={[styles.statIcon, toneStyle]}>
+          <Ionicons name={icon} size={19} color={toneColor} />
+        </View>
+        <Text style={styles.statLabel} numberOfLines={2}>{label}</Text>
       </View>
-
-      <Text style={styles.statLabel}>{label}</Text>
 
       <Text
         style={[
@@ -543,15 +544,21 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    minHeight: 138,
+    minHeight: 132,
+  },
+  statTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 40,
+    marginBottom: spacing.sm,
   },
   statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 13,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.sm,
   },
   tone_teal: { backgroundColor: '#ccfbf1' },
   tone_green: { backgroundColor: '#dcfce7' },
@@ -559,13 +566,15 @@ const styles = StyleSheet.create({
   tone_violet: { backgroundColor: '#ede9fe' },
 
   statLabel: {
+    flex: 1,
     fontSize: 12,
+    lineHeight: 16,
     color: colors.muted,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statValue: {
-    marginTop: 4,
-    fontSize: 18,
+    marginTop: 2,
+    fontSize: 19,
     fontWeight: '900',
     color: colors.text,
   },
