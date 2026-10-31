@@ -106,7 +106,7 @@ public class ReportExportController {
     }
 
     private byte[] buildPdf(ReportSummaryResponse r) {
-        List<String> lines = List.of(
+        java.util.ArrayList<String> lines = new java.util.ArrayList<>(List.of(
                 "SMARTSHOP - RAPPORT", "Periode : " + r.from() + " au " + r.to(),
                 "Nombre de ventes : " + r.salesCount(),
                 "Chiffre d'affaires : " + r.revenue() + " DH",
@@ -123,7 +123,11 @@ public class ReportExportController {
                 "Valeur du stock : " + r.stockValue() + " DH",
                 "Produits en stock bas : " + r.lowStockCount(),
                 "Produits les plus vendus :"
-        );
+        ));
+        for (var product : r.topProducts()) {
+            lines.add(product.name() + " | Quantite : " + product.quantitySold()
+                    + " | Chiffre d'affaires : " + product.revenue() + " DH");
+        }
         StringBuilder stream = new StringBuilder("BT\n/F1 16 Tf\n50 790 Td\n");
         for (int i = 0; i < lines.size(); i++) {
             if (i == 1) stream.append("/F1 10 Tf\n");
