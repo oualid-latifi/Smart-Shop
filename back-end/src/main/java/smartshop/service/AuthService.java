@@ -53,7 +53,6 @@ public class AuthService {
         return toResponse(user);
     }
 
-    @Transactional
     public AuthResponse refresh(String rawRefreshToken) {
         var rotated = refreshTokenService.rotate(rawRefreshToken);
         AppUser user = userRepository.findById(rotated.userId())
