@@ -11,7 +11,7 @@ import smartshop.repository.ProductRepository;
 import smartshop.repository.PurchasePaymentRepository;
 import smartshop.repository.PurchaseRepository;
 import smartshop.repository.SaleLineRepository;
-import smartshop.repository.SaleRepository;
+import smartshop.repository.SaleRepository;\nimport smartshop.repository.SaleRefundRepository;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -31,7 +31,7 @@ public class ReportService {
     private final PurchaseRepository purchaseRepository;
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final ExpenseRepository expenseRepository;
-    private final ProductRepository productRepository;
+    private final ProductRepository productRepository;\n    private final SaleRefundRepository saleRefundRepository;
 
     public ReportService(SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
@@ -39,14 +39,14 @@ public class ReportService {
                          PurchaseRepository purchaseRepository,
                          PurchasePaymentRepository purchasePaymentRepository,
                          ExpenseRepository expenseRepository,
-                         ProductRepository productRepository) {
+                         ProductRepository productRepository,\n                         SaleRefundRepository saleRefundRepository) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
         this.customerPaymentRepository = customerPaymentRepository;
         this.purchaseRepository = purchaseRepository;
         this.purchasePaymentRepository = purchasePaymentRepository;
         this.expenseRepository = expenseRepository;
-        this.productRepository = productRepository;
+        this.productRepository = productRepository;\n        this.saleRefundRepository = saleRefundRepository;
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
