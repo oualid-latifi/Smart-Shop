@@ -17,7 +17,7 @@ import java.util.UUID;
 
 @Service
 public class RefreshTokenService {
-    public record IssuedRefreshToken(String token, Instant expiresAt) {}
+    public record IssuedRefreshToken(String token, Instant expiresAt, UUID userId) {}
     private final RefreshSessionRepository sessions;
     private final SecureRandom random = new SecureRandom();
     private final long lifetimeDays;
@@ -39,7 +39,7 @@ public class RefreshTokenService {
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
         Instant expiry = Instant.now().plus(lifetimeDays, ChronoUnit.DAYS);
         sessions.save(new RefreshSession(user, hash(raw), familyId, expiry));
-        return new IssuedRefreshToken(raw, expiry);
+        return new IssuedRefreshToken(raw, expiry, user.getId());
     }
 
     @Transactional
