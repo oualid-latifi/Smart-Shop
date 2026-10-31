@@ -10,6 +10,7 @@ interface AuthContextValue {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
+  updateProfile: (name: string, email: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +41,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus('signedIn');
   }, []);
 
+  const updateProfile = useCallback(async (name: string, email: string) => {
+    const updated = await api<MeResponse>('/api/auth/me', {
+      method: 'PUT', body: { name, email },
+    });
+    setUser({ name: updated.name, email: updated.email });
+  }, []);
+
   useEffect(() => {
     setUnauthorizedHandler(() => { void logout(); });
     return () => setUnauthorizedHandler(null);
@@ -54,14 +62,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       try {
-        // api() renouvelle automatiquement le token si le JWT a expiré.
         const me = await api<MeResponse>('/api/auth/me');
         if (!cancelled) {
           setUser({ name: me.name, email: me.email });
           setStatus('signedIn');
         }
       } catch (error) {
-        // En cas de panne réseau, conserver les deux tokens pour réessayer au prochain lancement.
         if (!(error instanceof ApiError && error.status === 0)) {
           await storage.remove(TOKEN_KEY);
           await storage.remove(REFRESH_TOKEN_KEY);
@@ -87,8 +93,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await startSession(response);
   }, [startSession]);
 
-  const value = useMemo(() => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout]);
+  const value = useMemo(() => ({ status, user, login, register, updateProfile, logout }),
+    [status, user, login, register, updateProfile, logout]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
