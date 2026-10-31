@@ -21,7 +21,7 @@ interface RequestOptions {
 
 async function getBaseUrl(): Promise<string> {
   const custom = await storage.get(API_URL_KEY);
-  return (custom?.trim() || API_URL).replace(/\\/+$/, '');
+  return (custom?.trim() || API_URL).replace(/\/+$/, '');
 }
 
 async function readResponse<T>(response: Response): Promise<T> {
