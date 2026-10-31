@@ -56,7 +56,7 @@ public class AuthService {
     @Transactional
     public AuthResponse refresh(String rawRefreshToken) {
         var rotated = refreshTokenService.rotate(rawRefreshToken);
-        AppUser user = userRepository.findById(rotatedUserId(rawRefreshToken))
+        AppUser user = userRepository.findById(rotated.userId())
                 .orElseThrow(() -> new IllegalArgumentException("Compte introuvable"));
         JwtService.IssuedToken access = jwtService.issue(user);
         return new AuthResponse(access.token(), access.expiresAt(), rotated.token(),
