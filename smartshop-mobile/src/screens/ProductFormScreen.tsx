@@ -148,7 +148,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       <TextField label={t('products.name')} value={name} onChangeText={setName} />
       <TextField label={t('products.brand')} value={brand} onChangeText={setBrand} />
       <TextField label={t('products.model')} value={model} onChangeText={setModel} />
-      <TextField label={t('products.color')} value={color} onChangeText={setColor} />
       <TextField label={t('products.capacity')} value={capacity} onChangeText={setCapacity} />
       <View style={styles.photoBlock}>
         {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productPhoto} resizeMode="cover" /> : null}
