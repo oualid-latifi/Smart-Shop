@@ -11,7 +11,7 @@ public record CustomerResponse(
         String phone,
         BigDecimal creditLimit,
         BigDecimal balance,
-        boolean active        // dette actuelle du client (kridi)
+        boolean active
 ) {
 
     public static CustomerResponse from(Customer c, BigDecimal balance) {
