@@ -1,6 +1,8 @@
 package smartshop.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import smartshop.entity.Sale;
@@ -13,6 +15,10 @@ import java.util.UUID;
 public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     List<Sale> findAllByOrderBySaleDateDesc();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select s from Sale s where s.id = :id")
+    java.util.Optional<Sale> findByIdForUpdate(@Param("id") UUID id);
 
     List<Sale> findByCustomer_IdOrderBySaleDateDesc(UUID customerId);
 
