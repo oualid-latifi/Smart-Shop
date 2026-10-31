@@ -40,12 +40,14 @@ export default function ProductsScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setError(null);
-      const [data, categoryData] = await Promise.all([
-        api<Product[]>('/api/products/all'),
-        api<Category[]>('/api/categories'),
-      ]);
+      const data = await api<Product[]>('/api/products/all');
       setProducts(data);
-      setCategories(categoryData);
+      try {
+        setCategories(await api<Category[]>('/api/categories'));
+      } catch {
+        // L'échec du chargement des catégories ne doit pas masquer les produits.
+        setCategories([]);
+      }
     } catch (e) {
       setError(errorMessage(e, t));
     }
