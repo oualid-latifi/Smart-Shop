@@ -42,6 +42,23 @@ public class CustomerService {
         return CustomerResponse.from(saved, BigDecimal.ZERO);
     }
 
+    @Transactional
+    public CustomerResponse update(UUID id, CustomerRequest request) {
+        Customer customer = getCustomer(id);
+        customer.setName(request.name());
+        customer.setPhone(request.phone());
+        customer.setCreditLimit(request.creditLimit());
+        Customer saved = customerRepository.save(customer);
+        return CustomerResponse.from(saved, balanceOf(id));
+    }
+
+    @Transactional
+    public void deactivate(UUID id) {
+        Customer customer = getCustomer(id);
+        customer.setActive(false);
+        customerRepository.save(customer);
+    }
+
     @Transactional(readOnly = true)
     public List<CustomerResponse> findAll() {
         return customerRepository.findAll().stream()
