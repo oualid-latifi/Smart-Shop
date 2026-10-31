@@ -17,7 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import { formatMoney } from '../format';
-import { colors, radius, spacing } from '../theme';
+import { colors, isDark, radius, spacing } from '../theme';
 
 interface TopProductDto {
   productId: string;
@@ -315,12 +315,9 @@ function StatCard({
     violet: styles.tone_violet,
   }[tone];
 
-  const toneColor = {
-    teal: '#0f766e',
-    green: '#15803d',
-    blue: '#1d4ed8',
-    violet: '#6d28d9',
-  }[tone];
+  const toneColor = isDark
+    ? { teal: '#5eead4', green: '#86efac', blue: '#93c5fd', violet: '#c4b5fd' }[tone]
+    : { teal: '#0f766e', green: '#15803d', blue: '#1d4ed8', violet: '#6d28d9' }[tone];
 
   return (
     <View style={styles.stat}>
@@ -545,6 +542,11 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.md,
     minHeight: 132,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: isDark ? 0 : 0.04,
+    shadowRadius: 8,
+    elevation: isDark ? 0 : 1,
   },
   statTop: {
     flexDirection: 'row',
@@ -560,10 +562,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tone_teal: { backgroundColor: '#ccfbf1' },
-  tone_green: { backgroundColor: '#dcfce7' },
-  tone_blue: { backgroundColor: '#dbeafe' },
-  tone_violet: { backgroundColor: '#ede9fe' },
+  tone_teal: { backgroundColor: isDark ? '#123b39' : '#ccfbf1' },
+  tone_green: { backgroundColor: isDark ? '#173b2a' : '#dcfce7' },
+  tone_blue: { backgroundColor: isDark ? '#1b3556' : '#dbeafe' },
+  tone_violet: { backgroundColor: isDark ? '#34264f' : '#ede9fe' },
 
   statLabel: {
     flex: 1,
