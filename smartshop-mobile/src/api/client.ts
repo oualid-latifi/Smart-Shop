@@ -68,10 +68,9 @@ async function refreshAccessToken(): Promise<string | null> {
         await storage.set(REFRESH_TOKEN_KEY, result.refreshToken);
         return result.token;
       } catch (error) {
-        if (error instanceof ApiError && error.status !== 0) {
-          await storage.remove(TOKEN_KEY);
-          await storage.remove(REFRESH_TOKEN_KEY);
-        }
+        if (error instanceof ApiError && error.status === 0) throw error;
+        await storage.remove(TOKEN_KEY);
+        await storage.remove(REFRESH_TOKEN_KEY);
         return null;
       }
     })().finally(() => { refreshInFlight = null; });
