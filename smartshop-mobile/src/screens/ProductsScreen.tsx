@@ -30,6 +30,7 @@ export default function ProductsScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesError, setCategoriesError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [search, setSearch] = useState('');
@@ -37,21 +38,25 @@ export default function ProductsScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const loadCategories = useCallback(async () => {
+    setCategoriesError(false);
+    try {
+      setCategories(await api<Category[]>('/api/categories'));
+    } catch {
+      setCategoriesError(true);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       setError(null);
       const data = await api<Product[]>('/api/products/all');
       setProducts(data);
-      try {
-        setCategories(await api<Category[]>('/api/categories'));
-      } catch {
-        // L'échec du chargement des catégories ne doit pas masquer les produits.
-        setCategories([]);
-      }
+      await loadCategories();
     } catch (e) {
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [loadCategories, t]);
 
   // Recharge la liste chaque fois qu'on revient sur cet écran
   useFocusEffect(
@@ -160,7 +165,12 @@ export default function ProductsScreen({ navigation }: Props) {
             </Pressable>
           ))}
         </View>
-        {categories.length > 0 ? (
+        {categoriesError ? (
+          <View style={styles.categoriesError}>
+            <Text style={styles.errorText}>{t('common.loadError', { defaultValue: 'Impossible de charger les catégories.' })}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void loadCategories()} variant="outline" />
+          </View>
+        ) : categories.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             <Pressable
               onPress={() => setSelectedCategory(null)}
@@ -230,6 +240,8 @@ const styles = StyleSheet.create({
   },
   loader: { marginTop: spacing.xl },
   center: { padding: spacing.lg },
+  categoriesError: { gap: spacing.xs },
+  errorText: { color: colors.danger, fontSize: 12 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerBg,
