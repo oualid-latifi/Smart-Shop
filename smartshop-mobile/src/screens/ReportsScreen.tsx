@@ -1,7 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -10,7 +9,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
@@ -18,10 +16,8 @@ import { errorMessage } from '../api/errors';
 import type { ReportSummary } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
-import type { ReportsStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
 
-type Props = NativeStackScreenProps<ReportsStackParamList, 'Reports'>;
 type Period = 'today' | 'week' | 'month';
 
 const ENDPOINTS: Record<Period, string> = {
@@ -30,7 +26,7 @@ const ENDPOINTS: Record<Period, string> = {
   month: '/api/reports/this-month',
 };
 
-export default function ReportsScreen({ navigation }: Props) {
+export default function ReportsScreen() {
   const { t } = useTranslation();
   const [period, setPeriod] = useState<Period>('today');
   const [report, setReport] = useState<ReportSummary | null>(null);
@@ -80,12 +76,6 @@ export default function ReportsScreen({ navigation }: Props) {
           <Chip label={t('reports.week')} active={period === 'week'} onPress={() => setPeriod('week')} />
           <Chip label={t('reports.month')} active={period === 'month'} onPress={() => setPeriod('month')} />
         </View></View>
-
-        <Pressable style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]} onPress={() => navigation.navigate('Expenses')}>
-          <View style={styles.expensesIcon}><Ionicons name="receipt-outline" size={19} color={colors.primary} /></View>
-          <Text style={styles.expensesActionText}>{t('reports.openExpenses')}</Text>
-          <Ionicons name="chevron-forward" size={17} color={colors.primary} />
-        </Pressable>
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
@@ -223,10 +213,6 @@ const styles = StyleSheet.create({
   periodHeader: { gap: 8 },
   filterTitle: { color: colors.text, fontSize: 13, fontWeight: '800' },
   chips: { flexDirection: 'row', gap: 7, flexWrap: 'wrap' },
-  expensesAction: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: 15, padding: spacing.md },
-  expensesIcon: { width: 34, height: 34, borderRadius: 11, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
-  expensesActionText: { flex: 1, color: colors.primary, fontSize: 13, fontWeight: '800' },
-  pressed: { opacity: 0.78 },
   chip: { paddingVertical: 8, paddingHorizontal: spacing.md, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 12, fontWeight: '700' },
