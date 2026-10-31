@@ -15,7 +15,41 @@ import { colors, radius, spacing } from '../theme';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const { i18n } = useTranslation();
+  const isAr = (i18n.language || '').startsWith('ar');
+  const [profileName, setProfileName] = useState(user?.name ?? '');
+  const [profileEmail, setProfileEmail] = useState(user?.email ?? '');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    setProfileName(user?.name ?? '');
+    setProfileEmail(user?.email ?? '');
+  }, [user?.name, user?.email]);
+
+  async function saveProfile() {
+    setProfileSuccess(false);
+    if (!profileName.trim() || !profileEmail.trim()) {
+      setProfileError(isAr ? 'الاسم والبريد الإلكتروني إجباريان' : 'Le nom et l\'e-mail sont obligatoires');
+      return;
+    }
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(profileEmail.trim())) {
+      setProfileError(isAr ? 'البريد الإلكتروني غير صالح' : 'Adresse e-mail invalide');
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile(profileName.trim(), profileEmail.trim());
+      setProfileSuccess(true);
+    } catch (e) {
+      setProfileError(errorMessage(e, t));
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   // Mot de passe
   const [currentPassword, setCurrentPassword] = useState('');
