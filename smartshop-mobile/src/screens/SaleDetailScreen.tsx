@@ -22,6 +22,7 @@ export default function SaleDetailScreen({ route }: Props) {
   const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
   const [refunds, setRefunds] = useState<SaleRefund[]>([]);
+  const [refundsLoaded, setRefundsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refundError, setRefundError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -34,8 +35,10 @@ export default function SaleDetailScreen({ route }: Props) {
   const loadRefunds = useCallback(async () => {
     try {
       setRefunds(await api<SaleRefund[]>(`/api/sales/${sale.id}/refunds`));
+      setRefundsLoaded(true);
       setRefundError(null);
     } catch (e) {
+      setRefundsLoaded(false);
       setRefundError(errorMessage(e, t));
     }
   }, [sale.id, t]);
@@ -114,13 +117,12 @@ export default function SaleDetailScreen({ route }: Props) {
         ))}
       </View>
 
-      {!cancelled && refundable > 0 ? (
+      {!cancelled && refundsLoaded && refundable > 0 ? (
         <View style={styles.block}>
           <Text style={styles.section}>{t('history.newRefund')}</Text>
           <TextField label={t('history.refundAmount')} value={refundAmount} onChangeText={setRefundAmount} keyboardType="decimal-pad" placeholder={String(refundable)} />
           <TextField label={t('history.refundReason')} value={refundReason} onChangeText={setRefundReason} />
-          {refundError ? <Text style={styles.error}>{refundError}</Text> : null}
-          <PrimaryButton title={t('history.refundButton')} onPress={askRefund} loading={refundSaving} />
+            <PrimaryButton title={t('history.refundButton')} onPress={askRefund} loading={refundSaving} />
         </View>
       ) : null}
 
