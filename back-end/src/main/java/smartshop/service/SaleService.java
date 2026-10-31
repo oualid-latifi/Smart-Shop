@@ -58,7 +58,7 @@ public class SaleService {
         BigDecimal subtotal = BigDecimal.ZERO;
 
         for (SaleLineRequest lineRequest : request.lines()) {
-            Product product = productRepository.findById(lineRequest.productId())
+            Product product = productRepository.findByIdForUpdate(lineRequest.productId())
                     .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
             if (!product.getActive()) {
                 throw new IllegalArgumentException(
@@ -68,6 +68,12 @@ public class SaleService {
             BigDecimal unitPrice = lineRequest.unitPrice() != null
                     ? lineRequest.unitPrice()
                     : product.getSalePrice();
+
+            if (lineRequest.quantity() > product.getStockQuantity()) {
+                throw new IllegalArgumentException("Stock insuffisant pour " + product.getName()
+                        + " : disponible " + product.getStockQuantity()
+                        + ", demandé " + lineRequest.quantity());
+            }
 
             SaleLine line = new SaleLine();
             line.setProduct(product);
@@ -79,7 +85,7 @@ public class SaleService {
 
             subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(lineRequest.quantity())));
 
-            // Le stock peut devenir négatif : la vente reste autorisée
+            // Le stock est vérifié et verrouillé avant toute décrémentation.
             product.setStockQuantity(product.getStockQuantity() - lineRequest.quantity());
             productRepository.save(product);
         }
