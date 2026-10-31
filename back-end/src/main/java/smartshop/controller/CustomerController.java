@@ -34,6 +34,18 @@ public class CustomerController {
         return customerService.findAll();
     }
 
+    @PutMapping("/{id}")
+    public CustomerResponse update(@PathVariable UUID id,
+                                   @Valid @RequestBody CustomerRequest request) {
+        return customerService.update(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deactivate(@PathVariable UUID id) {
+        customerService.deactivate(id);
+    }
+
     // Clients qui ont encore une dette (kridi), la plus ancienne d'abord
     @GetMapping("/debtors")
     public List<CustomerDebtResponse> findDebtors() {
