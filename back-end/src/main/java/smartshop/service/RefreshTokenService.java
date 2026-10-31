@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.entity.AppUser;
+import smartshop.exception.InvalidRefreshTokenException;
 import smartshop.entity.RefreshSession;
 import smartshop.repository.RefreshSessionRepository;
 
@@ -42,7 +43,7 @@ public class RefreshTokenService {
         return new IssuedRefreshToken(raw, expiry, user.getId());
     }
 
-    @Transactional(noRollbackFor = IllegalArgumentException.class)
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public IssuedRefreshToken rotate(String rawToken) {
         if (rawToken == null || rawToken.isBlank()) throw new IllegalArgumentException("Refresh token invalide");
         String hash = hash(rawToken);
