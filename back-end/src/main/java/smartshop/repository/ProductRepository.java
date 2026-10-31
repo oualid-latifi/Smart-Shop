@@ -1,6 +1,9 @@
 package smartshop.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import org.springframework.data.repository.query.Param;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import smartshop.entity.Product;
 
@@ -11,6 +14,10 @@ import java.util.UUID;
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsByReference(String reference);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Product p where p.id = :id")
+    java.util.Optional<Product> findByIdForUpdate(@Param("id") UUID id);
     boolean existsByCategoryId(UUID categoryId);
 
     List<Product> findByActiveTrue();
