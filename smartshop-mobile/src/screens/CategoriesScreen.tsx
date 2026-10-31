@@ -18,10 +18,16 @@ export default function CategoriesScreen() {
   const [editing, setEditing] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadError, setLoadError] = useState(false);
 
   const load = useCallback(async () => {
-    try { setItems(await api<Category[]>('/api/categories')); }
-    catch (e) { setError(errorMessage(e, t)); }
+    setLoadError(false);
+    try {
+      setItems(await api<Category[]>('/api/categories'));
+    } catch (e) {
+      setLoadError(true);
+      setError(errorMessage(e, t));
+    }
   }, [t]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
@@ -63,8 +69,9 @@ export default function CategoriesScreen() {
         onPress={() => void save()} loading={busy} />
       {editing ? <View style={styles.cancel}><PrimaryButton title={t('common.cancel')} onPress={() => { setEditing(null); setName(''); }} variant="outline" /></View> : null}
       {error ? <Text style={styles.error}>{error}</Text> : null}
+      {loadError ? <PrimaryButton title={t('common.retry')} onPress={() => void load()} variant="outline" /> : null}
       <FlatList data={items} keyExtractor={x => x.id} style={styles.list}
-        ListEmptyComponent={<Text style={styles.empty}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text>}
+        ListEmptyComponent={!loadError ? <Text style={styles.empty}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text> : null}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Text style={styles.itemName}>{item.name}</Text>
