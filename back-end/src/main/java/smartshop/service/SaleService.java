@@ -50,6 +50,9 @@ public class SaleService {
         if (request.customerId() != null) {
             customer = customerRepository.findById(request.customerId())
                     .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
+            if (!Boolean.TRUE.equals(customer.getActive())) {
+                throw new IllegalArgumentException("Ce client est désactivé");
+            }
         }
 
         Sale sale = new Sale();
