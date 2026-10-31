@@ -48,7 +48,7 @@ public class SaleService {
     public Sale create(SaleRequest request) {
         Customer customer = null;
         if (request.customerId() != null) {
-            customer = customerRepository.findById(request.customerId())
+            customer = customerRepository.findByIdForUpdate(request.customerId())
                     .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
         }
 
