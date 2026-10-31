@@ -81,11 +81,6 @@ export default function ReportsScreen({ navigation }: Props) {
           <Chip label={t('reports.month')} active={period === 'month'} onPress={() => setPeriod('month')} />
         </View></View>
 
-        <Pressable style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]} onPress={() => navigation.navigate('Expenses')}>
-          <View style={styles.expensesIcon}><Ionicons name="receipt-outline" size={19} color={colors.primary} /></View>
-          <Text style={styles.expensesActionText}>{t('reports.openExpenses')}</Text>
-          <Ionicons name="chevron-forward" size={17} color={colors.primary} />
-        </Pressable>
         <Pressable
           style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]}
           onPress={() => navigation.getParent()?.navigate('Purchases' as never)}
