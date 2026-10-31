@@ -63,11 +63,6 @@ public class AuthService {
                 rotated.expiresAt(), user.getName(), user.getEmail());
     }
 
-    // The user id is recovered from the authenticated session by a dedicated helper below.
-    private UUID rotatedUserId(String rawRefreshToken) {
-        return refreshTokenService.userIdForToken(rawRefreshToken);
-    }
-
     @Transactional
     public void logout(String rawRefreshToken) { refreshTokenService.revoke(rawRefreshToken); }
 
