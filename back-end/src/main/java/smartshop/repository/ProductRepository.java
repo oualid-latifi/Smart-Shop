@@ -11,6 +11,7 @@ import java.util.UUID;
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     boolean existsByReference(String reference);
+    boolean existsByCategoryId(UUID categoryId);
 
     List<Product> findByActiveTrue();
 
