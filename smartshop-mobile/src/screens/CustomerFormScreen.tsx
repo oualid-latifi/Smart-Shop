@@ -13,11 +13,13 @@ import { colors, radius, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<CustomersStackParamList, 'CustomerForm'>;
 
-export default function CustomerFormScreen({ navigation }: Props) {
+export default function CustomerFormScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [creditLimit, setCreditLimit] = useState('');
+  const customer = route.params?.customer;
+  const editing = !!customer;
+  const [name, setName] = useState(customer?.name ?? '');
+  const [phone, setPhone] = useState(customer?.phone ?? '');
+  const [creditLimit, setCreditLimit] = useState(customer?.creditLimit == null ? '' : String(customer.creditLimit));
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -31,8 +33,8 @@ export default function CustomerFormScreen({ navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api('/api/customers', {
-        method: 'POST',
+      await api(editing && customer ? `/api/customers/${customer.id}` : '/api/customers', {
+        method: editing ? 'PUT' : 'POST',
         body: {
           name: name.trim(),
           phone: phone.trim() || null,
@@ -65,7 +67,7 @@ export default function CustomerFormScreen({ navigation }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <PrimaryButton title={t('customers.save')} onPress={save} loading={saving} />
+      <PrimaryButton title={t(editing ? 'customers.update' : 'customers.save')} onPress={save} loading={saving} />
     </Screen>
   );
 }
