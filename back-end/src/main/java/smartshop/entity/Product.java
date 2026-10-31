@@ -35,7 +35,7 @@ public class Product {
     @Column(length = 60)
     private String capacity;
 
-    @Column(name = "image_url", length = 500)
+    @Column(name = "image_url", columnDefinition = "TEXT")
     private String imageUrl;
 
     @Column(name = "average_purchase_price", nullable = false, precision = 12, scale = 2)
