@@ -76,7 +76,8 @@ public class CustomerService {
      */
     @Transactional
     public CustomerResponse pay(UUID customerId, BigDecimal amount) {
-        Customer customer = getCustomer(customerId);
+        Customer customer = customerRepository.findByIdForUpdate(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
         List<Sale> unpaidSales = saleRepository.findUnpaidByCustomer(customerId);
 
         if (unpaidSales.isEmpty()) {
