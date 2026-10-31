@@ -25,20 +25,22 @@ export default function CustomerDetailScreen({ route }: Props) {
   const [saving, setSaving] = useState(false);
   const [sales, setSales] = useState<Sale[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const inDebt = customer.balance > 0;
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
+      setHistoryError(null);
       const data = await api<Sale[]>(`/api/customers/${customer.id}/sales`);
       setSales(data);
-    } catch {
-      setSales([]);
+    } catch (e) {
+      setHistoryError(errorMessage(e, t));
     } finally {
       setHistoryLoading(false);
     }
-  }, [customer.id]);
+  }, [customer.id, t]);
 
   useFocusEffect(useCallback(() => {
     void loadHistory();
@@ -115,7 +117,12 @@ export default function CustomerDetailScreen({ route }: Props) {
 
       <View style={styles.historyBlock}>
         <View style={styles.historyHeading}><Ionicons name="time-outline" size={19} color={colors.primary} /><Text style={styles.section}>{t('customers.purchaseHistory')}</Text></View>
-        {historyLoading ? <ActivityIndicator color={colors.primary} /> : sales.length === 0 ? (
+        {historyLoading ? <ActivityIndicator color={colors.primary} /> : historyError ? (
+          <View>
+            <Text style={styles.error}>{historyError}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void loadHistory()} variant="outline" />
+          </View>
+        ) : sales.length === 0 ? (
           <Text style={styles.muted}>{t('customers.noHistory')}</Text>
         ) : sales.map((sale) => (
           <View key={sale.id} style={styles.saleRow}>
