@@ -10,10 +10,11 @@ public record CustomerResponse(
         String name,
         String phone,
         BigDecimal creditLimit,
-        BigDecimal balance        // dette actuelle du client (kridi)
+        BigDecimal balance,
+        boolean active        // dette actuelle du client (kridi)
 ) {
 
     public static CustomerResponse from(Customer c, BigDecimal balance) {
-        return new CustomerResponse(c.getId(), c.getName(), c.getPhone(), c.getCreditLimit(), balance);
+        return new CustomerResponse(c.getId(), c.getName(), c.getPhone(), c.getCreditLimit(), balance, Boolean.TRUE.equals(c.getActive()));
     }
 }
