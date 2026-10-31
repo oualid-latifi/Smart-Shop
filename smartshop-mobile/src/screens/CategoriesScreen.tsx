@@ -71,7 +71,7 @@ export default function CategoriesScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       {loadError ? <PrimaryButton title={t('common.retry')} onPress={() => void load()} variant="outline" /> : null}
       <FlatList data={items} keyExtractor={x => x.id} style={styles.list}
-        ListEmptyComponent={!loadError ? <Text style={styles.empty}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text> : null}
+        ListEmptyComponent={!loadError ? <Text style={styles.empty}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text> : undefined}
         renderItem={({ item }) => (
           <View style={styles.row}>
             <Text style={styles.itemName}>{item.name}</Text>
