@@ -45,6 +45,7 @@ export interface Customer {
   phone: string | null;
   creditLimit: number | null;
   balance: number;
+  active: boolean;
 }
 
 export interface Supplier {
