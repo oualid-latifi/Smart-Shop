@@ -198,7 +198,7 @@ export default function DashboardScreen() {
           </View>
 
           {/* Current information */}
-          <Text style={styles.section}>
+          <Text style={[styles.section, styles.sectionStandalone]}>
             {t('reports.now')}
           </Text>
 
@@ -490,6 +490,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
+  },
+  sectionStandalone: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   livePill: {
     flexDirection: 'row',
