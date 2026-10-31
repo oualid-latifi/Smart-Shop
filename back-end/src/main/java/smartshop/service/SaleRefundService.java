@@ -9,6 +9,7 @@ import smartshop.repository.SaleRefundRepository;
 import smartshop.repository.SaleRepository;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,5 +37,13 @@ public class SaleRefundService {
         refund.setAmount(request.amount());
         refund.setReason(request.reason().trim());
         return refundRepository.save(refund);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SaleRefund> getRefundHistory(UUID saleId) {
+        if (!saleRepository.existsById(saleId)) {
+            throw new IllegalArgumentException("Vente introuvable");
+        }
+        return refundRepository.findAllBySaleIdOrderByRefundedAtDesc(saleId);
     }
 }
