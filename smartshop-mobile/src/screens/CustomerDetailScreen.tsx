@@ -6,6 +6,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
+import { confirmAction } from '../confirm';
 import type { Customer, Sale } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -16,7 +17,7 @@ import { colors, radius, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<CustomersStackParamList, 'CustomerDetail'>;
 
-export default function CustomerDetailScreen({ route }: Props) {
+export default function CustomerDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const [customer, setCustomer] = useState<Customer>(route.params.customer);
   const [amount, setAmount] = useState('');
@@ -25,26 +26,47 @@ export default function CustomerDetailScreen({ route }: Props) {
   const [saving, setSaving] = useState(false);
   const [sales, setSales] = useState<Sale[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [historyError, setHistoryError] = useState<string | null>(null);
 
   const inDebt = customer.balance > 0;
 
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      setHistoryError(null);
-      const data = await api<Sale[]>(`/api/customers/${customer.id}/sales`);
+      const [updatedCustomer, data] = await Promise.all([
+        api<Customer>(`/api/customers/${customer.id}`),
+        api<Sale[]>(`/api/customers/${customer.id}/sales`),
+      ]);
+      setCustomer(updatedCustomer);
       setSales(data);
-    } catch (e) {
-      setHistoryError(errorMessage(e, t));
+    } catch {
+      setSales([]);
     } finally {
       setHistoryLoading(false);
     }
-  }, [customer.id, t]);
+  }, [customer.id]);
 
   useFocusEffect(useCallback(() => {
     void loadHistory();
   }, [loadHistory]));
+
+  function deactivate() {
+    confirmAction(
+      t('customers.deactivateConfirm'),
+      async () => {
+        setSaving(true);
+        setError(null);
+        try {
+          await api<void>(`/api/customers/${customer.id}`, { method: 'DELETE' });
+          navigation.goBack();
+        } catch (e) {
+          setError(errorMessage(e, t));
+          setSaving(false);
+        }
+      },
+      t('common.cancel'),
+      t('common.confirm'),
+    );
+  }
 
   async function pay() {
     const value = parseNumber(amount);
@@ -89,6 +111,21 @@ export default function CustomerDetailScreen({ route }: Props) {
         </Text>
       </View>
 
+      <View style={styles.block}>
+        <PrimaryButton
+          title={t('customers.edit')}
+          onPress={() => navigation.navigate('CustomerForm', { customer })}
+          variant="outline"
+        />
+        {customer.active ? (
+          <View style={{ marginTop: spacing.sm }}>
+            <PrimaryButton title={t('customers.deactivate')} onPress={deactivate} disabled={saving} variant="outline" />
+          </View>
+        ) : (
+          <Text style={styles.muted}>{t('customers.inactive')}</Text>
+        )}
+      </View>
+
       {customer.phone ? (
         <View style={styles.block}>
           <PrimaryButton
@@ -117,12 +154,7 @@ export default function CustomerDetailScreen({ route }: Props) {
 
       <View style={styles.historyBlock}>
         <View style={styles.historyHeading}><Ionicons name="time-outline" size={19} color={colors.primary} /><Text style={styles.section}>{t('customers.purchaseHistory')}</Text></View>
-        {historyLoading ? <ActivityIndicator color={colors.primary} /> : historyError ? (
-          <View>
-            <Text style={styles.error}>{historyError}</Text>
-            <PrimaryButton title={t('common.retry')} onPress={() => void loadHistory()} variant="outline" />
-          </View>
-        ) : sales.length === 0 ? (
+        {historyLoading ? <ActivityIndicator color={colors.primary} /> : sales.length === 0 ? (
           <Text style={styles.muted}>{t('customers.noHistory')}</Text>
         ) : sales.map((sale) => (
           <View key={sale.id} style={styles.saleRow}>
