@@ -10,12 +10,46 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
-import { API_URL_KEY, storage, TOKEN_KEY } from '../storage';
+import { API_URL_KEY, storage, TOKEN_KEY, REFRESH_TOKEN_KEY } from '../storage';
 import { colors, radius, spacing } from '../theme';
 
 export default function HomeScreen() {
   const { t } = useTranslation();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const { i18n } = useTranslation();
+  const isAr = (i18n.language || '').startsWith('ar');
+  const [profileName, setProfileName] = useState(user?.name ?? '');
+  const [profileEmail, setProfileEmail] = useState(user?.email ?? '');
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileSuccess, setProfileSuccess] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  useEffect(() => {
+    setProfileName(user?.name ?? '');
+    setProfileEmail(user?.email ?? '');
+  }, [user?.name, user?.email]);
+
+  async function saveProfile() {
+    setProfileSuccess(false);
+    if (!profileName.trim() || !profileEmail.trim()) {
+      setProfileError(isAr ? 'الاسم والبريد الإلكتروني إجباريان' : 'Le nom et l\'e-mail sont obligatoires');
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(profileEmail.trim())) {
+      setProfileError(isAr ? 'البريد الإلكتروني غير صالح' : 'Adresse e-mail invalide');
+      return;
+    }
+    setProfileSaving(true);
+    setProfileError(null);
+    try {
+      await updateProfile(profileName.trim(), profileEmail.trim());
+      setProfileSuccess(true);
+    } catch (e) {
+      setProfileError(errorMessage(e, t));
+    } finally {
+      setProfileSaving(false);
+    }
+  }
 
   // Mot de passe
   const [currentPassword, setCurrentPassword] = useState('');
@@ -86,10 +120,10 @@ export default function HomeScreen() {
       const response = await api<AuthResponse>('/api/auth/change-password', {
         method: 'POST',
         body: { currentPassword, newPassword },
-        logoutOn401: false,
       });
       // Les autres appareils sont déconnectés : on garde le nouveau token pour celui-ci
       await storage.set(TOKEN_KEY, response.token);
+      await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
@@ -106,6 +140,31 @@ export default function HomeScreen() {
       <View style={styles.card}>
         <Text style={styles.title}>{t('home.welcome', { name: user?.name ?? '' })}</Text>
         <Text style={styles.email}>{user?.email}</Text>
+      </View>
+
+      <View style={[styles.card, styles.spaced]}>
+        <Text style={styles.section}>{isAr ? 'معلومات الحساب' : 'Profil du propriétaire'}</Text>
+        <TextField
+          label={isAr ? 'الاسم الكامل' : 'Nom complet'}
+          value={profileName}
+          onChangeText={setProfileName}
+          autoCapitalize="words"
+        />
+        <TextField
+          label={isAr ? 'البريد الإلكتروني' : 'Adresse e-mail'}
+          value={profileEmail}
+          onChangeText={setProfileEmail}
+          autoCapitalize="none"
+          autoCorrect={false}
+          keyboardType="email-address"
+        />
+        {profileError ? <Text style={styles.error}>{profileError}</Text> : null}
+        {profileSuccess ? <Text style={styles.success}>{isAr ? 'تم تحديث المعلومات بنجاح' : 'Profil mis à jour avec succès'}</Text> : null}
+        <PrimaryButton
+          title={isAr ? 'حفظ المعلومات' : 'Enregistrer les modifications'}
+          onPress={() => void saveProfile()}
+          loading={profileSaving}
+        />
       </View>
 
       <View style={styles.block}>

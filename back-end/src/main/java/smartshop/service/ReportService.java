@@ -12,6 +12,7 @@ import smartshop.repository.PurchasePaymentRepository;
 import smartshop.repository.PurchaseRepository;
 import smartshop.repository.SaleLineRepository;
 import smartshop.repository.SaleRepository;
+import smartshop.repository.SaleRefundRepository;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -32,6 +33,7 @@ public class ReportService {
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
+    private final SaleRefundRepository saleRefundRepository;
 
     public ReportService(SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
@@ -39,7 +41,8 @@ public class ReportService {
                          PurchaseRepository purchaseRepository,
                          PurchasePaymentRepository purchasePaymentRepository,
                          ExpenseRepository expenseRepository,
-                         ProductRepository productRepository) {
+                         ProductRepository productRepository,
+                         SaleRefundRepository saleRefundRepository) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
         this.customerPaymentRepository = customerPaymentRepository;
@@ -47,6 +50,7 @@ public class ReportService {
         this.purchasePaymentRepository = purchasePaymentRepository;
         this.expenseRepository = expenseRepository;
         this.productRepository = productRepository;
+        this.saleRefundRepository = saleRefundRepository;
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
@@ -70,8 +74,11 @@ public class ReportService {
         BigDecimal expenses = nz(expenseRepository.sumBetween(start, end));
         BigDecimal netProfit = grossProfit.subtract(expenses);
 
+        // Les remboursements diminuent les encaissements nets sur la période où ils sont effectués.
+        BigDecimal refunds = nz(saleRefundRepository.sumBetween(startTime, endTime));
         BigDecimal cashCollected = nz(customerPaymentRepository.sumValidatedBetween(startTime, endTime))
-                .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)));
+                .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)))
+                .subtract(refunds);
         BigDecimal paidToSuppliers = nz(purchasePaymentRepository.sumBetween(startTime, endTime));
         BigDecimal purchasesTotal = nz(purchaseRepository.sumTotalBetween(startTime, endTime));
         BigDecimal netCashFlow = cashCollected.subtract(paidToSuppliers).subtract(expenses);

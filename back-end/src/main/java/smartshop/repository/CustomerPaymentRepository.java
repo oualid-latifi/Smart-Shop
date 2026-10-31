@@ -11,11 +11,10 @@ import java.util.UUID;
 
 public interface CustomerPaymentRepository extends JpaRepository<CustomerPayment, UUID> {
 
-    // Pour les rapports : argent encaissé auprès des clients enregistrés (ventes annulées exclues)
+    // Historique réel des encaissements : une annulation de vente n'efface pas l'argent déjà reçu.
     @Query("""
             select sum(p.amount) from CustomerPayment p
-            where p.sale.status = smartshop.entity.SaleStatus.VALIDATED
-              and p.paidAt >= :start and p.paidAt < :end
+            where p.paidAt >= :start and p.paidAt < :end
             """)
     BigDecimal sumValidatedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }

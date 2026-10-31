@@ -8,6 +8,7 @@ import smartshop.dto.CategoryResponse;
 import smartshop.service.CategoryService;
 
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/categories")
@@ -28,5 +29,16 @@ public class CategoryController {
     @GetMapping
     public List<CategoryResponse> findAll() {
         return categoryService.findAll().stream().map(CategoryResponse::from).toList();
+    }
+
+    @PutMapping("/{id}")
+    public CategoryResponse rename(@PathVariable UUID id, @Valid @RequestBody CategoryRequest request) {
+        return CategoryResponse.from(categoryService.rename(id, request.name()));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) {
+        categoryService.delete(id);
     }
 }

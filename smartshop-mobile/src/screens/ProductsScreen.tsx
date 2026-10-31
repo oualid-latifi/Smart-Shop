@@ -5,6 +5,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -17,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import type { Product } from '../api/types';
+import type { Category, Product } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
@@ -28,20 +29,34 @@ type Props = NativeStackScreenProps<ProductsStackParamList, 'ProductsList'>;
 export default function ProductsScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesError, setCategoriesError] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const loadCategories = useCallback(async () => {
+    setCategoriesError(false);
+    try {
+      setCategories(await api<Category[]>('/api/categories'));
+    } catch {
+      setCategoriesError(true);
+    }
+  }, []);
+
   const load = useCallback(async () => {
     try {
       setError(null);
-      const data = await api<Product[]>('/api/products');
+      const data = await api<Product[]>('/api/products/all');
       setProducts(data);
+      await loadCategories();
     } catch (e) {
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [loadCategories, t]);
 
   // Recharge la liste chaque fois qu'on revient sur cet écran
   useFocusEffect(
@@ -59,11 +74,24 @@ export default function ProductsScreen({ navigation }: Props) {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return products;
-    return products.filter(
-      (p) => p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query),
+    return products.filter((p) =>
+      (statusFilter === 'all' || (statusFilter === 'active' ? p.active : !p.active))
+      && (p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query)
+        || (p.brand ?? '').toLowerCase().includes(query)
+        || (p.model ?? '').toLowerCase().includes(query))
+      && (!selectedCategory || p.categoryId === selectedCategory),
     );
-  }, [products, search]);
+  }, [products, search, selectedCategory, statusFilter]);
+
+  async function reactivateProduct(product: Product) {
+    try {
+      setError(null);
+      await api<Product>(`/api/products/${product.id}/activate`, { method: 'POST' });
+      await load();
+    } catch (e) {
+      setError(errorMessage(e, t));
+    }
+  }
 
   function renderItem({ item }: { item: Product }) {
     return (
@@ -99,6 +127,11 @@ export default function ProductsScreen({ navigation }: Props) {
           </Text>
           {item.lowStock ? <Text style={styles.badgeLow}>{t('products.lowStock')}</Text> : null}
           {!item.active ? <Text style={styles.badgeOff}>{t('products.inactive')}</Text> : null}
+          {!item.active ? (
+            <Pressable onPress={() => void reactivateProduct(item)} style={styles.restoreButton}>
+              <Text style={styles.restoreText}>{t('products.reactivate', { defaultValue: 'Reactivate' })}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     );
@@ -120,6 +153,46 @@ export default function ProductsScreen({ navigation }: Props) {
           placeholderTextColor={colors.muted}
           autoCorrect={false}
         /></View>
+        <View style={styles.statusRow}>
+          {(['active', 'inactive', 'all'] as const).map((status) => (
+            <Pressable key={status} onPress={() => setStatusFilter(status)}
+              style={[styles.categoryChip, statusFilter === status && styles.categoryChipActive]}>
+              <Text style={[styles.categoryText, statusFilter === status && styles.categoryTextActive]}>
+                {status === 'active' ? (t('products.active', { defaultValue: 'Active' }))
+                  : status === 'inactive' ? (t('products.inactive', { defaultValue: 'Inactive' }))
+                  : (t('common.all', { defaultValue: 'All' }))}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {categoriesError ? (
+          <View style={styles.categoriesError}>
+            <Text style={styles.errorText}>{t('common.loadError', { defaultValue: 'Impossible de charger les catégories.' })}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void loadCategories()} variant="outline" />
+          </View>
+        ) : categories.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
+            <Pressable
+              onPress={() => setSelectedCategory(null)}
+              style={[styles.categoryChip, selectedCategory === null && styles.categoryChipActive]}
+            >
+              <Text style={[styles.categoryText, selectedCategory === null && styles.categoryTextActive]}>
+                {t('common.all', { defaultValue: 'All' })}
+              </Text>
+            </Pressable>
+            {categories.map((category) => (
+              <Pressable
+                key={category.id}
+                onPress={() => setSelectedCategory(category.id === selectedCategory ? null : category.id)}
+                style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipActive]}
+              >
+                <Text style={[styles.categoryText, selectedCategory === category.id && styles.categoryTextActive]}>
+                  {category.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
       </View>
 
       {loading ? (
@@ -153,6 +226,12 @@ const styles = StyleSheet.create({
   pageHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headingIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   headingCopy: { flex: 1 }, pageTitle: { fontSize: 21, fontWeight: '900', color: colors.text }, pageSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  statusRow: { flexDirection: 'row', gap: spacing.sm },
+  categoryRow: { gap: spacing.sm, paddingTop: spacing.xs },
+  categoryChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.card },
+  categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  categoryText: { color: colors.text, fontSize: 13, fontWeight: '600' },
+  categoryTextActive: { color: '#FFFFFF' },
   searchWrap: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: spacing.md },
   search: { flex: 1,
     paddingVertical: 10,
@@ -161,6 +240,8 @@ const styles = StyleSheet.create({
   },
   loader: { marginTop: spacing.xl },
   center: { padding: spacing.lg },
+  categoriesError: { gap: spacing.xs },
+  errorText: { color: colors.danger, fontSize: 12 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerBg,
@@ -197,6 +278,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  restoreButton: { marginLeft: 'auto', paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.neutralBg },
+  restoreText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   badgeOff: {
     color: colors.muted,
     backgroundColor: colors.neutralBg,

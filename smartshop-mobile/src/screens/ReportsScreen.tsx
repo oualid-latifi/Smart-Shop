@@ -71,7 +71,7 @@ export default function ReportsScreen({ navigation }: Props) {
           <View style={styles.headingIcon}><Ionicons name="bar-chart" size={22} color={colors.primary} /></View>
           <View style={styles.headingCopy}>
             <Text style={styles.pageTitle}>{t('tabs.reports', { defaultValue: 'Rapports' })}</Text>
-            <Text style={styles.pageSubtitle}>{t('reports.today')} · {t('reports.now')}</Text>
+            <Text style={styles.pageSubtitle}>{period === 'today' ? t('reports.today') : period === 'week' ? t('reports.week') : t('reports.month')}</Text>
           </View>
         </View>
 
@@ -84,6 +84,14 @@ export default function ReportsScreen({ navigation }: Props) {
         <Pressable style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]} onPress={() => navigation.navigate('Expenses')}>
           <View style={styles.expensesIcon}><Ionicons name="receipt-outline" size={19} color={colors.primary} /></View>
           <Text style={styles.expensesActionText}>{t('reports.openExpenses')}</Text>
+          <Ionicons name="chevron-forward" size={17} color={colors.primary} />
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]}
+          onPress={() => navigation.getParent()?.navigate('Purchases' as never)}
+        >
+          <View style={styles.expensesIcon}><Ionicons name="bag-handle-outline" size={19} color={colors.primary} /></View>
+          <Text style={styles.expensesActionText}>{t('purchases.open')}</Text>
           <Ionicons name="chevron-forward" size={17} color={colors.primary} />
         </Pressable>
 

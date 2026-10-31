@@ -32,6 +32,7 @@ export default function SaleScreen() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -44,17 +45,25 @@ export default function SaleScreen() {
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
-    try {
-      const [p, c] = await Promise.all([
-        api<Product[]>('/api/products'),
-        api<Customer[]>('/api/customers'),
-      ]);
-      const available = p.filter((item) => item.active);
+    setCatalogError(null);
+    const [productResult, customerResult] = await Promise.allSettled([
+      api<Product[]>('/api/products'),
+      api<Customer[]>('/api/customers'),
+    ]);
+
+    if (productResult.status === 'fulfilled') {
+      const available = productResult.value.filter((item) => item.active);
       // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
       setProducts(shuffle(available));
-      setCustomers(c);
-    } catch (e) {
-      setError(errorMessage(e, t));
+    } else {
+      setCatalogError(errorMessage(productResult.reason, t));
+    }
+
+    if (customerResult.status === 'fulfilled') {
+      setCustomers(customerResult.value);
+    } else {
+      // La vente comptant reste possible sans charger la liste des clients.
+      setError(errorMessage(customerResult.reason, t));
     }
   }, [t]);
 
@@ -189,7 +198,12 @@ export default function SaleScreen() {
           </View>
           <Ionicons name="grid-outline" size={21} color={colors.primary} />
         </View>
-        {matches.length === 0 ? (
+        {catalogError ? (
+          <View style={styles.emptyCatalog}>
+            <Text style={styles.error}>{catalogError}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void load()} variant="outline" />
+          </View>
+        ) : matches.length === 0 ? (
           <View style={styles.emptyCatalog}><Ionicons name="cube-outline" size={28} color={colors.muted} /><Text style={styles.muted}>{t('sales.noProducts')}</Text></View>
         ) : (
           <View style={styles.catalogGrid}>

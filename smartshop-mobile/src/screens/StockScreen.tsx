@@ -19,6 +19,7 @@ export default function StockScreen({ route }: Props) {
   const { t } = useTranslation();
   const [product, setProduct] = useState<Product>(route.params.product);
   const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [movementsError, setMovementsError] = useState(false);
   const [counted, setCounted] = useState('');
   const [note, setNote] = useState(t('stock.defaultNote'));
   const [error, setError] = useState<string | null>(null);
@@ -26,13 +27,14 @@ export default function StockScreen({ route }: Props) {
   const [saving, setSaving] = useState(false);
 
   const loadMovements = useCallback(async () => {
+    setMovementsError(false);
     try {
       const data = await api<StockMovement[]>(
         `/api/stock/movements?productId=${product.id}&limit=50`,
       );
       setMovements(data);
     } catch {
-      setMovements([]);
+      setMovementsError(true);
     }
   }, [product.id]);
 
@@ -91,7 +93,12 @@ export default function StockScreen({ route }: Props) {
         <PrimaryButton title={t('stock.adjust')} onPress={adjust} loading={saving} />
 
         <Text style={styles.section}>{t('stock.movements')}</Text>
-        {movements.length === 0 ? (
+        {movementsError ? (
+          <View style={styles.errorBlock}>
+            <Text style={styles.error}>{t('common.loadError', { defaultValue: 'Impossible de charger les mouvements.' })}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void loadMovements()} variant="outline" />
+          </View>
+        ) : movements.length === 0 ? (
           <Text style={styles.muted}>{t('stock.noMovements')}</Text>
         ) : (
           movements.map((m) => (
@@ -148,6 +155,7 @@ const styles = StyleSheet.create({
     borderRadius: radius,
     marginBottom: spacing.md,
   },
+  errorBlock: { gap: spacing.xs },
   success: {
     color: colors.success,
     backgroundColor: colors.successBg,

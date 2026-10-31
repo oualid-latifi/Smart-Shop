@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -36,14 +36,22 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [initialStock, setInitialStock] = useState('');
 
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesError, setCategoriesError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    api<Category[]>('/api/categories')
-      .then(setCategories)
-      .catch(() => setCategories([]));
+  const loadCategories = useCallback(async () => {
+    setCategoriesError(false);
+    try {
+      setCategories(await api<Category[]>('/api/categories'));
+    } catch {
+      setCategoriesError(true);
+    }
   }, []);
+
+  useEffect(() => {
+    void loadCategories();
+  }, [loadCategories]);
 
   async function save() {
     const price = parseNumber(salePrice);
@@ -53,7 +61,20 @@ export default function ProductFormScreen({ route, navigation }: Props) {
     }
 
     const threshold = parseNumber(alertThreshold);
-    if (alertThreshold.trim() !== '' && (threshold === null || threshold < 0)) {
+    if (alertThreshold.trim() !== '' && (threshold === null || threshold < 0 || !Number.isInteger(threshold))) {
+      setError(t('products.invalid'));
+      return;
+    }
+
+    // Optional values must not be silently discarded when the user entered invalid text.
+    const purchase = parseNumber(purchasePrice);
+    const stock = parseNumber(initialStock);
+    if (!editing && purchasePrice.trim() !== '' && (purchase === null || purchase < 0)) {
+      setError(t('products.invalid'));
+      return;
+    }
+    if (!editing && initialStock.trim() !== '' &&
+        (stock === null || stock < 0 || !Number.isInteger(stock))) {
       setError(t('products.invalid'));
       return;
     }
@@ -78,8 +99,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
           },
         });
       } else {
-        const purchase = parseNumber(purchasePrice);
-        const stock = parseNumber(initialStock);
         await api('/api/products', {
           method: 'POST',
           body: {
@@ -136,6 +155,12 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       <TextField label={t('products.imageUrl')} value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
 
       <Text style={styles.label}>{t('products.category')}</Text>
+      {categoriesError ? (
+        <View style={styles.categoryError}>
+          <Text style={styles.errorText}>{t('common.loadError', { defaultValue: 'Impossible de charger les catégories.' })}</Text>
+          <PrimaryButton title={t('common.retry')} onPress={() => void loadCategories()} variant="outline" />
+        </View>
+      ) : null}
       <View style={styles.chips}>
         <Chip
           label={t('products.noCategory')}
@@ -234,6 +259,8 @@ const styles = StyleSheet.create({
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipText: { color: colors.text, fontSize: 14 },
   chipTextActive: { color: colors.onPrimary, fontWeight: '700' },
+  categoryError: { marginBottom: spacing.md, gap: spacing.xs },
+  errorText: { color: colors.danger, fontSize: 13 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerBg,

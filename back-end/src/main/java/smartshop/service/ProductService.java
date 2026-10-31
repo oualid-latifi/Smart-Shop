@@ -38,6 +38,11 @@ public class ProductService {
     }
 
     @Transactional(readOnly = true)
+    public List<Product> findAllIncludingInactive() {
+        return productRepository.findAll();
+    }
+
+    @Transactional(readOnly = true)
     public Product findById(UUID id) {
         return productRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
@@ -65,6 +70,13 @@ public class ProductService {
         // Le stock et le prix d'achat moyen ne se modifient PAS ici :
         // ils changent uniquement via les achats, les ventes et les ajustements.
         return productRepository.save(product);
+    }
+
+    @Transactional
+    public void activate(UUID id) {
+        Product product = findById(id);
+        product.setActive(true);
+        productRepository.save(product);
     }
 
     @Transactional

@@ -5,6 +5,8 @@ export interface AccountStatus {
 export interface AuthResponse {
   token: string;
   expiresAt: string;
+  refreshToken: string;
+  refreshExpiresAt: string;
   name: string;
   email: string;
 }
@@ -108,6 +110,8 @@ export interface ReportSummary {
   stockValue: number;
   lowStockCount: number;
 }
+
+export interface SaleRefund { id: string; saleId: string; amount: number; reason: string; refundedAt: string; }
 
 export type SaleStatus = 'VALIDATED' | 'CANCELLED';
 

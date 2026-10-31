@@ -22,21 +22,21 @@ public class JwtService {
     }
 
     private final SecretKey key;
-    private final long expirationHours;
+    private final long expirationMinutes;
 
     public JwtService(@Value("${app.jwt.secret}") String secret,
-                      @Value("${app.jwt.expiration-hours}") long expirationHours) {
+                      @Value("${app.jwt.expiration-minutes:15}") long expirationMinutes) {
         byte[] bytes = secret.getBytes(StandardCharsets.UTF_8);
         if (bytes.length < 32) {
             throw new IllegalStateException("app.jwt.secret doit contenir au moins 32 caractères");
         }
         this.key = Keys.hmacShaKeyFor(bytes);
-        this.expirationHours = expirationHours;
+        this.expirationMinutes = expirationMinutes;
     }
 
     public IssuedToken issue(AppUser user) {
         Instant now = Instant.now();
-        Instant expiresAt = now.plus(expirationHours, ChronoUnit.HOURS);
+        Instant expiresAt = now.plus(expirationMinutes, ChronoUnit.MINUTES);
 
         String token = Jwts.builder()
                 .subject(user.getId().toString())

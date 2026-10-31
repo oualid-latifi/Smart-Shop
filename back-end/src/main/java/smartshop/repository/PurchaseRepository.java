@@ -1,6 +1,8 @@
 package smartshop.repository;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import smartshop.entity.Purchase;
@@ -13,6 +15,10 @@ import java.util.UUID;
 public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     List<Purchase> findAllByOrderByPurchaseDateDesc();
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select p from Purchase p where p.id = :id")
+    java.util.Optional<Purchase> findByIdForUpdate(@Param("id") UUID id);
 
     // Achats pas encore payés en entier, les plus anciens d'abord
     @Query("select p from Purchase p where p.amountPaid < p.total order by p.purchaseDate asc")

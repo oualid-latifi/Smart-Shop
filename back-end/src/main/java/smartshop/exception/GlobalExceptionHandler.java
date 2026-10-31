@@ -36,6 +36,12 @@ public class GlobalExceptionHandler {
                 "Requête invalide : vérifie le format du JSON et les valeurs (catégorie, date, montant)");
     }
 
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    @ResponseStatus(HttpStatus.UNAUTHORIZED)
+    public Map<String, String> handleInvalidRefreshToken(InvalidRefreshTokenException ex) {
+        return Map.of("message", ex.getMessage());
+    }
+
     @ExceptionHandler(InvalidCredentialsException.class)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Map<String, String> handleInvalidCredentials(InvalidCredentialsException ex) {

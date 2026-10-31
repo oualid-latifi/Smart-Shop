@@ -17,7 +17,7 @@ import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import { formatMoney } from '../format';
-import { colors, radius, spacing } from '../theme';
+import { colors, isDark, radius, spacing } from '../theme';
 
 interface TopProductDto {
   productId: string;
@@ -198,7 +198,7 @@ export default function DashboardScreen() {
           </View>
 
           {/* Current information */}
-          <Text style={styles.section}>
+          <Text style={[styles.section, styles.sectionStandalone]}>
             {t('reports.now')}
           </Text>
 
@@ -315,20 +315,18 @@ function StatCard({
     violet: styles.tone_violet,
   }[tone];
 
-  const toneColor = {
-    teal: '#0f766e',
-    green: '#15803d',
-    blue: '#1d4ed8',
-    violet: '#6d28d9',
-  }[tone];
+  const toneColor = isDark
+    ? { teal: '#5eead4', green: '#86efac', blue: '#93c5fd', violet: '#c4b5fd' }[tone]
+    : { teal: '#0f766e', green: '#15803d', blue: '#1d4ed8', violet: '#6d28d9' }[tone];
 
   return (
     <View style={styles.stat}>
-      <View style={[styles.statIcon, toneStyle]}>
-        <Ionicons name={icon} size={19} color={toneColor} />
+      <View style={styles.statTop}>
+        <View style={[styles.statIcon, toneStyle]}>
+          <Ionicons name={icon} size={19} color={toneColor} />
+        </View>
+        <Text style={styles.statLabel} numberOfLines={2}>{label}</Text>
       </View>
-
-      <Text style={styles.statLabel}>{label}</Text>
 
       <Text
         style={[
@@ -397,13 +395,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
   },
 
   brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 18,
     backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
@@ -417,8 +415,8 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
   hello: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 21,
+    fontWeight: '900',
     color: colors.text,
     marginTop: 2,
   },
@@ -441,10 +439,10 @@ const styles = StyleSheet.create({
   },
 
   saleHero: {
-    minHeight: 104,
+    minHeight: 116,
     backgroundColor: colors.primaryDark,
-    borderRadius: 22,
-    padding: spacing.md,
+    borderRadius: 24,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
@@ -455,9 +453,9 @@ const styles = StyleSheet.create({
     transform: [{ scale: 0.99 }],
   },
   saleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
+    width: 52,
+    height: 52,
+    borderRadius: 17,
     backgroundColor: '#d7faf2',
     alignItems: 'center',
     justifyContent: 'center',
@@ -485,13 +483,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   section: {
     fontSize: 16,
     fontWeight: '800',
     color: colors.text,
+  },
+  sectionStandalone: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.md,
   },
   livePill: {
     flexDirection: 'row',
@@ -537,35 +539,48 @@ const styles = StyleSheet.create({
   },
   stat: {
     flexGrow: 1,
-    flexBasis: '45%',
+    flexBasis: '47%',
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.md,
-    minHeight: 126,
+    minHeight: 132,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: isDark ? 0 : 0.04,
+    shadowRadius: 8,
+    elevation: isDark ? 0 : 1,
   },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+  statTop: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
+    minHeight: 40,
     marginBottom: spacing.sm,
   },
-  tone_teal: { backgroundColor: '#ccfbf1' },
-  tone_green: { backgroundColor: '#dcfce7' },
-  tone_blue: { backgroundColor: '#dbeafe' },
-  tone_violet: { backgroundColor: '#ede9fe' },
+  statIcon: {
+    width: 38,
+    height: 38,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  tone_teal: { backgroundColor: isDark ? '#123b39' : '#ccfbf1' },
+  tone_green: { backgroundColor: isDark ? '#173b2a' : '#dcfce7' },
+  tone_blue: { backgroundColor: isDark ? '#1b3556' : '#dbeafe' },
+  tone_violet: { backgroundColor: isDark ? '#34264f' : '#ede9fe' },
 
   statLabel: {
+    flex: 1,
     fontSize: 12,
+    lineHeight: 16,
     color: colors.muted,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   statValue: {
-    marginTop: 4,
-    fontSize: 18,
+    marginTop: 2,
+    fontSize: 19,
     fontWeight: '900',
     color: colors.text,
   },
@@ -577,10 +592,15 @@ const styles = StyleSheet.create({
 
   card: {
     backgroundColor: colors.card,
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: isDark ? 0 : 0.035,
+    shadowRadius: 8,
+    elevation: isDark ? 0 : 1,
   },
   divider: {
     height: 1,
@@ -591,7 +611,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 13,
+    paddingVertical: 14,
   },
   rowIcon: {
     width: 32,
@@ -624,9 +644,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   rank: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 11,
     backgroundColor: colors.neutralBg,
     alignItems: 'center',
     justifyContent: 'center',

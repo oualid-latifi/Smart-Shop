@@ -51,6 +51,17 @@ public class ProductController {
         return productService.findAllActive().stream().map(ProductResponse::from).toList();
     }
 
+    @GetMapping("/all")
+    public List<ProductResponse> findAllIncludingInactive() {
+        return productService.findAllIncludingInactive().stream().map(ProductResponse::from).toList();
+    }
+
+    @PostMapping("/{id}/activate")
+    public ProductResponse activate(@PathVariable UUID id) {
+        productService.activate(id);
+        return ProductResponse.from(productService.findById(id));
+    }
+
     @GetMapping("/low-stock")
     public List<ProductResponse> findLowStock() {
         return productService.findLowStock().stream().map(ProductResponse::from).toList();

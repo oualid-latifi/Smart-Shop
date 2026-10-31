@@ -20,7 +20,11 @@
     "passwordHint": "8 أحرف على الأقل",
     "loginButton": "دخول",
     "registerButton": "إنشاء الحساب",
-    "brandHint": "تسيير سهل وذكي لمتجرك"
+    "brandHint": "تسيير سهل وذكي لمتجرك",
+    "noAccount": "ليس لديك حساب؟",
+    "registerLink": "إنشاء حساب",
+    "haveAccount": "لديك حساب بالفعل؟",
+    "loginLink": "تسجيل الدخول"
   },
   "errors": {
     "network": "تعذّر الاتصال بالخادم. تأكد أن الـ backend يعمل وأن العنوان صحيح.",
@@ -107,7 +111,18 @@
     "cancelTitle": "إلغاء هذا البيع",
     "cancelButton": "إلغاء البيع",
     "cancelConfirm": "هل تريد إلغاء هذا البيع؟ سيعود المخزون ويصحح الكريدي.",
-    "invalidReason": "اكتب سبب الإلغاء"
+    "invalidReason": "اكتب سبب الإلغاء",
+    "refunded": "المبلغ المسترجع",
+    "refundable": "المبلغ القابل للاسترجاع",
+    "refundHistory": "سجل استرجاع الأموال",
+    "noRefunds": "لا توجد عمليات استرجاع لهذا البيع",
+    "newRefund": "استرجاع مبلغ",
+    "refundAmount": "المبلغ المراد استرجاعه (DH)",
+    "refundReason": "سبب الاسترجاع",
+    "refundButton": "تأكيد الاسترجاع",
+    "refundInvalidAmount": "أدخل مبلغا صحيحا لا يتجاوز {{amount}}",
+    "refundInvalidReason": "اكتب سبب الاسترجاع",
+    "refundConfirm": "تأكيد استرجاع {{amount}}؟"
   },
   "customers": {
     "search": "ابحث عن زبون أو رقم هاتف",

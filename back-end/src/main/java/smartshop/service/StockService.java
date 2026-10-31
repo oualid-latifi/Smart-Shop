@@ -66,7 +66,7 @@ public class StockService {
      */
     @Transactional
     public Product adjust(UUID productId, int countedQuantity, String note) {
-        Product product = productRepository.findById(productId)
+        Product product = productRepository.findByIdForUpdate(productId)
                 .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
 
         int difference = countedQuantity - product.getStockQuantity();

@@ -48,7 +48,7 @@ public class SaleService {
     public Sale create(SaleRequest request) {
         Customer customer = null;
         if (request.customerId() != null) {
-            customer = customerRepository.findById(request.customerId())
+            customer = customerRepository.findByIdForUpdate(request.customerId())
                     .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
         }
 
@@ -58,7 +58,7 @@ public class SaleService {
         BigDecimal subtotal = BigDecimal.ZERO;
 
         for (SaleLineRequest lineRequest : request.lines()) {
-            Product product = productRepository.findById(lineRequest.productId())
+            Product product = productRepository.findByIdForUpdate(lineRequest.productId())
                     .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
             if (!product.getActive()) {
                 throw new IllegalArgumentException(
@@ -68,6 +68,12 @@ public class SaleService {
             BigDecimal unitPrice = lineRequest.unitPrice() != null
                     ? lineRequest.unitPrice()
                     : product.getSalePrice();
+
+            if (lineRequest.quantity() > product.getStockQuantity()) {
+                throw new IllegalArgumentException("Stock insuffisant pour " + product.getName()
+                        + " : disponible " + product.getStockQuantity()
+                        + ", demandé " + lineRequest.quantity());
+            }
 
             SaleLine line = new SaleLine();
             line.setProduct(product);
@@ -79,7 +85,7 @@ public class SaleService {
 
             subtotal = subtotal.add(unitPrice.multiply(BigDecimal.valueOf(lineRequest.quantity())));
 
-            // Le stock peut devenir négatif : la vente reste autorisée
+            // Le stock est vérifié et verrouillé avant toute décrémentation.
             product.setStockQuantity(product.getStockQuantity() - lineRequest.quantity());
             productRepository.save(product);
         }
@@ -136,7 +142,8 @@ public class SaleService {
 
     @Transactional
     public Sale cancel(UUID saleId, String reason) {
-        Sale sale = findById(saleId);
+        Sale sale = saleRepository.findByIdForUpdate(saleId)
+                .orElseThrow(() -> new IllegalArgumentException("Vente introuvable"));
 
         if (sale.getStatus() == SaleStatus.CANCELLED) {
             throw new IllegalArgumentException("Cette vente est déjà annulée");
@@ -144,7 +151,8 @@ public class SaleService {
 
         // On remet les articles en stock
         for (SaleLine line : sale.getLines()) {
-            Product product = line.getProduct();
+            Product product = productRepository.findByIdForUpdate(line.getProduct().getId())
+                    .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
             product.setStockQuantity(product.getStockQuantity() + line.getQuantity());
             productRepository.save(product);
 
