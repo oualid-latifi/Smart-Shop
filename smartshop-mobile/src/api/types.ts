@@ -4,7 +4,9 @@ export interface AccountStatus {
 
 export interface AuthResponse {
   token: string;
-  expiresAt: string;\n  refreshToken: string;\n  refreshExpiresAt: string;
+  expiresAt: string;
+  refreshToken: string;
+  refreshExpiresAt: string;
   name: string;
   email: string;
 }
