@@ -4,7 +4,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import smartshop.dto.RefundRequest;
-import smartshop.entity.SaleRefund;
+import smartshop.dto.RefundResponse;
 import smartshop.service.SaleRefundService;
 
 import java.util.UUID;
@@ -20,7 +20,7 @@ public class SaleRefundController {
 
     @PostMapping("/{id}/refunds")
     @ResponseStatus(HttpStatus.CREATED)
-    public SaleRefund refund(@PathVariable UUID id, @Valid @RequestBody RefundRequest request) {
-        return refundService.refund(id, request);
+    public RefundResponse refund(@PathVariable UUID id, @Valid @RequestBody RefundRequest request) {
+        return RefundResponse.from(refundService.refund(id, request));
     }
 }
