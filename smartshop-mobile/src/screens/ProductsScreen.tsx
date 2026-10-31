@@ -31,6 +31,7 @@ export default function ProductsScreen({ navigation }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,7 +41,7 @@ export default function ProductsScreen({ navigation }: Props) {
     try {
       setError(null);
       const [data, categoryData] = await Promise.all([
-        api<Product[]>('/api/products'),
+        api<Product[]>('/api/products/all'),
         api<Category[]>('/api/categories'),
       ]);
       setProducts(data);
@@ -66,14 +67,14 @@ export default function ProductsScreen({ navigation }: Props) {
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query && !selectedCategory) return products;
     return products.filter((p) =>
-      (p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query)
+      (statusFilter === 'all' || (statusFilter === 'active' ? p.active : !p.active))
+      && (p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query)
         || (p.brand ?? '').toLowerCase().includes(query)
         || (p.model ?? '').toLowerCase().includes(query))
       && (!selectedCategory || p.categoryId === selectedCategory),
     );
-  }, [products, search, selectedCategory]);
+  }, [products, search, selectedCategory, statusFilter]);
 
   function renderItem({ item }: { item: Product }) {
     return (
@@ -130,6 +131,18 @@ export default function ProductsScreen({ navigation }: Props) {
           placeholderTextColor={colors.muted}
           autoCorrect={false}
         /></View>
+        <View style={styles.statusRow}>
+          {(['active', 'inactive', 'all'] as const).map((status) => (
+            <Pressable key={status} onPress={() => setStatusFilter(status)}
+              style={[styles.categoryChip, statusFilter === status && styles.categoryChipActive]}>
+              <Text style={[styles.categoryText, statusFilter === status && styles.categoryTextActive]}>
+                {status === 'active' ? (t('products.active', { defaultValue: 'Active' }))
+                  : status === 'inactive' ? (t('products.inactive', { defaultValue: 'Inactive' }))
+                  : (t('common.all', { defaultValue: 'All' }))}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         {categories.length > 0 ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.categoryRow}>
             <Pressable
@@ -186,6 +199,7 @@ const styles = StyleSheet.create({
   pageHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headingIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   headingCopy: { flex: 1 }, pageTitle: { fontSize: 21, fontWeight: '900', color: colors.text }, pageSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
+  statusRow: { flexDirection: 'row', gap: spacing.sm },
   categoryRow: { gap: spacing.sm, paddingTop: spacing.xs },
   categoryChip: { borderWidth: 1, borderColor: colors.border, borderRadius: 999, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, backgroundColor: colors.card },
   categoryChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
