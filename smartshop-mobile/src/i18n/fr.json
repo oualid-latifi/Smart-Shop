@@ -188,7 +188,8 @@
     "paySuccess": "Paiement enregistré ✓",
     "invalid": "Vérifie les produits, les prix et le nom",
     "invalidPaid": "Le montant payé ne peut pas dépasser le total",
-    "subtitle": "Suivi des achats et des fournisseurs"
+    "subtitle": "Suivi des achats et des fournisseurs",
+    "open": "Ouvrir les achats"
   },
   "reports": {
     "today": "Aujourd'hui",
