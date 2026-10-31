@@ -592,6 +592,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     paddingHorizontal: spacing.md,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: isDark ? 0 : 0.035,
+    shadowRadius: 8,
+    elevation: isDark ? 0 : 1,
   },
   divider: {
     height: 1,
@@ -602,7 +607,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    paddingVertical: 13,
+    paddingVertical: 14,
   },
   rowIcon: {
     width: 32,
@@ -635,9 +640,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   rank: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 11,
     backgroundColor: colors.neutralBg,
     alignItems: 'center',
     justifyContent: 'center',
