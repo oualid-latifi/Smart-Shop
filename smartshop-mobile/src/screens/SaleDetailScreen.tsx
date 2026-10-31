@@ -117,7 +117,7 @@ export default function SaleDetailScreen({ route }: Props) {
         ))}
       </View>
 
-      {!cancelled && refundsLoaded && refundable > 0 ? (
+      {refundsLoaded && refundable > 0 ? (
         <View style={styles.block}>
           <Text style={styles.section}>{t('history.newRefund')}</Text>
           <TextField label={t('history.refundAmount')} value={refundAmount} onChangeText={setRefundAmount} keyboardType="decimal-pad" placeholder={String(refundable)} />
