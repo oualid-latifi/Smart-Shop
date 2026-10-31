@@ -17,7 +17,7 @@ public record ProductCreateRequest(
         @Size(max = 100) String model,
         @Size(max = 50) String color,
         @Size(max = 60) String capacity,
-        @Size(max = 500) String imageUrl,
+        String imageUrl,
         @NotNull @DecimalMin("0.00") BigDecimal salePrice,
         @DecimalMin("0.00") BigDecimal purchasePrice,   // prix d'achat de départ (facultatif)
         Integer initialStock,                            // stock de départ (facultatif)
