@@ -7,6 +7,7 @@ import smartshop.dto.AuthResponse;
 import smartshop.dto.ChangePasswordRequest;
 import smartshop.dto.LoginRequest;
 import smartshop.dto.RegisterRequest;
+import smartshop.dto.UpdateProfileRequest;
 import smartshop.dto.UserResponse;
 import smartshop.entity.AppUser;
 import smartshop.exception.InvalidCredentialsException;
@@ -67,6 +68,20 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public UserResponse me(UUID userId) { return UserResponse.from(getUser(userId)); }
+
+    @Transactional
+    public UserResponse updateProfile(UUID userId, UpdateProfileRequest request) {
+        AppUser user = getUser(userId);
+        String email = normalize(request.email());
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if (!existing.getId().equals(userId)) {
+                throw new IllegalArgumentException("Cette adresse e-mail est déjà utilisée");
+            }
+        });
+        user.setName(request.name().trim());
+        user.setEmail(email);
+        return UserResponse.from(userRepository.save(user));
+    }
 
     @Transactional
     public AuthResponse changePassword(UUID userId, ChangePasswordRequest request) {
