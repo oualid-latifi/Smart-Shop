@@ -71,7 +71,7 @@ export default function ReportsScreen({ navigation }: Props) {
           <View style={styles.headingIcon}><Ionicons name="bar-chart" size={22} color={colors.primary} /></View>
           <View style={styles.headingCopy}>
             <Text style={styles.pageTitle}>{t('tabs.reports', { defaultValue: 'Rapports' })}</Text>
-            <Text style={styles.pageSubtitle}>{t('reports.today')} · {t('reports.now')}</Text>
+            <Text style={styles.pageSubtitle}>{period === 'today' ? t('reports.today') : period === 'week' ? t('reports.week') : t('reports.month')}</Text>
           </View>
         </View>
 
