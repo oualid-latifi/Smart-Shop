@@ -17,7 +17,7 @@ public record ProductUpdateRequest(
         @Size(max = 100) String model,
         @Size(max = 50) String color,
         @Size(max = 60) String capacity,
-        @Size(max = 500) String imageUrl,
+        String imageUrl,
         @NotNull @DecimalMin("0.00") BigDecimal salePrice,
         @NotNull @Min(0) Integer alertThreshold
 ) {
