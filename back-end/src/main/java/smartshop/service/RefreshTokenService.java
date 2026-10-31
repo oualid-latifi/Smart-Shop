@@ -45,17 +45,17 @@ public class RefreshTokenService {
 
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public IssuedRefreshToken rotate(String rawToken) {
-        if (rawToken == null || rawToken.isBlank()) throw new IllegalArgumentException("Refresh token invalide");
+        if (rawToken == null || rawToken.isBlank()) throw new InvalidRefreshTokenException("Refresh token invalide");
         String hash = hash(rawToken);
         RefreshSession session = sessions.findForUpdateByTokenHash(hash)
-                .orElseThrow(() -> new IllegalArgumentException("Session expirée ou invalide"));
+                .orElseThrow(() -> new InvalidRefreshTokenException("Session expirée ou invalide"));
         if (session.getRevokedAt() != null) {
             sessions.revokeFamily(session.getFamilyId());
-            throw new IllegalArgumentException("Réutilisation d'un ancien token : session révoquée");
+            throw new InvalidRefreshTokenException("Réutilisation d'un ancien token : session révoquée");
         }
         if (!session.getExpiresAt().isAfter(Instant.now())) {
             session.revoke();
-            throw new IllegalArgumentException("Session expirée");
+            throw new InvalidRefreshTokenException("Session expirée");
         }
         session.revoke();
         return create(session.getUser(), session.getFamilyId());
