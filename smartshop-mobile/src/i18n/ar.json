@@ -20,7 +20,11 @@
     "passwordHint": "8 أحرف على الأقل",
     "loginButton": "دخول",
     "registerButton": "إنشاء الحساب",
-    "brandHint": "تسيير سهل وذكي لمتجرك"
+    "brandHint": "تسيير سهل وذكي لمتجرك",
+    "noAccount": "ليس لديك حساب؟",
+    "registerLink": "إنشاء حساب",
+    "haveAccount": "لديك حساب بالفعل؟",
+    "loginLink": "تسجيل الدخول"
   },
   "errors": {
     "network": "تعذّر الاتصال بالخادم. تأكد أن الـ backend يعمل وأن العنوان صحيح.",
