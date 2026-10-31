@@ -86,10 +86,10 @@ export default function HomeScreen() {
       const response = await api<AuthResponse>('/api/auth/change-password', {
         method: 'POST',
         body: { currentPassword, newPassword },
-        logoutOn401: false,
       });
       // Les autres appareils sont déconnectés : on garde le nouveau token pour celui-ci
-      await storage.set(TOKEN_KEY, response.token);\n      await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
+      await storage.set(TOKEN_KEY, response.token);
+      await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
