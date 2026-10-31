@@ -76,6 +76,16 @@ export default function ProductsScreen({ navigation }: Props) {
     );
   }, [products, search, selectedCategory, statusFilter]);
 
+  async function reactivateProduct(product: Product) {
+    try {
+      setError(null);
+      await api<Product>(`/api/products/${product.id}/activate`, { method: 'POST' });
+      await load();
+    } catch (e) {
+      setError(errorMessage(e, t));
+    }
+  }
+
   function renderItem({ item }: { item: Product }) {
     return (
       <Pressable
@@ -110,6 +120,11 @@ export default function ProductsScreen({ navigation }: Props) {
           </Text>
           {item.lowStock ? <Text style={styles.badgeLow}>{t('products.lowStock')}</Text> : null}
           {!item.active ? <Text style={styles.badgeOff}>{t('products.inactive')}</Text> : null}
+          {!item.active ? (
+            <Pressable onPress={() => void reactivateProduct(item)} style={styles.restoreButton}>
+              <Text style={styles.restoreText}>{t('products.reactivate', { defaultValue: 'Reactivate' })}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </Pressable>
     );
@@ -249,6 +264,8 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     overflow: 'hidden',
   },
+  restoreButton: { marginLeft: 'auto', paddingHorizontal: spacing.sm, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.neutralBg },
+  restoreText: { color: colors.primary, fontSize: 12, fontWeight: '700' },
   badgeOff: {
     color: colors.muted,
     backgroundColor: colors.neutralBg,
