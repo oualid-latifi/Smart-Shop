@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
@@ -24,7 +25,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [name, setName] = useState(product?.name ?? '');
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [model, setModel] = useState(product?.model ?? '');
-  const [color, setColor] = useState(product?.color ?? '');
   const [capacity, setCapacity] = useState(product?.capacity ?? '');
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
   const [categoryId, setCategoryId] = useState<string | null>(product?.categoryId ?? null);
@@ -91,7 +91,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
             categoryId,
             brand: brand.trim() || null,
             model: model.trim() || null,
-            color: color.trim() || null,
             capacity: capacity.trim() || null,
             imageUrl: imageUrl.trim() || null,
             salePrice: price,
@@ -107,7 +106,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
             categoryId,
             brand: brand.trim() || null,
             model: model.trim() || null,
-            color: color.trim() || null,
             capacity: capacity.trim() || null,
             imageUrl: imageUrl.trim() || null,
             salePrice: price,
@@ -152,7 +150,31 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       <TextField label={t('products.model')} value={model} onChangeText={setModel} />
       <TextField label={t('products.color')} value={color} onChangeText={setColor} />
       <TextField label={t('products.capacity')} value={capacity} onChangeText={setCapacity} />
-      <TextField label={t('products.imageUrl')} value={imageUrl} onChangeText={setImageUrl} autoCapitalize="none" />
+      <View style={styles.photoBlock}>
+        {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productPhoto} resizeMode="cover" /> : null}
+        <Pressable
+          style={styles.photoButton}
+          onPress={async () => {
+            const permission = await ImagePicker.requestCameraPermissionsAsync();
+            if (!permission.granted) {
+              Alert.alert(t('products.takePhoto'), t('products.photoHint'));
+              return;
+            }
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ['images'],
+              allowsEditing: true,
+              aspect: [4, 3],
+              quality: 0.65,
+              base64: true,
+            });
+            if (!result.canceled && result.assets[0].base64) {
+              setImageUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
+            }
+          }}
+        >
+          <Text style={styles.photoButtonText}>{t('products.takePhoto')}</Text>
+        </Pressable>
+      </View>
 
       <Text style={styles.label}>{t('products.category')}</Text>
       {categoriesError ? (
@@ -246,6 +268,10 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
+  photoBlock: { marginBottom: spacing.md, gap: spacing.sm },
+  productPhoto: { width: '100%', height: 180, borderRadius: radius, backgroundColor: colors.neutralBg },
+  photoButton: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius, padding: spacing.md, alignItems: 'center' },
+  photoButtonText: { color: colors.primary, fontWeight: '800' },
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   chip: {
