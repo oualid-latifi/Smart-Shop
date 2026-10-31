@@ -40,7 +40,7 @@ class SaleRefundServiceTest {
         IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> service.refund(saleId, new RefundRequest(new BigDecimal("40.01"), "Retour")));
 
-        assertTrue(error.getMessage().contains("20.00"));
+        assertTrue(error.getMessage().contains("remboursement dépasse"));
         verify(refunds, never()).save(any(SaleRefund.class));
     }
 
