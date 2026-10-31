@@ -32,7 +32,11 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const data = await api<Sale[]>(`/api/customers/${customer.id}/sales`);
+      const [updatedCustomer, data] = await Promise.all([
+        api<Customer>(`/api/customers/${customer.id}`),
+        api<Sale[]>(`/api/customers/${customer.id}/sales`),
+      ]);
+      setCustomer(updatedCustomer);
       setSales(data);
     } catch {
       setSales([]);
