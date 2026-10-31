@@ -61,7 +61,20 @@ export default function ProductFormScreen({ route, navigation }: Props) {
     }
 
     const threshold = parseNumber(alertThreshold);
-    if (alertThreshold.trim() !== '' && (threshold === null || threshold < 0)) {
+    if (alertThreshold.trim() !== '' && (threshold === null || threshold < 0 || !Number.isInteger(threshold))) {
+      setError(t('products.invalid'));
+      return;
+    }
+
+    // Optional values must not be silently discarded when the user entered invalid text.
+    const purchase = parseNumber(purchasePrice);
+    const stock = parseNumber(initialStock);
+    if (!editing && purchasePrice.trim() !== '' && (purchase === null || purchase < 0)) {
+      setError(t('products.invalid'));
+      return;
+    }
+    if (!editing && initialStock.trim() !== '' &&
+        (stock === null || stock < 0 || !Number.isInteger(stock))) {
       setError(t('products.invalid'));
       return;
     }
@@ -86,8 +99,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
           },
         });
       } else {
-        const purchase = parseNumber(purchasePrice);
-        const stock = parseNumber(initialStock);
         await api('/api/products', {
           method: 'POST',
           body: {
