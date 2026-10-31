@@ -10,7 +10,7 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
-import { API_URL_KEY, storage, TOKEN_KEY } from '../storage';
+import { API_URL_KEY, storage, TOKEN_KEY, REFRESH_TOKEN_KEY } from '../storage';
 import { colors, radius, spacing } from '../theme';
 
 export default function HomeScreen() {
@@ -89,7 +89,7 @@ export default function HomeScreen() {
         logoutOn401: false,
       });
       // Les autres appareils sont déconnectés : on garde le nouveau token pour celui-ci
-      await storage.set(TOKEN_KEY, response.token);
+      await storage.set(TOKEN_KEY, response.token);\n      await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
