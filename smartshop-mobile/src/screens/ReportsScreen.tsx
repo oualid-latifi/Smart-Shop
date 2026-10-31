@@ -86,6 +86,14 @@ export default function ReportsScreen({ navigation }: Props) {
           <Text style={styles.expensesActionText}>{t('reports.openExpenses')}</Text>
           <Ionicons name="chevron-forward" size={17} color={colors.primary} />
         </Pressable>
+        <Pressable
+          style={({ pressed }) => [styles.expensesAction, pressed && styles.pressed]}
+          onPress={() => navigation.getParent()?.navigate('Purchases' as never)}
+        >
+          <View style={styles.expensesIcon}><Ionicons name="bag-handle-outline" size={19} color={colors.primary} /></View>
+          <Text style={styles.expensesActionText}>{t('purchases.open')}</Text>
+          <Ionicons name="chevron-forward" size={17} color={colors.primary} />
+        </Pressable>
 
         {loading ? (
           <ActivityIndicator color={colors.primary} style={styles.loader} />
