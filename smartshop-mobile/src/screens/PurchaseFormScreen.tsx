@@ -35,6 +35,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
   const [products, setProducts] = useState<Product[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
+  const [suppliersError, setSuppliersError] = useState(false);
 
   const [search, setSearch] = useState('');
   const [cart, setCart] = useState<CartLine[]>([]);
@@ -45,18 +46,25 @@ export default function PurchaseFormScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const load = useCallback(async () => {
+  const loadSuppliers = useCallback(async () => {
+    setSuppliersError(false);
     try {
-      const [p, s] = await Promise.all([
-        api<Product[]>('/api/products'),
-        api<Supplier[]>('/api/suppliers'),
-      ]);
+      setSuppliers(await api<Supplier[]>('/api/suppliers'));
+    } catch {
+      setSuppliersError(true);
+    }
+  }, []);
+
+  const load = useCallback(async () => {
+    setError(null);
+    try {
+      const p = await api<Product[]>('/api/products');
       setProducts(p.filter((item) => item.active));
-      setSuppliers(s);
+      await loadSuppliers();
     } catch (e) {
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [loadSuppliers, t]);
 
   // Recharge à chaque retour (par exemple après avoir créé un fournisseur)
   useFocusEffect(
@@ -255,6 +263,12 @@ export default function PurchaseFormScreen({ navigation }: Props) {
             ) : null}
 
             <Text style={styles.label}>{t('purchases.supplier')}</Text>
+            {suppliersError ? (
+              <View style={styles.supplierError}>
+                <Text style={styles.error}>{t('purchases.supplierLoadError', { defaultValue: 'Impossible de charger les fournisseurs. Vous pouvez continuer sans fournisseur.' })}</Text>
+                <PrimaryButton title={t('common.retry')} onPress={() => void loadSuppliers()} variant="outline" />
+              </View>
+            ) : null}
             <View style={styles.chips}>
               <Chip
                 label={t('purchases.noSupplier')}
@@ -372,6 +386,7 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   summary: { marginTop: spacing.md },
+  supplierError: { gap: spacing.xs, marginBottom: spacing.sm },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.md },
   totalLabel: { fontSize: 18, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
