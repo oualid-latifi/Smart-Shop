@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import smartshop.dto.AccountStatusResponse;
 import smartshop.dto.AuthResponse;
 import smartshop.dto.ChangePasswordRequest;
-import smartshop.dto.LoginRequest;
+import smartshop.dto.LoginRequest;\nimport smartshop.dto.RefreshRequest;\nimport smartshop.dto.LogoutRequest;
 import smartshop.dto.RegisterRequest;
 import smartshop.dto.UserResponse;
 import smartshop.entity.AppUser;
@@ -41,7 +41,7 @@ public class AuthController {
         return authService.login(request);
     }
 
-    @GetMapping("/me")
+    @PostMapping("/refresh")\n    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request) {\n        return authService.refresh(request.refreshToken());\n    }\n\n    @PostMapping("/logout")\n    @ResponseStatus(HttpStatus.NO_CONTENT)\n    public void logout(@Valid @RequestBody LogoutRequest request) {\n        authService.logout(request.refreshToken());\n    }\n\n    @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AppUser user) {
         return authService.me(user.getId());
     }
