@@ -107,7 +107,18 @@
     "cancelTitle": "Annuler cette vente",
     "cancelButton": "Annuler la vente",
     "cancelConfirm": "Annuler cette vente ? Le stock sera remis et le kridi corrigé.",
-    "invalidReason": "Écris le motif de l'annulation"
+    "invalidReason": "Écris le motif de l'annulation",
+    "refunded": "Montant remboursé",
+    "refundable": "Montant remboursable",
+    "refundHistory": "Historique des remboursements",
+    "noRefunds": "Aucun remboursement pour cette vente",
+    "newRefund": "Nouveau remboursement",
+    "refundAmount": "Montant à rembourser (DH)",
+    "refundReason": "Motif du remboursement",
+    "refundButton": "Confirmer le remboursement",
+    "refundInvalidAmount": "Saisis un montant valide ne dépassant pas {{amount}}",
+    "refundInvalidReason": "Saisis le motif du remboursement",
+    "refundConfirm": "Confirmer le remboursement de {{amount}} ?"
   },
   "customers": {
     "search": "Rechercher un client ou un téléphone",
