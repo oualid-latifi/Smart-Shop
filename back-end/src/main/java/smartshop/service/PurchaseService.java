@@ -58,7 +58,7 @@ public class PurchaseService {
         BigDecimal total = BigDecimal.ZERO;
 
         for (PurchaseLineRequest lineRequest : request.lines()) {
-            Product product = productRepository.findById(lineRequest.productId())
+            Product product = productRepository.findByIdForUpdate(lineRequest.productId())
                     .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
             if (!product.getActive()) {
                 throw new IllegalArgumentException(
