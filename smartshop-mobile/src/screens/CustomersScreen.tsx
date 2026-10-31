@@ -80,6 +80,7 @@ export default function CustomersScreen({ navigation }: Props) {
         <View style={styles.flex}>
           <Text style={styles.name}>{item.name}</Text>
           {item.phone ? <Text style={styles.muted}>{item.phone}</Text> : null}
+          {!item.active ? <Text style={styles.inactive}>{t('customers.inactive')}</Text> : null}
         </View>
         <View style={styles.balanceWrap}><Text style={[styles.balance, inDebt ? styles.debt : styles.ok]}>{inDebt ? formatMoney(item.balance) : t('customers.noDebt')}</Text><Ionicons name="chevron-forward" size={16} color={colors.muted} /></View>
       </Pressable>
