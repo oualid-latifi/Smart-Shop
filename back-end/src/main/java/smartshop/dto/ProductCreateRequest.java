@@ -20,7 +20,7 @@ public record ProductCreateRequest(
         @Size(max = 500) String imageUrl,
         @NotNull @DecimalMin("0.00") BigDecimal salePrice,
         @DecimalMin("0.00") BigDecimal purchasePrice,   // prix d'achat de départ (facultatif)
-        Integer initialStock,                            // stock de départ (facultatif)
+        @Min(0) Integer initialStock,                    // stock de départ (facultatif)
         @Min(0) Integer alertThreshold                   // facultatif, 5 par défaut
 ) {
 }
