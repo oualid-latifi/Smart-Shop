@@ -11,6 +11,7 @@ import smartshop.dto.LoginRequest;
 import smartshop.dto.LogoutRequest;
 import smartshop.dto.RefreshRequest;
 import smartshop.dto.RegisterRequest;
+import smartshop.dto.UpdateProfileRequest;
 import smartshop.dto.UserResponse;
 import smartshop.entity.AppUser;
 import smartshop.service.AuthService;
@@ -40,6 +41,12 @@ public class AuthController {
 
     @GetMapping("/me")
     public UserResponse me(@AuthenticationPrincipal AppUser user) { return authService.me(user.getId()); }
+
+    @PutMapping("/me")
+    public UserResponse updateProfile(@AuthenticationPrincipal AppUser user,
+            @Valid @RequestBody UpdateProfileRequest request) {
+        return authService.updateProfile(user.getId(), request);
+    }
 
     @PostMapping("/change-password")
     public AuthResponse changePassword(@AuthenticationPrincipal AppUser user,
