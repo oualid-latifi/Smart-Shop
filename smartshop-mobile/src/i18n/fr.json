@@ -65,7 +65,9 @@
     "model": "Modèle",
     "color": "Couleur",
     "capacity": "Capacité / stockage",
-    "imageUrl": "URL de l’image (facultatif)"
+    "imageUrl": "URL de l’image (facultatif)",
+    "takePhoto": "Prendre une photo",
+    "photoHint": "Utilise l’appareil photo pour photographier le produit."
   },
   "sales": {
     "searchProduct": "Chercher un produit à ajouter",
@@ -92,7 +94,8 @@
     "searchResults": "Résultats de recherche",
     "productsAvailable": "produit(s)",
     "addToCart": "Ajouter",
-    "stockLimit": "La quantité dépasse le stock disponible."
+    "stockLimit": "La quantité dépasse le stock disponible.",
+    "allPaid": "Tout payé"
   },
   "history": {
     "title": "Historique des ventes",
@@ -137,7 +140,12 @@
     "noHistory": "Aucun achat enregistré pour ce client.",
     "items": "article(s)",
     "remaining": "Reste dû",
-    "paid": "Payé"
+    "paid": "Payé",
+    "update": "Mettre à jour",
+    "edit": "Modifier les informations",
+    "deactivate": "Désactiver le client",
+    "deactivateConfirm": "Désactiver ce client ? Son historique et ses dettes seront conservés.",
+    "inactive": "Client désactivé"
   },
   "purchases": {
     "add": "Nouvel achat",
