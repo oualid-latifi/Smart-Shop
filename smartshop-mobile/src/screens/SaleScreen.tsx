@@ -60,7 +60,7 @@ export default function SaleScreen() {
     }
 
     if (customerResult.status === 'fulfilled') {
-      setCustomers(customerResult.value);
+      setCustomers(customerResult.value.filter((customer) => customer.active));
     } else {
       // La vente comptant reste possible sans charger la liste des clients.
       setError(errorMessage(customerResult.reason, t));
@@ -264,13 +264,20 @@ export default function SaleScreen() {
               <Text style={styles.totalValue}>{formatMoney(total)}</Text>
             </View>
 
-            <TextField
-              label={t('sales.amountPaid')}
-              hint={t('sales.amountPaidHint')}
-              value={paid}
-              onChangeText={setPaid}
-              keyboardType="decimal-pad"
-            />
+            <View style={styles.paidRow}>
+              <View style={styles.paidField}>
+                <TextField
+                  label={t('sales.amountPaid')}
+                  hint={t('sales.amountPaidHint')}
+                  value={paid}
+                  onChangeText={setPaid}
+                  keyboardType="decimal-pad"
+                />
+              </View>
+              <Pressable style={styles.fullPaymentButton} onPress={() => setPaid(total.toFixed(2))}>
+                <Text style={styles.fullPaymentText}>{t('sales.allPaid')}</Text>
+              </Pressable>
+            </View>
 
             {remaining > 0 ? (
               <Text style={styles.kridi}>
@@ -384,6 +391,10 @@ const styles = StyleSheet.create({
   qtyText: { fontSize: 20, color: colors.primary, fontWeight: '700' },
   qtyValue: { fontSize: 16, fontWeight: '700', minWidth: 24, textAlign: 'center', color: colors.text },
   summary: { marginTop: spacing.md },
+  paidRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
+  paidField: { flex: 1 },
+  fullPaymentButton: { marginBottom: spacing.md, borderRadius: radius, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: 12, backgroundColor: colors.neutralBg },
+  fullPaymentText: { color: colors.primary, fontWeight: '800', fontSize: 12 },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   totalLabel: { fontSize: 18, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
