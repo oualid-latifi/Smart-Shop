@@ -3,6 +3,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import MoreScreen from '../screens/MoreScreen';
+import CategoriesScreen from '../screens/CategoriesScreen';
 import PurchasesStack from './PurchasesStack';
 import ReportsStack from './ReportsStack';
 
@@ -16,6 +17,8 @@ export default function MoreStack() {
         component={MoreScreen}
         options={{ title: 'Plus' }}
       />
+
+      <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Catégories' }} />
 
       <Stack.Screen
         name="Purchases"
