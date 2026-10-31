@@ -98,8 +98,12 @@ export default function SaleDetailScreen({ route }: Props) {
 
       <View style={styles.block}>
         <Text style={styles.section}>{t('history.refundHistory')}</Text>
-        {refundError ? <Text style={styles.error}>{refundError}</Text> : null}
-        {refunds.length === 0 ? <Text style={styles.muted}>{t('history.noRefunds')}</Text> : refunds.map(item => (
+        {refundError ? (
+          <View style={styles.errorBlock}>
+            <Text style={styles.error}>{refundError}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void loadRefunds()} variant="outline" />
+          </View>
+        ) : refunds.length === 0 ? <Text style={styles.muted}>{t('history.noRefunds')}</Text> : refunds.map(item => (
           <View key={item.id} style={styles.refundRow}>
             <View style={styles.flex}>
               <Text style={styles.value}>{formatMoney(item.amount)}</Text>
@@ -153,6 +157,7 @@ const styles = StyleSheet.create({
   block: { marginTop: spacing.lg, gap: spacing.sm },
   section: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   error: { color: colors.danger, backgroundColor: colors.dangerBg, padding: spacing.sm, borderRadius: radius, marginBottom: spacing.md },
+  errorBlock: { gap: spacing.xs },
   refundRow: { flexDirection: 'row', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
   flex: { flex: 1 },
 });
