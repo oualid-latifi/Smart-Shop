@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setUnauthorizedHandler } from '../api/client';
 import type { AuthResponse, MeResponse } from '../api/types';
-import { storage, TOKEN_KEY } from '../storage';
+import { storage, TOKEN_KEY, REFRESH_TOKEN_KEY } from '../storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 
@@ -31,7 +31,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startSession = useCallback(async (response: AuthResponse) => {
-    await storage.set(TOKEN_KEY, response.token);
+    await storage.set(TOKEN_KEY, response.token);\n    await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
     setUser({ name: response.name, email: response.email });
     setStatus('signedIn');
   }, []);
@@ -63,7 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } catch (error) {
         // Serveur injoignable : on garde le token mais on affiche l'écran de connexion
         if (!(error instanceof ApiError && error.status === 0)) {
-          await storage.remove(TOKEN_KEY);
+          await storage.remove(TOKEN_KEY);\n          await storage.remove(REFRESH_TOKEN_KEY);
         }
         if (!cancelled) setStatus('signedOut');
       }
