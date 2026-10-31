@@ -2,7 +2,7 @@
 
 ## Prerequis
 - Java 21
-- Maven (ou le wrapper Maven du projet)
+- Maven installe globalement
 - PostgreSQL en cours d'execution
 - Une base PostgreSQL nommee `smartshop`
 
@@ -23,10 +23,8 @@ $env:CORS_ALLOWED_ORIGINS = "*"
 Puis lancer le backend depuis le dossier `back-end` :
 
 ```powershell
-.\mvnw.cmd spring-boot:run
+mvn spring-boot:run
 ```
-
-Si Maven est installe globalement, utiliser `mvn spring-boot:run`.
 
 ### Linux / macOS
 ```bash
@@ -35,7 +33,7 @@ export DB_USERNAME="postgres"
 export DB_PASSWORD="VOTRE_MOT_DE_PASSE_POSTGRES"
 export JWT_SECRET="$(openssl rand -base64 48)"
 export CORS_ALLOWED_ORIGINS="*"
-./mvnw spring-boot:run
+mvn spring-boot:run
 ```
 
 ## Important
@@ -43,4 +41,5 @@ export CORS_ALLOWED_ORIGINS="*"
 - Changer le mot de passe PostgreSQL si celui-ci a deja ete publie dans Git.
 - `CORS_ALLOWED_ORIGINS=*` est pratique uniquement pour le developpement. En production, remplacer `*` par les origines web exactes, separees par des virgules.
 - Le fichier `.env.example` est un modele documentaire : Spring Boot ne charge pas automatiquement un fichier `.env`. Definir les variables dans le terminal, l'IDE ou l'environnement de deploiement.
+- Les fichiers `.env` locaux sont ignores par Git, sauf `.env.example`.
 - Ne jamais committer de fichier contenant de vraies valeurs de secrets.
