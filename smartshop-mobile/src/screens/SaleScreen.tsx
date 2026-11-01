@@ -60,6 +60,13 @@ export default function SaleScreen() {
     if (cachedCustomers.length > 0) setCustomers(cachedCustomers);
     setLoading(false);
 
+    // Do not apply a possibly stale server stock snapshot while local operations
+    // are still waiting for delivery to the backend.
+    const syncSummary = await syncPendingOperations().catch(() => ({
+      synced: 0, pending: 1, failed: 0,
+    }));
+    if (syncSummary.pending > 0) return;
+
     const [productResult, customerResult] = await Promise.allSettled([
       api<Product[]>('/api/products'),
       api<Customer[]>('/api/customers'),
