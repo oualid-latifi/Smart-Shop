@@ -168,6 +168,8 @@
     "newTitle": "Nouvel achat",
     "detailTitle": "Détail de l'achat",
     "supplierTitle": "Nouveau fournisseur",
+    "editSupplier": "Modifier",
+    "updateSupplier": "Enregistrer les modifications",
     "empty": "Aucun achat pour le moment",
     "all": "Tous",
     "unpaid": "Impayés",
