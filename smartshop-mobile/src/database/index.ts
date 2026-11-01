@@ -282,8 +282,52 @@ export async function saveProducts(products: Product[]): Promise<void> {
     const pendingStockByProduct = new Map(
       pendingStock.map((row) => [row.product_id, row.quantity_delta]),
     );
+    const pendingPurchases = await db.getAllAsync<{
+      product_id: string;
+      quantity_delta: number;
+      cost_delta: number;
+    }>(
+      `SELECT line.product_id,
+              SUM(line.quantity) AS quantity_delta,
+              SUM(line.quantity * line.unit_price) AS cost_delta
+       FROM purchase_lines line
+       INNER JOIN purchases purchase ON purchase.id = line.purchase_id
+       INNER JOIN outbox queued ON queued.id = purchase.id
+       WHERE queued.status IN ('PENDING', 'FAILED')
+       GROUP BY line.product_id`,
+    );
+    const pendingPurchaseByProduct = new Map(
+      pendingPurchases.map((row) => [row.product_id, row]),
+    );
+    const latestPendingPurchasePrices = await db.getAllAsync<{
+      product_id: string;
+      unit_price: number;
+    }>(
+      `SELECT line.product_id, line.unit_price
+       FROM purchase_lines line
+       INNER JOIN purchases purchase ON purchase.id = line.purchase_id
+       INNER JOIN outbox queued ON queued.id = purchase.id
+       WHERE queued.status IN ('PENDING', 'FAILED')
+       ORDER BY purchase.purchase_date DESC, purchase.id DESC`,
+    );
+    const latestPurchasePriceByProduct = new Map<string, number>();
+    for (const row of latestPendingPurchasePrices) {
+      if (!latestPurchasePriceByProduct.has(row.product_id)) {
+        latestPurchasePriceByProduct.set(row.product_id, row.unit_price);
+      }
+    }
 
     for (const product of products) {
+      const pendingPurchase = pendingPurchaseByProduct.get(product.id);
+      const averagePurchasePrice = pendingPurchase && product.stockQuantity + pendingPurchase.quantity_delta > 0
+        ? Math.round(
+            ((product.averagePurchasePrice * Math.max(0, product.stockQuantity) +
+              pendingPurchase.cost_delta) /
+              (Math.max(0, product.stockQuantity) + pendingPurchase.quantity_delta)) * 100,
+          ) / 100
+        : product.averagePurchasePrice;
+      const purchasePrice =
+        latestPurchasePriceByProduct.get(product.id) ?? product.purchasePrice;
       await db.runAsync(
         `INSERT INTO products (
           id, reference, name, category_id, category_name,
@@ -318,8 +362,8 @@ export async function saveProducts(products: Product[]): Promise<void> {
         product.color,
         product.capacity,
         product.imageUrl,
-        product.averagePurchasePrice,
-        product.purchasePrice,
+        averagePurchasePrice,
+        purchasePrice,
         product.salePrice,
         product.stockQuantity + (pendingStockByProduct.get(product.id) ?? 0),
         product.alertThreshold,
