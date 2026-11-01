@@ -12,7 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
-import { cacheReportSummary, getCachedReportSummary, getOfflineReportSummary } from '../database';
+import { cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, getOutboxStatusSummary } from '../database';
+import { syncPendingOperations } from '../sync';
 import type { ReportSummary } from '../api/types';
 import { errorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthContext';
@@ -57,6 +58,21 @@ export default function DashboardScreen() {
     setError(null);
 
     try {
+      const queued = await getOutboxStatusSummary().catch(() => ({ pending: 0, failed: 0 }));
+      if (queued.pending > 0) {
+        await syncPendingOperations().catch(() => undefined);
+      }
+
+      const remaining = await getOutboxStatusSummary().catch(() => ({ pending: 0, failed: 0 }));
+      if (remaining.pending > 0 || remaining.failed > 0) {
+        const localReport = await getOfflineReportSummary('today').catch(() => null);
+        if (localReport) {
+          setReport(localReport);
+          setError(null);
+          return;
+        }
+      }
+
       const data = await api<TodayReport>('/api/reports/today');
       setReport(data);
       void cacheReportSummary('today', data as ReportSummary).catch(() => undefined);
