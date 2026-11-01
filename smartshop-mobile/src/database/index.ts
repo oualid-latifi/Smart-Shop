@@ -1,10 +1,10 @@
-import type { Customer, Expense, Product, Purchase, ReportSummary, Sale, Supplier } from '../api/types';
+import type { Customer, Expense, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 4;
+const CURRENT_SCHEMA_VERSION = 5;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -239,6 +239,36 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
             CREATE INDEX IF NOT EXISTS idx_purchase_payments_sync
               ON purchase_payments(sync_status);
             PRAGMA user_version = 4;
+          `);
+        }
+
+        if (versionRow.user_version < 5) {
+          await db.execAsync(`
+            CREATE TABLE IF NOT EXISTS sale_refunds (
+              id TEXT PRIMARY KEY NOT NULL,
+              sale_id TEXT NOT NULL,
+              amount REAL NOT NULL,
+              credit_applied REAL NOT NULL,
+              cash_refunded REAL NOT NULL,
+              reason TEXT NOT NULL,
+              refunded_at TEXT NOT NULL,
+              sync_status TEXT NOT NULL DEFAULT 'PENDING'
+            );
+            CREATE INDEX IF NOT EXISTS idx_sale_refunds_sale
+              ON sale_refunds(sale_id, refunded_at DESC);
+            CREATE TABLE IF NOT EXISTS sale_refund_lines (
+              id TEXT PRIMARY KEY NOT NULL,
+              refund_id TEXT NOT NULL,
+              sale_line_id TEXT NOT NULL,
+              product_id TEXT NOT NULL,
+              product_name TEXT NOT NULL,
+              quantity INTEGER NOT NULL,
+              amount REAL NOT NULL,
+              FOREIGN KEY (refund_id) REFERENCES sale_refunds(id)
+            );
+            CREATE INDEX IF NOT EXISTS idx_sale_refund_lines_refund
+              ON sale_refund_lines(refund_id);
+            PRAGMA user_version = 5;
           `);
         }
       });
@@ -1060,6 +1090,224 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
   return cancellationId;
 }
 
+/**
+ * Retour partiel enregistré localement : contrôle des quantités restantes,
+ * calcul de la remise proratisée, restitution du stock et mise à jour du kridi.
+ */
+export async function createLocalSaleRefund(
+  saleId: string,
+  requestedLines: Array<{ saleLineId: string; quantity: number }>,
+  reason: string,
+): Promise<SaleRefund> {
+  const db = await getDatabase();
+  const refundId = createLocalUuid();
+  const refundedAt = getLocalDateTimeString();
+  const normalizedReason = reason.trim();
+  if (!normalizedReason) throw new Error('Le motif du retour est obligatoire.');
+  if (requestedLines.length === 0) throw new Error('Sélectionnez au moins un article à retourner.');
+
+  let created!: SaleRefund;
+  await withSerializedTransaction(db, async () => {
+    const sale = await db.getFirstAsync<{
+      id: string; discount: number; remaining: number; status: string; customer_id: string | null;
+    }>('SELECT id, discount, remaining, status, customer_id FROM sales WHERE id = ?', saleId);
+    if (!sale) throw new Error('Vente introuvable dans la base locale.');
+    if (sale.status !== 'VALIDATED') throw new Error('Impossible de retourner un article d’une vente annulée.');
+
+    const subtotalRow = await db.getFirstAsync<{ subtotal: number }>(
+      'SELECT COALESCE(SUM(unit_price * quantity), 0) AS subtotal FROM sale_lines WHERE sale_id = ?',
+      saleId,
+    );
+    const originalSubtotal = subtotalRow?.subtotal ?? 0;
+    if (originalSubtotal <= 0) throw new Error('Le total des articles est invalide.');
+
+    const seen = new Set<string>();
+    const prepared: Array<{
+      saleLineId: string; productId: string; productName: string;
+      quantity: number; amount: number;
+    }> = [];
+    let refundTotal = 0;
+
+    for (const requested of requestedLines) {
+      if (seen.has(requested.saleLineId)) throw new Error('Un même article ne peut pas être répété.');
+      seen.add(requested.saleLineId);
+      if (!Number.isInteger(requested.quantity) || requested.quantity <= 0) {
+        throw new Error('Quantité de retour invalide.');
+      }
+      const line = await db.getFirstAsync<{
+        id: string; product_id: string; product_name: string | null;
+        quantity: number; unit_price: number;
+      }>(
+        `SELECT line.id, line.product_id, product.name AS product_name,
+                line.quantity, line.unit_price
+         FROM sale_lines line LEFT JOIN products product ON product.id = line.product_id
+         WHERE line.id = ? AND line.sale_id = ?`,
+        requested.saleLineId,
+        saleId,
+      );
+      if (!line) throw new Error('Article introuvable dans cette vente.');
+      const returnedRow = await db.getFirstAsync<{ quantity: number }>(
+        'SELECT COALESCE(SUM(quantity), 0) AS quantity FROM sale_refund_lines WHERE sale_line_id = ?',
+        line.id,
+      );
+      const remainingQuantity = line.quantity - (returnedRow?.quantity ?? 0);
+      if (requested.quantity > remainingQuantity) {
+        throw new Error(`Quantité supérieure au restant pour ${line.product_name ?? 'ce produit'} (${remainingQuantity}).`);
+      }
+      const gross = line.unit_price * requested.quantity;
+      const allocatedDiscount = Math.round((sale.discount * gross / originalSubtotal + Number.EPSILON) * 100) / 100;
+      const amount = roundMoney(gross - allocatedDiscount);
+      prepared.push({
+        saleLineId: line.id,
+        productId: line.product_id,
+        productName: line.product_name ?? 'Produit',
+        quantity: requested.quantity,
+        amount,
+      });
+      refundTotal = roundMoney(refundTotal + amount);
+    }
+    if (refundTotal <= 0) throw new Error('Le montant du remboursement doit être positif.');
+
+    const creditApplied = roundMoney(Math.min(refundTotal, sale.remaining));
+    const cashRefunded = roundMoney(refundTotal - creditApplied);
+    await db.runAsync(
+      `INSERT INTO sale_refunds
+       (id, sale_id, amount, credit_applied, cash_refunded, reason, refunded_at, sync_status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+      refundId, saleId, refundTotal, creditApplied, cashRefunded, normalizedReason, refundedAt,
+    );
+
+    for (const line of prepared) {
+      await db.runAsync(
+        `INSERT INTO sale_refund_lines
+         (id, refund_id, sale_line_id, product_id, product_name, quantity, amount)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        createLocalUuid(), refundId, line.saleLineId, line.productId,
+        line.productName, line.quantity, line.amount,
+      );
+      await db.runAsync(
+        'UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?',
+        line.quantity, refundedAt, line.productId,
+      );
+      await db.runAsync(
+        `INSERT INTO stock_movements (id, product_id, type, quantity, reference_id, created_at, note)
+         VALUES (?, ?, 'SALE_RETURN', ?, ?, ?, ?)`,
+        createLocalUuid(), line.productId, line.quantity, refundId, refundedAt, normalizedReason,
+      );
+    }
+
+    await db.runAsync(
+      'UPDATE sales SET remaining = MAX(0, remaining - ?), sync_status = \'PENDING\' WHERE id = ?',
+      creditApplied, saleId,
+    );
+    if (sale.customer_id && creditApplied > 0) {
+      await db.runAsync(
+        'UPDATE customers SET balance = MAX(0, balance - ?), updated_at = ? WHERE id = ?',
+        creditApplied, refundedAt, sale.customer_id,
+      );
+    }
+
+    const payload = {
+      id: refundId,
+      lines: prepared.map(line => ({ saleLineId: line.saleLineId, quantity: line.quantity })),
+      reason: normalizedReason,
+    };
+    await db.runAsync(
+      `INSERT INTO outbox
+       (id, idempotency_key, entity_type, operation, payload, status, attempts, created_at)
+       VALUES (?, ?, 'SALE_REFUND', 'CREATE', ?, 'PENDING', 0, ?)`,
+      refundId, refundId, JSON.stringify({ ...payload, saleId }), refundedAt,
+    );
+    created = {
+      id: refundId,
+      saleId,
+      amount: refundTotal,
+      creditApplied,
+      cashRefunded,
+      reason: normalizedReason,
+      refundedAt,
+      lines: prepared.map(line => ({
+        saleLineId: line.saleLineId,
+        productId: line.productId,
+        productName: line.productName,
+        quantity: line.quantity,
+        amount: line.amount,
+      })),
+    };
+  });
+  return created;
+}
+
+export async function getCachedSaleRefunds(saleId: string): Promise<SaleRefund[]> {
+  const db = await getDatabase();
+  await transactionTail;
+  const rows = await db.getAllAsync<{
+    id: string; sale_id: string; amount: number; credit_applied: number;
+    cash_refunded: number; reason: string; refunded_at: string;
+  }>(
+    'SELECT * FROM sale_refunds WHERE sale_id = ? ORDER BY refunded_at DESC',
+    saleId,
+  );
+  const result: SaleRefund[] = [];
+  for (const row of rows) {
+    const lines = await db.getAllAsync<{
+      sale_line_id: string; product_id: string; product_name: string;
+      quantity: number; amount: number;
+    }>('SELECT * FROM sale_refund_lines WHERE refund_id = ?', row.id);
+    result.push({
+      id: row.id,
+      saleId: row.sale_id,
+      amount: row.amount,
+      creditApplied: row.credit_applied,
+      cashRefunded: row.cash_refunded,
+      reason: row.reason,
+      refundedAt: row.refunded_at,
+      lines: lines.map(line => ({
+        saleLineId: line.sale_line_id,
+        productId: line.product_id,
+        productName: line.product_name,
+        quantity: line.quantity,
+        amount: line.amount,
+      })),
+    });
+  }
+  return result;
+}
+
+export async function saveSaleRefunds(refunds: SaleRefund[]): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const refund of refunds) {
+      const pending = await db.getFirstAsync<{ id: string }>(
+        "SELECT id FROM outbox WHERE entity_type = 'SALE_REFUND' AND id = ? AND status IN ('PENDING', 'FAILED')",
+        refund.id,
+      );
+      if (pending) continue;
+      await db.runAsync(
+        `INSERT INTO sale_refunds
+         (id, sale_id, amount, credit_applied, cash_refunded, reason, refunded_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'SYNCED')
+         ON CONFLICT(id) DO UPDATE SET
+           amount = excluded.amount, credit_applied = excluded.credit_applied,
+           cash_refunded = excluded.cash_refunded, reason = excluded.reason,
+           refunded_at = excluded.refunded_at, sync_status = 'SYNCED'`,
+        refund.id, refund.saleId, refund.amount, refund.creditApplied,
+        refund.cashRefunded, refund.reason, refund.refundedAt,
+      );
+      await db.runAsync('DELETE FROM sale_refund_lines WHERE refund_id = ?', refund.id);
+      for (const line of refund.lines) {
+        await db.runAsync(
+          `INSERT INTO sale_refund_lines
+           (id, refund_id, sale_line_id, product_id, product_name, quantity, amount)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          createLocalUuid(), refund.id, line.saleLineId, line.productId,
+          line.productName, line.quantity, line.amount,
+        );
+      }
+    }
+  });
+}
+
 export async function saveLocalExpense(input: {
   category: Expense['category'];
   amount: number;
@@ -1150,10 +1398,23 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
     );
     if (item.entity_type === 'SALE') {
       await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", item.id);
-    } else if (item.entity_type === 'SALE_CANCEL') {
+    } else if (item.entity_type === 'SALE_CANCEL' || item.entity_type === 'SALE_REFUND') {
       const payload = JSON.parse(item.payload) as { saleId?: string };
       if (payload.saleId) {
-        await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", payload.saleId);
+        const pendingSaleOperations = await db.getFirstAsync<{ id: string }>(
+          `SELECT id FROM outbox
+           WHERE entity_type IN ('SALE_CANCEL', 'SALE_REFUND')
+             AND status IN ('PENDING', 'FAILED')
+             AND json_extract(payload, '$.saleId') = ?
+           LIMIT 1`,
+          payload.saleId,
+        );
+        if (!pendingSaleOperations) {
+          await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", payload.saleId);
+        }
+      }
+      if (item.entity_type === 'SALE_REFUND') {
+        await db.runAsync("UPDATE sale_refunds SET sync_status = 'SYNCED' WHERE id = ?", item.id);
       }
     } else if (item.entity_type === 'CUSTOMER_PAYMENT') {
       await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
@@ -1197,6 +1458,13 @@ export async function recordOutboxFailure(
       `UPDATE purchase_payments
        SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
        WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'PURCHASE_PAYMENT')`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE sale_refunds
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'SALE_REFUND')`,
       permanent ? 1 : 0,
       itemId,
     );
@@ -1592,7 +1860,7 @@ export async function saveSales(sales: Sale[]): Promise<void> {
          WHERE status IN ('PENDING', 'FAILED')
            AND (
              (entity_type = 'SALE' AND id = ?)
-             OR (entity_type = 'SALE_CANCEL'
+             OR (entity_type IN ('SALE_CANCEL', 'SALE_REFUND')
                  AND json_extract(payload, '$.saleId') = ?)
            )
          LIMIT 1`,
