@@ -80,7 +80,7 @@ export default function CategoriesScreen() {
               {loadError ? <PrimaryButton title={t('common.retry')} onPress={() => void load()} variant="outline" /> : null}
             </View>
           }
-          ListEmptyComponent={!loadError ? <Text style={[styles.empty, styles.inner]}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text> : null}
+          ListEmptyComponent={!loadError ? <Text style={[styles.empty, styles.inner]}>{ar ? 'لا توجد فئات بعد' : 'Aucune catégorie pour le moment'}</Text> : undefined}
           renderItem={({ item }) => (
             <View style={[styles.row, styles.inner]}>
               <Text style={styles.itemName}>{item.name}</Text>
