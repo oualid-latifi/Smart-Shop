@@ -9,5 +9,5 @@ import java.util.UUID;
 
 public interface SaleRefundLineRepository extends JpaRepository<SaleRefundLine, UUID> {
     @Query("select coalesce(sum(rl.quantity), 0) from SaleRefundLine rl where rl.saleLine.id = :saleLineId")
-    Integer sumReturnedQuantityBySaleLineId(@Param("saleLineId") UUID saleLineId);
+    Long sumReturnedQuantityBySaleLineId(@Param("saleLineId") UUID saleLineId);
 }
