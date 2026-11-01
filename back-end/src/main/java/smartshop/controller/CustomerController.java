@@ -51,6 +51,12 @@ public class CustomerController {
         return customerService.update(id, request);
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) {
+        customerService.delete(id);
+    }
+
     @GetMapping("/{id}/sales")
     public List<SaleResponse> findSales(@PathVariable UUID id) {
         return customerService.findSales(id);
