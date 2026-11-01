@@ -46,6 +46,12 @@ public class SaleService {
 
     @Transactional
     public Sale create(SaleRequest request) {
+        // A mobile operation keeps the same UUID when retried after a network failure.
+        if (request.id() != null) {
+            Sale existing = saleRepository.findByIdForUpdate(request.id()).orElse(null);
+            if (existing != null) return existing;
+        }
+
         Customer customer = null;
         if (request.customerId() != null) {
             customer = customerRepository.findByIdForUpdate(request.customerId())
@@ -53,6 +59,7 @@ public class SaleService {
         }
 
         Sale sale = new Sale();
+        if (request.id() != null) sale.setId(request.id());
         sale.setCustomer(customer);
 
         BigDecimal subtotal = BigDecimal.ZERO;
