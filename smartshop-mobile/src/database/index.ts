@@ -4,7 +4,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 3;
+const CURRENT_SCHEMA_VERSION = 4;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -222,6 +222,23 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
               updated_at TEXT NOT NULL
             );
             PRAGMA user_version = 3;
+          `);
+        }
+
+        if (versionRow.user_version < 4) {
+          await db.execAsync(`
+            CREATE TABLE IF NOT EXISTS purchase_payments (
+              id TEXT PRIMARY KEY NOT NULL,
+              purchase_id TEXT NOT NULL,
+              amount REAL NOT NULL,
+              paid_at TEXT NOT NULL,
+              sync_status TEXT NOT NULL DEFAULT 'PENDING'
+            );
+            CREATE INDEX IF NOT EXISTS idx_purchase_payments_purchase
+              ON purchase_payments(purchase_id, paid_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_purchase_payments_sync
+              ON purchase_payments(sync_status);
+            PRAGMA user_version = 4;
           `);
         }
       });
@@ -1064,8 +1081,9 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
       await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE') {
       await db.runAsync("UPDATE purchases SET sync_status = 'SYNCED' WHERE id = ?", item.id);
-    }
-    else if (item.entity_type === 'EXPENSE') {
+    } else if (item.entity_type === 'PURCHASE_PAYMENT') {
+      await db.runAsync("UPDATE purchase_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    } else if (item.entity_type === 'EXPENSE') {
       const payload = JSON.parse(item.payload) as { id?: string };
       if (item.operation === 'DELETE' && payload.id) await db.runAsync('DELETE FROM expenses WHERE id = ?', payload.id);
       else await db.runAsync("UPDATE expenses SET sync_status = 'SYNCED' WHERE id = ?", item.id);
@@ -1094,6 +1112,13 @@ export async function recordOutboxFailure(
       `UPDATE customer_payments
        SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
        WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'CUSTOMER_PAYMENT')`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE purchase_payments
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'PURCHASE_PAYMENT')`,
       permanent ? 1 : 0,
       itemId,
     );
@@ -1293,6 +1318,64 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
   return purchaseId;
 }
 
+
+/**
+ * Enregistre un règlement fournisseur localement. Le même identifiant est envoyé
+ * au serveur afin qu'une réponse HTTP perdue ne provoque jamais un double paiement.
+ */
+export async function createLocalPurchasePayment(
+  purchaseId: string,
+  requestedAmount: number,
+): Promise<string> {
+  const db = await getDatabase();
+  const paymentId = createLocalUuid();
+  const paidAt = getLocalDateTimeString();
+  const amount = roundMoney(requestedAmount);
+
+  await withSerializedTransaction(db, async () => {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Montant de paiement invalide.');
+    }
+    const purchase = await db.getFirstAsync<{ amount_paid: number; remaining: number }>(
+      'SELECT amount_paid, remaining FROM purchases WHERE id = ?',
+      purchaseId,
+    );
+    if (!purchase) throw new Error('Achat introuvable dans la base locale.');
+    const remaining = roundMoney(purchase.remaining);
+    if (remaining <= 0) throw new Error('Cet achat est déjà réglé.');
+    if (amount > remaining) {
+      throw new Error(`Le paiement dépasse le reste à payer (${remaining.toFixed(2)} DH).`);
+    }
+
+    await db.runAsync(
+      'UPDATE purchases SET amount_paid = ?, remaining = ?, sync_status = ? WHERE id = ?',
+      roundMoney(purchase.amount_paid + amount),
+      roundMoney(remaining - amount),
+      'PENDING',
+      purchaseId,
+    );
+    await db.runAsync(
+      `INSERT INTO purchase_payments (id, purchase_id, amount, paid_at, sync_status)
+       VALUES (?, ?, ?, ?, 'PENDING')`,
+      paymentId,
+      purchaseId,
+      amount,
+      paidAt,
+    );
+    const payload = { id: paymentId, purchaseId, amount, paidAt };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'PURCHASE_PAYMENT', 'CREATE', ?, 'PENDING', 0, ?)`,
+      paymentId,
+      paymentId,
+      JSON.stringify(payload),
+      paidAt,
+    );
+  });
+
+  return paymentId;
+}
 
 export async function getCachedSales(): Promise<Sale[]> {
   const db = await getDatabase();
@@ -1494,10 +1577,14 @@ export async function savePurchases(purchases: Purchase[]): Promise<void> {
       // until its outbox operation has been acknowledged by the backend.
       const pendingPurchase = await db.getFirstAsync<{ id: string }>(
         `SELECT id FROM outbox
-         WHERE entity_type = 'PURCHASE'
-           AND status IN ('PENDING', 'FAILED')
-           AND id = ?
+         WHERE status IN ('PENDING', 'FAILED')
+           AND (
+             (entity_type = 'PURCHASE' AND id = ?)
+             OR (entity_type = 'PURCHASE_PAYMENT'
+                 AND json_extract(payload, '$.purchaseId') = ?)
+           )
          LIMIT 1`,
+        purchase.id,
         purchase.id,
       );
       if (pendingPurchase) continue;
