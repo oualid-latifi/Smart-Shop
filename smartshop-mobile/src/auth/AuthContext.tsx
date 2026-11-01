@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setUnauthorizedHandler } from '../api/client';
 import type { AuthResponse, MeResponse } from '../api/types';
-import { storage, TOKEN_KEY, REFRESH_TOKEN_KEY } from '../storage';
+import { storage, TOKEN_KEY, REFRESH_TOKEN_KEY, USER_CACHE_KEY } from '../storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 interface User { name: string; email: string; }
@@ -15,6 +15,28 @@ interface AuthContextValue {
 }
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+function parseCachedUser(raw: string | null): User | null {
+  if (!raw) return null;
+  try {
+    const value: unknown = JSON.parse(raw);
+    if (
+      typeof value === 'object' &&
+      value !== null &&
+      'name' in value &&
+      'email' in value &&
+      typeof value.name === 'string' &&
+      typeof value.email === 'string' &&
+      value.name.trim().length > 0 &&
+      value.email.trim().length > 0
+    ) {
+      return { name: value.name, email: value.email };
+    }
+  } catch {
+    // Cache invalide : on ne restaure pas une session à partir de données corrompues.
+  }
+  return null;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [user, setUser] = useState<User | null>(null);
@@ -26,18 +48,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await api<void>('/api/auth/logout', {
           method: 'POST', body: { refreshToken }, auth: false, logoutOn401: false,
         });
-      } catch { /* Déconnexion locale prioritaire si le serveur est inaccessible. */ }
+      } catch {
+        // Déconnexion locale prioritaire si le serveur est inaccessible.
+      }
     }
     await storage.remove(TOKEN_KEY);
     await storage.remove(REFRESH_TOKEN_KEY);
+    await storage.remove(USER_CACHE_KEY);
     setUser(null);
     setStatus('signedOut');
   }, []);
 
   const startSession = useCallback(async (response: AuthResponse) => {
+    const cachedUser = { name: response.name, email: response.email };
     await storage.set(TOKEN_KEY, response.token);
     await storage.set(REFRESH_TOKEN_KEY, response.refreshToken);
-    setUser({ name: response.name, email: response.email });
+    await storage.set(USER_CACHE_KEY, JSON.stringify(cachedUser));
+    setUser(cachedUser);
     setStatus('signedIn');
   }, []);
 
@@ -45,7 +72,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const updated = await api<MeResponse>('/api/auth/me', {
       method: 'PUT', body: { name, email },
     });
-    setUser({ name: updated.name, email: updated.email });
+    const cachedUser = { name: updated.name, email: updated.email };
+    await storage.set(USER_CACHE_KEY, JSON.stringify(cachedUser));
+    setUser(cachedUser);
   }, []);
 
   useEffect(() => {
@@ -55,26 +84,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+
     async function restore() {
-      const token = await storage.get(TOKEN_KEY);
+      const [token, rawCachedUser] = await Promise.all([
+        storage.get(TOKEN_KEY),
+        storage.get(USER_CACHE_KEY),
+      ]);
+      const cachedUser = parseCachedUser(rawCachedUser);
+
       if (!token) {
-        if (!cancelled) setStatus('signedOut');
+        if (rawCachedUser) await storage.remove(USER_CACHE_KEY);
+        if (!cancelled) {
+          setUser(null);
+          setStatus('signedOut');
+        }
         return;
       }
+
       try {
         const me = await api<MeResponse>('/api/auth/me');
+        const currentUser = { name: me.name, email: me.email };
+        await storage.set(USER_CACHE_KEY, JSON.stringify(currentUser));
         if (!cancelled) {
-          setUser({ name: me.name, email: me.email });
+          setUser(currentUser);
           setStatus('signedIn');
         }
       } catch (error) {
-        if (!(error instanceof ApiError && error.status === 0)) {
-          await storage.remove(TOKEN_KEY);
-          await storage.remove(REFRESH_TOKEN_KEY);
+        if (error instanceof ApiError && error.status === 0) {
+          // Réseau absent : restaurer uniquement un profil mis en cache après un login réussi.
+          if (!cancelled) {
+            setUser(cachedUser);
+            setStatus(cachedUser ? 'signedIn' : 'signedOut');
+          }
+          return;
         }
-        if (!cancelled) setStatus('signedOut');
+
+        await storage.remove(TOKEN_KEY);
+        await storage.remove(REFRESH_TOKEN_KEY);
+        await storage.remove(USER_CACHE_KEY);
+        if (!cancelled) {
+          setUser(null);
+          setStatus('signedOut');
+        }
       }
     }
+
     void restore();
     return () => { cancelled = true; };
   }, []);
