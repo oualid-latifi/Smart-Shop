@@ -43,7 +43,8 @@ public class Product {
     private BigDecimal averagePurchasePrice = BigDecimal.ZERO;
 
     // Prix de référence modifiable pour préremplir le prochain achat.
-    @Column(name = "purchase_price", nullable = false, precision = 12, scale = 2)
+    @Column(name = "purchase_price", nullable = false, precision = 12, scale = 2,
+            columnDefinition = "numeric(12,2) default 0")
     private BigDecimal purchasePrice = BigDecimal.ZERO;
 
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
