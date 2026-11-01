@@ -87,9 +87,16 @@ public class CustomerService {
      * Le montant est appliqué d'abord à sa plus ancienne dette.
      */
     @Transactional
-    public CustomerResponse pay(UUID customerId, BigDecimal amount) {
+    public CustomerResponse pay(UUID customerId, smartshop.dto.PaymentRequest request) {
         Customer customer = customerRepository.findByIdForUpdate(customerId)
                 .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
+
+        // A retry after a lost HTTP response must not apply the same payment twice.
+        UUID requestId = request.id() != null ? request.id() : UUID.randomUUID();
+        if (paymentRepository.existsByPaymentRequestId(requestId)) {
+            return CustomerResponse.from(customer, balanceOf(customerId));
+        }
+        BigDecimal amount = request.amount();
         List<Sale> unpaidSales = saleRepository.findUnpaidByCustomer(customerId);
 
         if (unpaidSales.isEmpty()) {
@@ -113,9 +120,11 @@ public class CustomerService {
             saleRepository.save(sale);
 
             CustomerPayment payment = new CustomerPayment();
+            payment.setPaymentRequestId(requestId);
             payment.setCustomer(customer);
             payment.setSale(sale);
             payment.setAmount(part);
+            if (request.paidAt() != null) payment.setPaidAt(request.paidAt());
             paymentRepository.save(payment);
 
             left = left.subtract(part);
