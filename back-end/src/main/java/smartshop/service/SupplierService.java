@@ -12,9 +12,12 @@ import java.util.UUID;
 public class SupplierService {
 
     private final SupplierRepository supplierRepository;
+    private final smartshop.repository.PurchaseRepository purchaseRepository;
 
-    public SupplierService(SupplierRepository supplierRepository) {
+    public SupplierService(SupplierRepository supplierRepository,
+                           smartshop.repository.PurchaseRepository purchaseRepository) {
         this.supplierRepository = supplierRepository;
+        this.purchaseRepository = purchaseRepository;
     }
 
     @Transactional
@@ -33,6 +36,17 @@ public class SupplierService {
         supplier.setName(name);
         supplier.setPhone(phone);
         return supplierRepository.save(supplier);
+    }
+
+    @Transactional
+    public void delete(UUID id) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Fournisseur introuvable"));
+        if (purchaseRepository.existsBySupplier_Id(id)) {
+            throw new IllegalArgumentException(
+                    "Impossible de supprimer ce fournisseur : il possède un historique d'achats");
+        }
+        supplierRepository.delete(supplier);
     }
 
     @Transactional(readOnly = true)
