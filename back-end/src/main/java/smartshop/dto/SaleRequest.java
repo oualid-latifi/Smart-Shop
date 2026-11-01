@@ -21,4 +21,9 @@ public record SaleRequest(
                        List<SaleLineRequest> lines) {
         this(customerId, discount, amountPaid, lines, null, null);
     }
+
+    public SaleRequest(UUID customerId, BigDecimal discount, BigDecimal amountPaid,
+                       List<SaleLineRequest> lines, UUID id) {
+        this(customerId, discount, amountPaid, lines, id, null);
+    }
 }
