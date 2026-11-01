@@ -67,7 +67,8 @@ export default function SaleScreen() {
 
     if (productResult.status === 'fulfilled') {
       await saveProducts(productResult.value);
-      const available = productResult.value.filter((item) => item.active);
+      const refreshedLocalProducts = await getCachedProducts();
+      const available = refreshedLocalProducts.filter((item) => item.active);
       setProducts(shuffle(available));
     } else if (cachedProducts.length === 0) {
       setCatalogError(errorMessage(productResult.reason, t));
