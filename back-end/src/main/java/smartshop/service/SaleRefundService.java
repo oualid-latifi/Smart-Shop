@@ -73,7 +73,7 @@ public class SaleRefundService {
 
             Integer returnedBefore = refundLineRepository
                     .sumReturnedQuantityBySaleLineId(saleLine.getId());
-            int remainingQuantity = saleLine.getQuantity() - (returnedBefore == null ? 0 : returnedBefore);
+            long remainingQuantity = saleLine.getQuantity() - (returnedBefore == null ? 0L : returnedBefore);
             if (requestedLine.quantity() > remainingQuantity) {
                 throw new IllegalArgumentException("Quantité retournée supérieure à la quantité restante pour "
                         + saleLine.getProduct().getName() + " (restant : " + remainingQuantity + ")");
