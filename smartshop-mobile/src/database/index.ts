@@ -504,6 +504,87 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
   });
 }
 
+export interface LocalCustomerInput {
+  id?: string;
+  name: string;
+  phone: string | null;
+  creditLimit: number | null;
+}
+
+export async function saveLocalCustomer(input: LocalCustomerInput): Promise<string> {
+  const db = await getDatabase();
+  const id = input.id ?? createLocalUuid();
+  const operation = input.id ? 'UPDATE' : 'CREATE';
+  const createdAt = getLocalDateTimeString();
+  await withSerializedTransaction(db, async () => {
+    const existing = input.id
+      ? await db.getFirstAsync<{ id: string }>('SELECT id FROM customers WHERE id = ?', id)
+      : null;
+    if (input.id && !existing) throw new Error('Client introuvable dans la base locale.');
+
+    await db.runAsync(
+      `INSERT INTO customers (id, name, phone, credit_limit, balance, updated_at)
+       VALUES (?, ?, ?, ?, 0, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         phone = excluded.phone,
+         credit_limit = excluded.credit_limit,
+         updated_at = excluded.updated_at`,
+      id, input.name, input.phone, input.creditLimit, createdAt,
+    );
+    const payload = {
+      id,
+      name: input.name,
+      phone: input.phone,
+      creditLimit: input.creditLimit,
+    };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'CUSTOMER', ?, ?, 'PENDING', 0, ?)`,
+      createLocalUuid(), createLocalUuid(), operation, JSON.stringify(payload), createdAt,
+    );
+  });
+  return id;
+}
+
+export interface LocalSupplierInput {
+  id?: string;
+  name: string;
+  phone: string | null;
+}
+
+export async function saveLocalSupplier(input: LocalSupplierInput): Promise<string> {
+  const db = await getDatabase();
+  const id = input.id ?? createLocalUuid();
+  const operation = input.id ? 'UPDATE' : 'CREATE';
+  const createdAt = getLocalDateTimeString();
+  await withSerializedTransaction(db, async () => {
+    const existing = input.id
+      ? await db.getFirstAsync<{ id: string }>('SELECT id FROM suppliers WHERE id = ?', id)
+      : null;
+    if (input.id && !existing) throw new Error('Fournisseur introuvable dans la base locale.');
+
+    await db.runAsync(
+      `INSERT INTO suppliers (id, name, phone, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         name = excluded.name,
+         phone = excluded.phone,
+         updated_at = excluded.updated_at`,
+      id, input.name, input.phone, createdAt,
+    );
+    const payload = { id, name: input.name, phone: input.phone };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'SUPPLIER', ?, ?, 'PENDING', 0, ?)`,
+      createLocalUuid(), createLocalUuid(), operation, JSON.stringify(payload), createdAt,
+    );
+  });
+  return id;
+}
+
 export async function getCachedCustomers(): Promise<Customer[]> {
   const db = await getDatabase();
   // Avoid reading a half-written operation from an active async transaction.
@@ -770,7 +851,13 @@ export async function saveSuppliers(suppliers: Supplier[]): Promise<void> {
          ON CONFLICT(id) DO UPDATE SET
            name = excluded.name,
            phone = excluded.phone,
-           updated_at = excluded.updated_at`,
+           updated_at = excluded.updated_at
+         WHERE NOT EXISTS (
+           SELECT 1 FROM outbox queued
+           WHERE queued.entity_type = 'SUPPLIER'
+             AND queued.status IN ('PENDING', 'FAILED')
+             AND json_extract(queued.payload, '$.id') = excluded.id
+         )`,
         supplier.id,
         supplier.name,
         supplier.phone,
