@@ -138,6 +138,18 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       ON stock_movements(product_id, created_at);
   `);
 
+  // Migration des bases SQLite déjà créées avant l'ajout du prix de référence.
+  const productColumns = await database.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
+  const hasPurchasePrice = productColumns.some((column) => column.name === 'purchase_price');
+  if (!hasPurchasePrice) {
+    await database.execAsync(
+      'ALTER TABLE products ADD COLUMN purchase_price REAL NOT NULL DEFAULT 0',
+    );
+    await database.execAsync(
+      'UPDATE products SET purchase_price = average_purchase_price',
+    );
+  }
+
   return database;
 }
 
@@ -166,7 +178,7 @@ export async function testProductCRUD(): Promise<string> {
   await db.runAsync(
     `INSERT OR REPLACE INTO products (
       id, reference, name, brand,
-      sale_price, average_purchase_price,
+      sale_price, average_purchase_price, purchase_price,
       stock_quantity, alert_threshold, active
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     'TEST-001',
@@ -174,6 +186,7 @@ export async function testProductCRUD(): Promise<string> {
     'Produit de test SQLite',
     'Samsung',
     1500,
+    1200,
     1200,
     5,
     2,
@@ -215,9 +228,9 @@ export async function saveProducts(products: Product[]): Promise<void> {
         `INSERT INTO products (
           id, reference, name, category_id, category_name,
           brand, model, color, capacity, image_url,
-          average_purchase_price, sale_price,
+          average_purchase_price, purchase_price, sale_price,
           stock_quantity, alert_threshold, active, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           reference = excluded.reference,
           name = excluded.name,
@@ -229,6 +242,7 @@ export async function saveProducts(products: Product[]): Promise<void> {
           capacity = excluded.capacity,
           image_url = excluded.image_url,
           average_purchase_price = excluded.average_purchase_price,
+          purchase_price = excluded.purchase_price,
           sale_price = excluded.sale_price,
           stock_quantity = excluded.stock_quantity,
           alert_threshold = excluded.alert_threshold,
@@ -245,6 +259,7 @@ export async function saveProducts(products: Product[]): Promise<void> {
         product.capacity,
         product.imageUrl,
         product.averagePurchasePrice,
+        product.purchasePrice,
         product.salePrice,
         product.stockQuantity,
         product.alertThreshold,
@@ -275,6 +290,7 @@ export async function getCachedProducts(): Promise<Product[]> {
     capacity: row.capacity,
     imageUrl: row.image_url,
     averagePurchasePrice: row.average_purchase_price,
+    purchasePrice: row.purchase_price,
     salePrice: row.sale_price,
     stockQuantity: row.stock_quantity,
     alertThreshold: row.alert_threshold,
