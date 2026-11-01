@@ -180,7 +180,7 @@ export async function testProductCRUD(): Promise<string> {
       id, reference, name, brand,
       sale_price, average_purchase_price, purchase_price,
       stock_quantity, alert_threshold, active
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     'TEST-001',
     'TEST-REF-001',
     'Produit de test SQLite',
