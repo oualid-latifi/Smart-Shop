@@ -2,13 +2,42 @@ import type { Product } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
+let databasePromise: Promise<SQLiteDatabase> | null = null;
+
+const CURRENT_SCHEMA_VERSION = 1;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
 
-  database = await openDatabaseAsync('smartshop.db');
+  // Share one initialization promise so simultaneous screens never open
+  // and migrate the same SQLite database more than once.
+  if (!databasePromise) {
+    databasePromise = (async () => {
+      const db = await openDatabaseAsync('smartshop.db');
 
-  await database.execAsync(`
+      // Connection-level pragmas must be configured before the migration transaction.
+      await db.execAsync(`
+        PRAGMA journal_mode = WAL;
+        PRAGMA foreign_keys = ON;
+      `);
+
+      const versionRow = await db.getFirstAsync<{ user_version: number }>(
+        'PRAGMA user_version',
+      );
+      if (!versionRow) {
+        throw new Error('Impossible de lire la version du schéma SQLite.');
+      }
+      if (versionRow.user_version > CURRENT_SCHEMA_VERSION) {
+        throw new Error(
+          `La base SQLite (version ${versionRow.user_version}) est plus récente que cette version de SmartShop.`,
+        );
+      }
+
+      await db.withTransactionAsync(async () => {
+        if (versionRow.user_version < 1) {
+          // Initial schema. CREATE IF NOT EXISTS preserves existing local data.
+          await db.execAsync(`
+
     PRAGMA journal_mode = WAL;
     PRAGMA foreign_keys = ON;
 
@@ -137,21 +166,39 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
 
     CREATE INDEX IF NOT EXISTS idx_stock_product
       ON stock_movements(product_id, created_at);
-  `);
+  
+          `);
 
-  // Migration des bases SQLite déjà créées avant l'ajout du prix de référence.
-  const productColumns = await database.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
-  const hasPurchasePrice = productColumns.some((column) => column.name === 'purchase_price');
-  if (!hasPurchasePrice) {
-    await database.execAsync(
-      'ALTER TABLE products ADD COLUMN purchase_price REAL NOT NULL DEFAULT 0',
-    );
-    await database.execAsync(
-      'UPDATE products SET purchase_price = average_purchase_price',
-    );
+          // Upgrade databases created by older app versions without deleting data.
+          const productColumns = await db.getAllAsync<{ name: string }>(
+            'PRAGMA table_info(products)',
+          );
+          const hasPurchasePrice = productColumns.some(
+            (column) => column.name === 'purchase_price',
+          );
+          if (!hasPurchasePrice) {
+            await db.execAsync(
+              'ALTER TABLE products ADD COLUMN purchase_price REAL NOT NULL DEFAULT 0',
+            );
+            await db.execAsync(
+              'UPDATE products SET purchase_price = average_purchase_price',
+            );
+          }
+
+          await db.execAsync('PRAGMA user_version = 1');
+        }
+      });
+
+      database = db;
+      return db;
+    })().catch((error) => {
+      // Allow a later retry if opening or migrating the database failed.
+      databasePromise = null;
+      throw error;
+    });
   }
 
-  return database;
+  return databasePromise;
 }
 
 export async function testDatabase(): Promise<string> {
