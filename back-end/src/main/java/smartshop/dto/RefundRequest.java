@@ -1,11 +1,11 @@
 package smartshop.dto;
 
-import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
+import jakarta.validation.constraints.NotEmpty;
+import java.util.List;
 
 public record RefundRequest(
-        @NotNull @DecimalMin("0.01") BigDecimal amount,
+        @NotEmpty List<@Valid RefundLineRequest> lines,
         @NotBlank String reason
 ) {}
