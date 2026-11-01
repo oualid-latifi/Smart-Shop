@@ -40,6 +40,7 @@ public class Expense {
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
     public ExpenseCategory getCategory() { return category; }
     public void setCategory(ExpenseCategory category) { this.category = category; }
