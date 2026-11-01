@@ -122,7 +122,14 @@
     "refundButton": "تأكيد الاسترجاع",
     "refundInvalidAmount": "أدخل مبلغا صحيحا لا يتجاوز {{amount}}",
     "refundInvalidReason": "اكتب سبب الاسترجاع",
-    "refundConfirm": "تأكيد استرجاع {{amount}}؟"
+    "refundConfirm": "تأكيد استرجاع {{amount}}؟",
+    "refundSelectProduct": "حدد المنتجات والكميات المراد إرجاعها",
+    "refundQuantity": "الكمية المراد إرجاعها",
+    "refundAvailability": "المباع: {{sold}} · المسترجع: {{returned}} · المتبقي: {{remaining}}",
+    "refundInvalidQuantity": "حدد كمية صحيحة لا تتجاوز الكمية المتبقية",
+    "refundConfirmItems": "تأكيد إرجاع {{count}} قطعة؟",
+    "refundCreditApplied": "المخصوم من الكريدي",
+    "refundCashRefunded": "المبلغ المدفوع نقداً"
   },
   "customers": {
     "search": "ابحث عن زبون أو رقم هاتف",
@@ -252,6 +259,7 @@
       "PURCHASE": "شراء",
       "SALE": "بيع",
       "SALE_CANCELLATION": "إلغاء بيع",
+      "SALE_RETURN": "إرجاع منتج",
       "ADJUSTMENT": "تعديل"
     }
   },
