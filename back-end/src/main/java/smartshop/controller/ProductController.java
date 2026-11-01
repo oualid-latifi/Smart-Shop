@@ -30,6 +30,7 @@ public class ProductController {
         product.setName(request.name());
         product.setSalePrice(request.salePrice());
         if (request.purchasePrice() != null) {
+            product.setPurchasePrice(request.purchasePrice());
             product.setAveragePurchasePrice(request.purchasePrice());
         }
         if (request.initialStock() != null) {
@@ -79,6 +80,7 @@ public class ProductController {
         data.setReference(request.reference());
         data.setName(request.name());
         data.setSalePrice(request.salePrice());
+        data.setPurchasePrice(request.purchasePrice());
         data.setAlertThreshold(request.alertThreshold());
         data.setBrand(request.brand());
         data.setModel(request.model());
