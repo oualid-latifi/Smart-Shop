@@ -585,6 +585,54 @@ export async function saveLocalSupplier(input: LocalSupplierInput): Promise<stri
   return id;
 }
 
+export async function deleteLocalCustomer(customerId: string): Promise<void> {
+  const db = await getDatabase();
+  const createdAt = getLocalDateTimeString();
+  await withSerializedTransaction(db, async () => {
+    const customer = await db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM customers WHERE id = ?', customerId,
+    );
+    if (!customer) throw new Error('Client introuvable dans la base locale.');
+    const history = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM sales WHERE customer_id = ?', customerId,
+    );
+    if ((history?.count ?? 0) > 0) {
+      throw new Error('Suppression impossible : ce client possède un historique de ventes.');
+    }
+    await db.runAsync('DELETE FROM customers WHERE id = ?', customerId);
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'CUSTOMER', 'DELETE', ?, 'PENDING', 0, ?)`,
+      createLocalUuid(), createLocalUuid(), JSON.stringify({ id: customerId }), createdAt,
+    );
+  });
+}
+
+export async function deleteLocalSupplier(supplierId: string): Promise<void> {
+  const db = await getDatabase();
+  const createdAt = getLocalDateTimeString();
+  await withSerializedTransaction(db, async () => {
+    const supplier = await db.getFirstAsync<{ id: string }>(
+      'SELECT id FROM suppliers WHERE id = ?', supplierId,
+    );
+    if (!supplier) throw new Error('Fournisseur introuvable dans la base locale.');
+    const history = await db.getFirstAsync<{ count: number }>(
+      'SELECT COUNT(*) AS count FROM purchases WHERE supplier_id = ?', supplierId,
+    );
+    if ((history?.count ?? 0) > 0) {
+      throw new Error("Suppression impossible : ce fournisseur possède un historique d'achats.");
+    }
+    await db.runAsync('DELETE FROM suppliers WHERE id = ?', supplierId);
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'SUPPLIER', 'DELETE', ?, 'PENDING', 0, ?)`,
+      createLocalUuid(), createLocalUuid(), JSON.stringify({ id: supplierId }), createdAt,
+    );
+  });
+}
+
 export async function getCachedCustomers(): Promise<Customer[]> {
   const db = await getDatabase();
   // Avoid reading a half-written operation from an active async transaction.
