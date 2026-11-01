@@ -35,7 +35,7 @@ public class CustomerPayment {
 
     @PrePersist
     void onCreate() {
-        this.paidAt = LocalDateTime.now();
+        if (this.paidAt == null) this.paidAt = LocalDateTime.now();
     }
 
     public UUID getId() { return id; }
