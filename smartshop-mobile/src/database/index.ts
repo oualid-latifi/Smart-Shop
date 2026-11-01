@@ -271,6 +271,18 @@ export async function saveProducts(products: Product[]): Promise<void> {
   const db = await getDatabase();
 
   await db.withTransactionAsync(async () => {
+    // Keep stock movements from unsynced local operations on top of the server snapshot.
+    const pendingStock = await db.getAllAsync<{ product_id: string; quantity_delta: number }>(
+      `SELECT movement.product_id, SUM(movement.quantity) AS quantity_delta
+       FROM stock_movements movement
+       INNER JOIN outbox queued ON queued.id = movement.reference_id
+       WHERE queued.status IN ('PENDING', 'FAILED')
+       GROUP BY movement.product_id`,
+    );
+    const pendingStockByProduct = new Map(
+      pendingStock.map((row) => [row.product_id, row.quantity_delta]),
+    );
+
     for (const product of products) {
       await db.runAsync(
         `INSERT INTO products (
@@ -309,7 +321,7 @@ export async function saveProducts(products: Product[]): Promise<void> {
         product.averagePurchasePrice,
         product.purchasePrice,
         product.salePrice,
-        product.stockQuantity,
+        product.stockQuantity + (pendingStockByProduct.get(product.id) ?? 0),
         product.alertThreshold,
         product.active ? 1 : 0,
         new Date().toISOString(),
