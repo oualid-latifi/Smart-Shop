@@ -987,6 +987,79 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
   return saleId;
 }
 
+/**
+ * Annule une vente dans SQLite et met en file la commande serveur.
+ * Le mouvement de stock référence l'ID de commande pour être rejoué une seule fois
+ * lors de la reconstruction du stock depuis le serveur.
+ */
+export async function cancelLocalSale(saleId: string, reason: string): Promise<string> {
+  const db = await getDatabase();
+  const cancellationId = createLocalUuid();
+  const createdAt = getLocalDateTimeString();
+  const normalizedReason = reason.trim();
+  if (!normalizedReason) throw new Error('Le motif d’annulation est obligatoire.');
+
+  await withSerializedTransaction(db, async () => {
+    const sale = await db.getFirstAsync<{
+      id: string; customer_id: string | null; remaining: number; status: string;
+    }>('SELECT id, customer_id, remaining, status FROM sales WHERE id = ?', saleId);
+    if (!sale) throw new Error('Vente introuvable dans la base locale.');
+    if (sale.status === 'CANCELLED') throw new Error('Cette vente est déjà annulée.');
+
+    const lines = await db.getAllAsync<{ product_id: string; quantity: number }>(
+      'SELECT product_id, quantity FROM sale_lines WHERE sale_id = ?',
+      saleId,
+    );
+    if (lines.length === 0) throw new Error('Les lignes de cette vente sont introuvables.');
+
+    for (const line of lines) {
+      await db.runAsync(
+        'UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?',
+        line.quantity,
+        createdAt,
+        line.product_id,
+      );
+      await db.runAsync(
+        `INSERT INTO stock_movements (id, product_id, type, quantity, reference_id, created_at, note)
+         VALUES (?, ?, 'SALE_CANCELLATION', ?, ?, ?, ?)`,
+        createLocalUuid(),
+        line.product_id,
+        line.quantity,
+        cancellationId,
+        createdAt,
+        normalizedReason,
+      );
+    }
+
+    if (sale.customer_id && sale.remaining > 0) {
+      await db.runAsync(
+        'UPDATE customers SET balance = MAX(0, balance - ?), updated_at = ? WHERE id = ?',
+        sale.remaining,
+        createdAt,
+        sale.customer_id,
+      );
+    }
+
+    await db.runAsync(
+      "UPDATE sales SET status = 'CANCELLED', cancellation_reason = ?, sync_status = 'PENDING' WHERE id = ?",
+      normalizedReason,
+      saleId,
+    );
+    const payload = { saleId, reason: normalizedReason };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'SALE_CANCEL', 'CREATE', ?, 'PENDING', 0, ?)`,
+      cancellationId,
+      cancellationId,
+      JSON.stringify(payload),
+      createdAt,
+    );
+  });
+
+  return cancellationId;
+}
+
 export async function saveLocalExpense(input: {
   category: Expense['category'];
   amount: number;
@@ -1077,6 +1150,11 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
     );
     if (item.entity_type === 'SALE') {
       await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    } else if (item.entity_type === 'SALE_CANCEL') {
+      const payload = JSON.parse(item.payload) as { saleId?: string };
+      if (payload.saleId) {
+        await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", payload.saleId);
+      }
     } else if (item.entity_type === 'CUSTOMER_PAYMENT') {
       await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE') {
@@ -1511,10 +1589,14 @@ export async function saveSales(sales: Sale[]): Promise<void> {
       // the backend acknowledges the exact operation.
       const pendingSale = await db.getFirstAsync<{ id: string }>(
         `SELECT id FROM outbox
-         WHERE entity_type = 'SALE'
-           AND status IN ('PENDING', 'FAILED')
-           AND id = ?
+         WHERE status IN ('PENDING', 'FAILED')
+           AND (
+             (entity_type = 'SALE' AND id = ?)
+             OR (entity_type = 'SALE_CANCEL'
+                 AND json_extract(payload, '$.saleId') = ?)
+           )
          LIMIT 1`,
+        sale.id,
         sale.id,
       );
       if (pendingSale) continue;
