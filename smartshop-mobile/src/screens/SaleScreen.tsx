@@ -13,6 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { createLocalSale, getCachedCustomers, getCachedProducts, saveCustomers, saveProducts } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Customer, Product } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -46,22 +48,35 @@ export default function SaleScreen() {
 
   const load = useCallback(async () => {
     setCatalogError(null);
+
+    // SQLite is the first source: the checkout catalogue is usable without a server.
+    const [cachedProducts, cachedCustomers] = await Promise.all([
+      getCachedProducts().catch(() => []),
+      getCachedCustomers().catch(() => []),
+    ]);
+    if (cachedProducts.length > 0) {
+      setProducts(shuffle(cachedProducts.filter((item) => item.active)));
+    }
+    if (cachedCustomers.length > 0) setCustomers(cachedCustomers);
+    setLoading(false);
+
     const [productResult, customerResult] = await Promise.allSettled([
       api<Product[]>('/api/products'),
       api<Customer[]>('/api/customers'),
     ]);
 
     if (productResult.status === 'fulfilled') {
+      await saveProducts(productResult.value);
       const available = productResult.value.filter((item) => item.active);
-      // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
       setProducts(shuffle(available));
-    } else {
+    } else if (cachedProducts.length === 0) {
       setCatalogError(errorMessage(productResult.reason, t));
     }
 
     if (customerResult.status === 'fulfilled') {
+      await saveCustomers(customerResult.value);
       setCustomers(customerResult.value);
-    } else {
+    } else if (cachedCustomers.length === 0) {
       // La vente comptant reste possible sans charger la liste des clients.
       setError(errorMessage(customerResult.reason, t));
     }
@@ -141,25 +156,46 @@ export default function SaleScreen() {
     setSaving(true);
     setError(null);
     try {
-      await api('/api/sales', {
-        method: 'POST',
-        body: {
-          customerId,
-          discount: discountValue,
-          amountPaid: paidValue,
-          lines: cart.map((line) => ({
-            productId: line.product.id,
-            quantity: line.quantity,
-          })),
-        },
+      // Commit locally first. A network outage must never discard a completed sale.
+      await createLocalSale({
+        customerId,
+        discount: discountValue,
+        amountPaid: paidValue,
+        lines: cart.map((line) => ({
+          productId: line.product.id,
+          quantity: line.quantity,
+          unitPrice: line.product.salePrice,
+        })),
       });
+
+      const soldQuantities = new Map<string, number>();
+      for (const line of cart) {
+        soldQuantities.set(
+          line.product.id,
+          (soldQuantities.get(line.product.id) ?? 0) + line.quantity,
+        );
+      }
+      setProducts((current) => current.map((product) => {
+        const stockQuantity = product.stockQuantity - (soldQuantities.get(product.id) ?? 0);
+        return {
+          ...product,
+          stockQuantity,
+          lowStock: stockQuantity <= product.alertThreshold,
+        };
+      }));
       setCart([]);
       setDiscount('');
       setPaid('');
       setCustomerId(null);
       setSearch('');
       setSuccess(true);
-      await load();
+
+      // Retry in the background; the outbox survives app restarts.
+      void syncPendingOperations().then((summary) => {
+        if (summary.pending === 0 && summary.failed === 0 && summary.synced > 0) {
+          void load();
+        }
+      }).catch(() => undefined);
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {
