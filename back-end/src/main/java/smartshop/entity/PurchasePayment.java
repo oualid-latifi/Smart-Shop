@@ -28,10 +28,12 @@ public class PurchasePayment {
 
     @PrePersist
     void onCreate() {
-        this.paidAt = LocalDateTime.now();
+        if (this.paidAt == null) this.paidAt = LocalDateTime.now();
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
 
     public Purchase getPurchase() { return purchase; }
     public void setPurchase(Purchase purchase) { this.purchase = purchase; }
