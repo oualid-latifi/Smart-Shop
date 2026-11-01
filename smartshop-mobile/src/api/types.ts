@@ -169,3 +169,8 @@ export interface StockMovement {
   createdAt: string;
   note: string | null;
 }
+
+export interface PaymentHistory {
+  customerPayments: Array<{ id: string; customerId: string; amount: number; paidAt: string }>;
+  purchasePayments: Array<{ id: string; purchaseId: string; amount: number; paidAt: string }>;
+}
