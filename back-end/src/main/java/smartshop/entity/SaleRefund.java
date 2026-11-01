@@ -3,6 +3,8 @@ package smartshop.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -25,9 +27,19 @@ public class SaleRefund {
     @Column(name = "refunded_at", nullable = false)
     private LocalDateTime refundedAt;
 
+    @OneToMany(mappedBy = "refund", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<SaleRefundLine> lines = new ArrayList<>();
+
     public SaleRefund() {}
+
     @PrePersist
     void onCreate() { refundedAt = LocalDateTime.now(); }
+
+    public void addLine(SaleRefundLine line) {
+        line.setRefund(this);
+        lines.add(line);
+    }
+
     public UUID getId() { return id; }
     public Sale getSale() { return sale; }
     public void setSale(Sale sale) { this.sale = sale; }
@@ -36,4 +48,5 @@ public class SaleRefund {
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
     public LocalDateTime getRefundedAt() { return refundedAt; }
+    public List<SaleRefundLine> getLines() { return lines; }
 }
