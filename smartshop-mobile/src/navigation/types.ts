@@ -14,7 +14,7 @@ export type ProductsStackParamList = {
 
 export type CustomersStackParamList = {
   CustomersList: undefined;
-  CustomerForm: undefined;
+  CustomerForm: { customer?: Customer } | undefined;
   CustomerDetail: { customer: Customer };
 };
 
