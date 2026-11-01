@@ -1,5 +1,6 @@
 package smartshop.repository;
 
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -13,6 +14,7 @@ public interface SaleRefundRepository extends JpaRepository<SaleRefund, UUID> {
     @Query("select sum(r.amount) from SaleRefund r where r.sale.id = :saleId")
     BigDecimal sumBySaleId(@Param("saleId") UUID saleId);
 
+    @EntityGraph(attributePaths = {"lines", "lines.saleLine", "lines.saleLine.product"})
     List<SaleRefund> findAllBySaleIdOrderByRefundedAtDesc(UUID saleId);
 
     @Query("select sum(r.amount) from SaleRefund r where r.refundedAt >= :start and r.refundedAt < :end")
