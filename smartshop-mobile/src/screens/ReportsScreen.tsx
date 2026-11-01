@@ -15,8 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSales, saveSuppliers } from '../database';
-import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, Supplier } from '../api/types';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
+import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
 import type { ReportsStackParamList } from '../navigation/types';
@@ -55,8 +55,9 @@ export default function ReportsScreen({ navigation }: Props) {
         api<Expense[]>('/api/expenses'), api<Product[]>('/api/products'),
         api<Customer[]>('/api/customers'), api<Supplier[]>('/api/suppliers'),
         api<PaymentHistory>('/api/reports/payment-history'),
-      ]).then(async ([sales,purchases,expenses,products,customers,suppliers,payments]) => {
-        await Promise.all([saveSales(sales),savePurchases(purchases),saveExpenses(expenses),saveProducts(products),saveCustomers(customers),saveSuppliers(suppliers),cachePaymentHistory(payments)]);
+        api<SaleRefund[]>('/api/reports/refund-history'),
+      ]).then(async ([sales,purchases,expenses,products,customers,suppliers,payments,refunds]) => {
+        await Promise.all([saveSales(sales),savePurchases(purchases),saveExpenses(expenses),saveProducts(products),saveCustomers(customers),saveSuppliers(suppliers),cachePaymentHistory(payments),saveSaleRefunds(refunds)]);
         await markReportDatasetSnapshotComplete();
       }).catch(() => undefined);
     } catch (e) {
