@@ -60,7 +60,7 @@ export default function SaleScreen() {
     }
 
     if (customerResult.status === 'fulfilled') {
-      setCustomers(customerResult.value.filter((customer) => customer.active));
+      setCustomers(customerResult.value);
     } else {
       // La vente comptant reste possible sans charger la liste des clients.
       setError(errorMessage(customerResult.reason, t));
