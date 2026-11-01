@@ -4,7 +4,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 6;
+const CURRENT_SCHEMA_VERSION = 7;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -277,6 +277,13 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
             await db.execAsync('ALTER TABLE customer_payments ADD COLUMN sale_id TEXT');
           }
           await db.execAsync('PRAGMA user_version = 6');
+        }
+
+        if (versionRow.user_version < 7) {
+          // Older cached payment rows did not retain their sale reference. Require one
+          // complete online refresh before trusting locally recalculated report totals.
+          await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
+          await db.execAsync('PRAGMA user_version = 7');
         }
       });
 
