@@ -122,7 +122,14 @@
     "refundButton": "Confirmer le remboursement",
     "refundInvalidAmount": "Saisis un montant valide ne dépassant pas {{amount}}",
     "refundInvalidReason": "Saisis le motif du remboursement",
-    "refundConfirm": "Confirmer le remboursement de {{amount}} ?"
+    "refundConfirm": "Confirmer le remboursement de {{amount}} ?",
+    "refundSelectProduct": "Sélectionne les produits et les quantités à retourner",
+    "refundQuantity": "Quantité à retourner",
+    "refundAvailability": "Vendu : {{sold}} · Retourné : {{returned}} · Restant : {{remaining}}",
+    "refundInvalidQuantity": "Saisis une quantité valide qui ne dépasse pas la quantité restante",
+    "refundConfirmItems": "Confirmer le retour de {{count}} article(s) ?",
+    "refundCreditApplied": "Déduit du kridi",
+    "refundCashRefunded": "Montant rendu en espèces"
   },
   "customers": {
     "search": "Rechercher un client ou un téléphone",
@@ -252,6 +259,7 @@
       "PURCHASE": "Achat",
       "SALE": "Vente",
       "SALE_CANCELLATION": "Annulation de vente",
+      "SALE_RETURN": "Retour de produit",
       "ADJUSTMENT": "Ajustement"
     }
   },
