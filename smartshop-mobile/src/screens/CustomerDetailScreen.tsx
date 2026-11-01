@@ -6,7 +6,14 @@ import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { deleteLocalCustomer } from '../database';
+import {
+  createLocalCustomerPayment,
+  deleteLocalCustomer,
+  getCachedCustomerPayments,
+  getCachedCustomers,
+  getCachedSales,
+  type LocalCustomerPayment,
+} from '../database';
 import { syncPendingOperations } from '../sync';
 import type { Customer, Sale } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -26,6 +33,7 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
   const [sales, setSales] = useState<Sale[]>([]);
+  const [payments, setPayments] = useState<LocalCustomerPayment[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
   const inDebt = customer.balance > 0;
@@ -33,14 +41,33 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
   const loadHistory = useCallback(async () => {
     setHistoryLoading(true);
     try {
-      const [updatedCustomer, data] = await Promise.all([
-        api<Customer>(`/api/customers/${customer.id}`),
-        api<Sale[]>(`/api/customers/${customer.id}/sales`),
+      const [cachedCustomers, cachedSales, cachedPayments] = await Promise.all([
+        getCachedCustomers(),
+        getCachedSales(),
+        getCachedCustomerPayments(customer.id),
       ]);
-      setCustomer(updatedCustomer);
-      setSales(data);
+      const localCustomer = cachedCustomers.find((item) => item.id === customer.id);
+      if (localCustomer) setCustomer(localCustomer);
+      setSales(cachedSales.filter((sale) => sale.customerId === customer.id));
+      setPayments(cachedPayments);
+
+      try {
+        const [updatedCustomer, remoteSales] = await Promise.all([
+          api<Customer>(`/api/customers/${customer.id}`),
+          api<Sale[]>(`/api/customers/${customer.id}/sales`),
+        ]);
+        // Do not replace the locally reduced balance with an older server
+        // snapshot while a payment is still waiting to sync.
+        const hasUnsentPayment = cachedPayments.some(
+          (payment) => payment.syncStatus === 'PENDING' || payment.syncStatus === 'FAILED',
+        );
+        if (!hasUnsentPayment) setCustomer(updatedCustomer);
+        setSales(remoteSales);
+      } catch {
+        // The local cache remains usable without the PC connection.
+      }
     } catch {
-      setSales([]);
+      // Keep the customer passed by navigation if local storage is unavailable.
     } finally {
       setHistoryLoading(false);
     }
@@ -83,14 +110,12 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
     setError(null);
     setSuccess(false);
     try {
-      const updated = await api<Customer>(`/api/customers/${customer.id}/payments`, {
-        method: 'POST',
-        body: { amount: value },
-      });
-      setCustomer(updated);
+      await createLocalCustomerPayment(customer.id, value);
       setAmount('');
       setSuccess(true);
       await loadHistory();
+      // The payment is already saved locally; syncing can happen now or later.
+      void syncPendingOperations();
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {
@@ -154,6 +179,26 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
       {success ? <Text style={styles.success}>{t('customers.paySuccess')}</Text> : null}
 
       <View style={styles.historyBlock}>
+        <View style={styles.historyHeading}>
+          <Ionicons name="wallet-outline" size={19} color={colors.primary} />
+          <Text style={styles.section}>Historique des paiements</Text>
+        </View>
+        {payments.length === 0 ? (
+          <Text style={styles.muted}>Aucun paiement enregistré.</Text>
+        ) : payments.map((payment) => (
+          <View key={payment.id} style={styles.paymentRow}>
+            <View style={styles.saleInfo}>
+              <Text style={styles.saleDate}>{formatDate(payment.paidAt)}</Text>
+              <Text style={styles.muted}>
+                {payment.syncStatus === 'SYNCED' ? 'Synchronisé' : payment.syncStatus === 'FAILED' ? 'À vérifier' : 'En attente de synchronisation'}
+              </Text>
+            </View>
+            <Text style={styles.paymentAmount}>{formatMoney(payment.amount)}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={styles.historyBlock}>
         <View style={styles.historyHeading}><Ionicons name="time-outline" size={19} color={colors.primary} /><Text style={styles.section}>{t('customers.purchaseHistory')}</Text></View>
         {historyLoading ? <ActivityIndicator color={colors.primary} /> : sales.length === 0 ? (
           <Text style={styles.muted}>{t('customers.noHistory')}</Text>
@@ -197,6 +242,8 @@ const styles = StyleSheet.create({
   saleDate: { color: colors.text, fontWeight: '700' },
   saleTotal: { color: colors.primary, fontWeight: '800' },
   saleDebt: { color: colors.danger, fontSize: 12, marginTop: 2 },
+  paymentRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
+  paymentAmount: { color: colors.success, fontWeight: '800' },
   section: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   error: {
     color: colors.danger,
