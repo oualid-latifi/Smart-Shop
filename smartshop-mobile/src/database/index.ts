@@ -575,6 +575,39 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
     const pendingPaymentsByCustomer = new Map(
       pendingPayments.map((row) => [row.customer_id, row.paid_total]),
     );
+    // Refunds and cancellations of already-synced sales reduce the server's
+    // current customer balance until those commands are acknowledged.
+    const pendingRefundCredits = await db.getAllAsync<{ customer_id: string; amount: number }>(
+      `SELECT sale.customer_id, SUM(refund.credit_applied) AS amount
+       FROM sale_refunds refund
+       INNER JOIN sales sale ON sale.id = refund.sale_id
+       INNER JOIN outbox queued ON queued.id = refund.id
+       INNER JOIN outbox sale_created ON sale_created.id = sale.id
+       WHERE queued.entity_type = 'SALE_REFUND'
+         AND queued.status IN ('PENDING', 'FAILED')
+         AND sale_created.entity_type = 'SALE'
+         AND sale_created.status = 'SYNCED'
+         AND sale.customer_id IS NOT NULL
+       GROUP BY sale.customer_id`,
+    );
+    const pendingRefundCreditByCustomer = new Map(
+      pendingRefundCredits.map(row => [row.customer_id, row.amount]),
+    );
+    const pendingCancelledDebts = await db.getAllAsync<{ customer_id: string; amount: number }>(
+      `SELECT sale.customer_id, SUM(sale.remaining) AS amount
+       FROM sales sale
+       INNER JOIN outbox queued ON queued.id = sale.id
+       INNER JOIN outbox cancellation ON cancellation.entity_type = 'SALE_CANCEL'
+         AND json_extract(cancellation.payload, '$.saleId') = sale.id
+       WHERE queued.entity_type = 'SALE'
+         AND queued.status = 'SYNCED'
+         AND cancellation.status IN ('PENDING', 'FAILED')
+         AND sale.customer_id IS NOT NULL
+       GROUP BY sale.customer_id`,
+    );
+    const pendingCancelledDebtByCustomer = new Map(
+      pendingCancelledDebts.map(row => [row.customer_id, row.amount]),
+    );
 
     for (const customer of customers) {
       await db.runAsync(
@@ -594,7 +627,9 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
           0,
           customer.balance
             + (pendingDebtByCustomer.get(customer.id) ?? 0)
-            - (pendingPaymentsByCustomer.get(customer.id) ?? 0),
+            - (pendingPaymentsByCustomer.get(customer.id) ?? 0)
+            - (pendingRefundCreditByCustomer.get(customer.id) ?? 0)
+            - (pendingCancelledDebtByCustomer.get(customer.id) ?? 0),
         ),
         new Date().toISOString(),
       );
