@@ -16,6 +16,7 @@ import AppTabs from './src/navigation/AppTabs';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { colors, isDark } from './src/theme';
+import { testDatabase, testProductCRUD } from './src/database';
 
 const RootStack = createNativeStackNavigator();
 
@@ -73,9 +74,26 @@ function Root() {
 export default function App() {
   const [ready, setReady] = useState(false);
 
-  useEffect(() => {
-    initI18n().finally(() => setReady(true));
-  }, []);
+ useEffect(() => {
+  const initialize = async () => {
+    try {
+      await initI18n();
+
+      const result = await testDatabase();
+      console.log('[SQLite TEST]', result);
+
+      const productResult = await testProductCRUD();
+      console.log('[SQLite CRUD]', productResult);
+
+    } catch (error) {
+      console.error('[SQLite ERROR]', error);
+    } finally {
+      setReady(true);
+    }
+  };
+
+  void initialize();
+}, []);
 
   if (!ready) {
     return <Splash />;

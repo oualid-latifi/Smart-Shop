@@ -7,7 +7,7 @@ export class ApiError extends Error {
   constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
     super(message); this.status = status; this.fieldErrors = fieldErrors;
   }
-}
+} 
 
 let onUnauthorized: (() => void) | null = null;
 export function setUnauthorizedHandler(handler: (() => void) | null) { onUnauthorized = handler; }

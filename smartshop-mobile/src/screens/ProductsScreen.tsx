@@ -1,5 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
+  getCachedProducts,
+  saveProducts,
+} from '../database';
+import {
   ActivityIndicator,
   FlatList,
   Image,
@@ -48,15 +52,50 @@ export default function ProductsScreen({ navigation }: Props) {
   }, []);
 
   const load = useCallback(async () => {
-    try {
-      setError(null);
-      const data = await api<Product[]>('/api/products/all');
-      setProducts(data);
-      await loadCategories();
-    } catch (e) {
+  let cachedCount = 0;
+
+  // 1. Lire les produits depuis SQLite
+  try {
+    const cachedProducts = await getCachedProducts();
+
+    cachedCount = cachedProducts.length;
+    setProducts(cachedProducts);
+
+    console.log('[SQLite] Produits locaux:', cachedCount);
+  } catch (e) {
+    console.error('[SQLite CACHE ERROR]', e);
+  }
+
+  // Afficher les produits locaux sans attendre Internet
+  setLoading(false);
+
+  // 2. Essayer de récupérer les produits depuis le Backend
+  try {
+    setError(null);
+
+    const data = await api<Product[]>('/api/products/all');
+
+    // 3. Mettre à jour SQLite
+    await saveProducts(data);
+
+    // 4. Mettre à jour l'interface
+    setProducts(data);
+
+    console.log('[API] Produits récupérés:', data.length);
+    console.log('[SQLite] Cache mis à jour');
+
+    await loadCategories();
+  } catch (e) {
+    console.error('[PRODUCTS LOAD ERROR]', e);
+
+    // Afficher une erreur seulement si aucun produit local n'existe
+    if (cachedCount === 0) {
       setError(errorMessage(e, t));
+    } else {
+      console.log('[OFFLINE] Affichage des produits locaux');
     }
-  }, [loadCategories, t]);
+  }
+}, [loadCategories, t]);
 
   // Recharge la liste chaque fois qu'on revient sur cet écran
   useFocusEffect(
