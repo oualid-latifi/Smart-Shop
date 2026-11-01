@@ -31,6 +31,12 @@ public class SupplierController {
         return SupplierResponse.from(supplierService.update(id, request.name(), request.phone()));
     }
 
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable java.util.UUID id) {
+        supplierService.delete(id);
+    }
+
     @GetMapping
     public List<SupplierResponse> findAll() {
         return supplierService.findAll().stream().map(SupplierResponse::from).toList();
