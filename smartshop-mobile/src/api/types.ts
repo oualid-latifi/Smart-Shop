@@ -171,6 +171,6 @@ export interface StockMovement {
 }
 
 export interface PaymentHistory {
-  customerPayments: Array<{ id: string; customerId: string; amount: number; paidAt: string }>;
+  customerPayments: Array<{ id: string; customerId: string; saleId: string; amount: number; paidAt: string }>;
   purchasePayments: Array<{ id: string; purchaseId: string; amount: number; paidAt: string }>;
 }
