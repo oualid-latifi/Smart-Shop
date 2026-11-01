@@ -52,7 +52,6 @@ class SaleRefundServiceTest {
         sale.addLine(saleLine);
 
         when(sales.findByIdForUpdate(saleId)).thenReturn(Optional.of(sale));
-        when(refunds.sumBySaleId(saleId)).thenReturn(BigDecimal.ZERO);
         when(refundLines.sumReturnedQuantityBySaleLineId(saleLineId)).thenReturn(0L);
         when(products.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
         when(refunds.save(any(SaleRefund.class))).thenAnswer(invocation -> invocation.getArgument(0));
