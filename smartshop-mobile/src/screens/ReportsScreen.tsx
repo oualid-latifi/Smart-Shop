@@ -15,8 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary } from '../database';
-import type { PaymentHistory, ReportSummary } from '../api/types';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSales, saveSuppliers } from '../database';
+import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
 import type { ReportsStackParamList } from '../navigation/types';
@@ -39,6 +39,7 @@ export default function ReportsScreen({ navigation }: Props) {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showingCachedReport, setShowingCachedReport] = useState(false);
+  const [showingOfflineCalculated, setShowingOfflineCalculated] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -46,19 +47,35 @@ export default function ReportsScreen({ navigation }: Props) {
       const data = await api<ReportSummary>(ENDPOINTS[period]);
       setReport(data);
       setShowingCachedReport(false);
+      setShowingOfflineCalculated(false);
       void cacheReportSummary(period, data).catch(() => undefined);
-      // Payment ledgers are refreshed independently so a ledger failure does not hide a valid report.
-      void api<PaymentHistory>('/api/reports/payment-history')
-        .then(cachePaymentHistory)
-        .catch(() => undefined);
+      // A complete snapshot is recorded only after every report source is downloaded.
+      void Promise.all([
+        api<Sale[]>('/api/sales'), api<Purchase[]>('/api/purchases'),
+        api<Expense[]>('/api/expenses'), api<Product[]>('/api/products'),
+        api<Customer[]>('/api/customers'), api<Supplier[]>('/api/suppliers'),
+        api<PaymentHistory>('/api/reports/payment-history'),
+      ]).then(async ([sales,purchases,expenses,products,customers,suppliers,payments]) => {
+        await Promise.all([saveSales(sales),savePurchases(purchases),saveExpenses(expenses),saveProducts(products),saveCustomers(customers),saveSuppliers(suppliers),cachePaymentHistory(payments)]);
+        await markReportDatasetSnapshotComplete();
+      }).catch(() => undefined);
     } catch (e) {
-      const cached = await getCachedReportSummary(period);
-      if (cached) {
-        setReport(cached);
-        setShowingCachedReport(true);
+      const localReport = await getOfflineReportSummary(period).catch(() => null);
+      if (localReport) {
+        setReport(localReport);
+        setShowingOfflineCalculated(true);
+        setShowingCachedReport(false);
         setError(null);
       } else {
-        setError(errorMessage(e, t));
+        const cached = await getCachedReportSummary(period);
+        if (cached) {
+          setReport(cached);
+          setShowingCachedReport(true);
+          setShowingOfflineCalculated(false);
+          setError(null);
+        } else {
+          setError(errorMessage(e, t));
+        }
       }
     }
   }, [period, t]);
@@ -118,7 +135,9 @@ export default function ReportsScreen({ navigation }: Props) {
               {formatDate(report.from)} → {formatDate(report.to)} ·{' '}
               {t('reports.salesCount', { n: report.salesCount })}
             </Text>
-            {showingCachedReport ? (
+            {showingOfflineCalculated ? (
+              <Text style={styles.cachedNotice}>Rapport calculé localement à partir des données synchronisées et des opérations hors ligne.</Text>
+            ) : showingCachedReport ? (
               <Text style={styles.cachedNotice}>Rapport en cache — dernière synchronisation disponible (hors ligne).</Text>
             ) : null}
 
