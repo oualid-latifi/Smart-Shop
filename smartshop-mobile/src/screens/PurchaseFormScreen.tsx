@@ -101,7 +101,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
       }
       return [
         ...current,
-        { product, quantity: 1, unitPrice: String(product.averagePurchasePrice || '') },
+        { product, quantity: 1, unitPrice: String(product.purchasePrice || '') },
       ];
     });
     setSearch('');
@@ -199,7 +199,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
                 <View style={styles.productIcon}><Ionicons name="cube-outline" size={22} color={colors.primary} /></View>
                 <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
                 <Text style={styles.productMeta} numberOfLines={1}>{p.reference}</Text>
-                <Text style={styles.productPrice}>{formatMoney(p.averagePurchasePrice)}</Text>
+                <Text style={styles.productPrice}>{formatMoney(p.purchasePrice)}</Text>
                 <Text style={styles.muted}>{t('products.stock')}: {p.stockQuantity}</Text>
                 <View style={styles.addProduct}>
                   <Ionicons name="add" size={16} color={colors.onPrimary} />
