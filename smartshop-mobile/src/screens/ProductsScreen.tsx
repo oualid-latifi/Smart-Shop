@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
+import { syncPendingOperations } from '../sync';
 import type { Category, Product } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatMoney } from '../format';
@@ -68,6 +69,11 @@ export default function ProductsScreen({ navigation }: Props) {
 
   // Afficher les produits locaux sans attendre Internet
   setLoading(false);
+
+  const syncSummary = await syncPendingOperations().catch(() => ({
+    synced: 0, pending: 1, failed: 0,
+  }));
+  if (syncSummary.pending > 0) return;
 
   // 2. Essayer de récupérer les produits depuis le Backend
   try {
