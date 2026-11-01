@@ -1404,6 +1404,44 @@ export async function saveExpenses(expenses: Expense[]): Promise<void> {
   });
 }
 
+export interface CachedPaymentHistory {
+  customerPayments: Array<{ id: string; customerId: string; amount: number; paidAt: string }>;
+  purchasePayments: Array<{ id: string; purchaseId: string; amount: number; paidAt: string }>;
+}
+
+/** Replace server-synced ledger rows while keeping unsynced local payments intact. */
+export async function cachePaymentHistory(history: CachedPaymentHistory): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const payment of history.customerPayments) {
+      await db.runAsync(
+        `INSERT INTO customer_payments (id, customer_id, amount, paid_at, sync_status)
+         VALUES (?, ?, ?, ?, 'SYNCED')
+         ON CONFLICT(id) DO UPDATE SET
+           customer_id = excluded.customer_id,
+           amount = excluded.amount,
+           paid_at = excluded.paid_at,
+           sync_status = CASE WHEN customer_payments.sync_status IN ('PENDING', 'FAILED')
+             THEN customer_payments.sync_status ELSE 'SYNCED' END`,
+        payment.id, payment.customerId, payment.amount, payment.paidAt,
+      );
+    }
+    for (const payment of history.purchasePayments) {
+      await db.runAsync(
+        `INSERT INTO purchase_payments (id, purchase_id, amount, paid_at, sync_status)
+         VALUES (?, ?, ?, ?, 'SYNCED')
+         ON CONFLICT(id) DO UPDATE SET
+           purchase_id = excluded.purchase_id,
+           amount = excluded.amount,
+           paid_at = excluded.paid_at,
+           sync_status = CASE WHEN purchase_payments.sync_status IN ('PENDING', 'FAILED')
+             THEN purchase_payments.sync_status ELSE 'SYNCED' END`,
+        payment.id, payment.purchaseId, payment.amount, payment.paidAt,
+      );
+    }
+  });
+}
+
 export async function cacheReportSummary(period: string, report: ReportSummary): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
