@@ -14,6 +14,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
+import { getCachedPurchases } from '../database';
 import { errorMessage } from '../api/errors';
 import type { Purchase } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -32,12 +33,20 @@ export default function PurchasesScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
+    const cached = await getCachedPurchases().catch(() => []);
+    setPurchases(unpaidOnly ? cached.filter((purchase) => purchase.remaining > 0) : cached);
+
     try {
-      setError(null);
       const data = await api<Purchase[]>(unpaidOnly ? '/api/purchases/unpaid' : '/api/purchases');
-      setPurchases(data);
+      const merged = new Map<string, Purchase>();
+      for (const purchase of cached) {
+        if (!unpaidOnly || purchase.remaining > 0) merged.set(purchase.id, purchase);
+      }
+      for (const purchase of data) merged.set(purchase.id, purchase);
+      setPurchases([...merged.values()].sort((a, b) => b.purchaseDate.localeCompare(a.purchaseDate)));
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (cached.length === 0) setError(errorMessage(e, t));
     }
   }, [t, unpaidOnly]);
 
