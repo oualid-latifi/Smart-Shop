@@ -153,8 +153,10 @@ public class SaleService {
         Sale sale = saleRepository.findByIdForUpdate(saleId)
                 .orElseThrow(() -> new IllegalArgumentException("Vente introuvable"));
 
+        // Idempotent retry: the first cancellation may have committed while the
+        // mobile client lost its HTTP response. Do not restore stock twice.
         if (sale.getStatus() == SaleStatus.CANCELLED) {
-            throw new IllegalArgumentException("Cette vente est déjà annulée");
+            return sale;
         }
 
         // On remet les articles en stock
