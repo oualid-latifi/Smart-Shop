@@ -68,6 +68,10 @@ async function flushPendingOperations(): Promise<SyncSummary> {
         const customerId = typeof payload.customerId === 'string' ? payload.customerId : '';
         if (!customerId) throw new Error('Identifiant client absent du paiement.');
         await api(`/api/customers/${customerId}/payments`, { method, body: payload });
+      } else if (item.entity_type === 'PURCHASE_PAYMENT' && method === 'POST') {
+        const purchaseId = typeof payload.purchaseId === 'string' ? payload.purchaseId : '';
+        if (!purchaseId) throw new Error('Identifiant d’achat absent du paiement fournisseur.');
+        await api(`/api/purchases/${purchaseId}/payments`, { method, body: payload });
       } else if (item.entity_type === 'CUSTOMER') {
         const entityId = typeof payload.id === 'string' ? payload.id : '';
         if (!entityId) throw new Error('Identifiant client absent de la synchronisation.');
