@@ -55,6 +55,16 @@ public class CustomerService {
         return CustomerResponse.from(customer, balanceOf(id));
     }
 
+    @Transactional
+    public CustomerResponse update(UUID id, CustomerRequest request) {
+        Customer customer = getCustomer(id);
+        customer.setName(request.name());
+        customer.setPhone(request.phone());
+        customer.setCreditLimit(request.creditLimit());
+        Customer saved = customerRepository.save(customer);
+        return CustomerResponse.from(saved, balanceOf(id));
+    }
+
     @Transactional(readOnly = true)
     public List<SaleResponse> findSales(UUID customerId) {
         getCustomer(customerId);
