@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 public record PurchaseRequest(
@@ -14,10 +15,11 @@ public record PurchaseRequest(
         @DecimalMin("0.00") BigDecimal amountPaid,       // payé tout de suite (facultatif)
         @Size(max = 255) String note,
         @NotEmpty @Valid List<PurchaseLineRequest> lines,
-        UUID id
+        UUID id,
+        LocalDateTime purchaseDate
 ) {
     public PurchaseRequest(UUID supplierId, BigDecimal amountPaid, String note,
                            List<PurchaseLineRequest> lines) {
-        this(supplierId, amountPaid, note, lines, null);
+        this(supplierId, amountPaid, note, lines, null, null);
     }
 }
