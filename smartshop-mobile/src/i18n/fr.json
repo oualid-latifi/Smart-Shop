@@ -196,7 +196,15 @@
     "paySuccess": "Paiement enregistré ✓",
     "invalid": "Vérifie les produits, les prix et le nom",
     "invalidPaid": "Le montant payé ne peut pas dépasser le total",
-    "subtitle": "Suivi des achats et des fournisseurs"
+    "subtitle": "Suivi des achats et des fournisseurs",
+    "suppliersTitle": "Fournisseurs",
+    "suppliersList": "Tous les fournisseurs",
+    "suppliersEmpty": "Aucun fournisseur enregistré.",
+    "noPhone": "Aucun téléphone",
+    "productCatalog": "Catalogue des produits",
+    "searchResults": "Résultats de recherche",
+    "productsAvailable": "produit(s)",
+    "addToPurchase": "Ajouter à l’achat"
   },
   "reports": {
     "today": "Aujourd'hui",
