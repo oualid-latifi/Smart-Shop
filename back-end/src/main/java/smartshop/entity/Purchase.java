@@ -12,7 +12,6 @@ import java.util.UUID;
 public class Purchase {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -40,6 +39,7 @@ public class Purchase {
 
     @PrePersist
     void onCreate() {
+        if (this.id == null) this.id = UUID.randomUUID();
         this.purchaseDate = LocalDateTime.now();
     }
 
@@ -53,6 +53,7 @@ public class Purchase {
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
     public Supplier getSupplier() { return supplier; }
     public void setSupplier(Supplier supplier) { this.supplier = supplier; }
