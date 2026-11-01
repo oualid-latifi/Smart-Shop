@@ -71,7 +71,7 @@ public class SaleRefundService {
                     .orElseThrow(() -> new IllegalArgumentException(
                             "L'article demandé ne fait pas partie de cette vente"));
 
-            Integer returnedBefore = refundLineRepository
+            Long returnedBefore = refundLineRepository
                     .sumReturnedQuantityBySaleLineId(saleLine.getId());
             long remainingQuantity = saleLine.getQuantity() - (returnedBefore == null ? 0L : returnedBefore);
             if (requestedLine.quantity() > remainingQuantity) {
