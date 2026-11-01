@@ -40,7 +40,7 @@ public class Purchase {
     @PrePersist
     void onCreate() {
         if (this.id == null) this.id = UUID.randomUUID();
-        this.purchaseDate = LocalDateTime.now();
+        if (this.purchaseDate == null) this.purchaseDate = LocalDateTime.now();
     }
 
     public void addLine(PurchaseLine line) {
@@ -59,6 +59,7 @@ public class Purchase {
     public void setSupplier(Supplier supplier) { this.supplier = supplier; }
 
     public LocalDateTime getPurchaseDate() { return purchaseDate; }
+    public void setPurchaseDate(LocalDateTime purchaseDate) { this.purchaseDate = purchaseDate; }
 
     public BigDecimal getTotal() { return total; }
     public void setTotal(BigDecimal total) { this.total = total; }
