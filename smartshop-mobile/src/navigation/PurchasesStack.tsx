@@ -5,6 +5,7 @@ import PurchaseDetailScreen from '../screens/PurchaseDetailScreen';
 import PurchaseFormScreen from '../screens/PurchaseFormScreen';
 import PurchasesScreen from '../screens/PurchasesScreen';
 import SupplierFormScreen from '../screens/SupplierFormScreen';
+import SuppliersScreen from '../screens/SuppliersScreen';
 import type { PurchasesStackParamList } from './types';
 
 const Stack = createNativeStackNavigator<PurchasesStackParamList>();
@@ -28,6 +29,11 @@ export default function PurchasesStack() {
         name="PurchaseDetail"
         component={PurchaseDetailScreen}
         options={{ title: t('purchases.detailTitle') }}
+      />
+      <Stack.Screen
+        name="SuppliersList"
+        component={SuppliersScreen}
+        options={{ title: t('purchases.suppliersTitle') }}
       />
       <Stack.Screen
         name="SupplierForm"
