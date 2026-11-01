@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { cancelLocalSale, getCachedSales } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Sale, SaleRefund } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -27,6 +29,7 @@ export default function SaleDetailScreen({ route }: Props) {
   const [refundError, setRefundError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
+  const [cancelSyncPending, setCancelSyncPending] = useState(false);
 
   const cancelled = sale.status === 'CANCELLED';
   const refundedTotal = refunds.reduce((sum, item) => sum + item.amount, 0);
@@ -58,7 +61,15 @@ export default function SaleDetailScreen({ route }: Props) {
     confirmAction(t('history.cancelConfirm'), async () => {
       setSaving(true); setError(null);
       try {
-        setSale(await api<Sale>(`/api/sales/${sale.id}/cancel`, { method: 'POST', body: { reason: reason.trim() } }));
+        await cancelLocalSale(sale.id, reason);
+        const cached = await getCachedSales();
+        const updated = cached.find(item => item.id === sale.id);
+        if (updated) setSale(updated);
+        setReason('');
+        setCancelSyncPending(true);
+        void syncPendingOperations()
+          .then(summary => setCancelSyncPending(summary.pending > 0 || summary.failed > 0))
+          .catch(() => setCancelSyncPending(true));
       } catch (e) { setError(errorMessage(e, t)); }
       finally { setSaving(false); }
     }, t('common.cancel'), t('common.confirm'));
@@ -113,6 +124,7 @@ export default function SaleDetailScreen({ route }: Props) {
         <Text style={styles.name}>{sale.customerName ?? t('sales.walkIn')}</Text>
         <Text style={styles.muted}>{formatDateTime(sale.saleDate)}</Text>
         {cancelled ? <Text style={styles.badgeOff}>{t('history.cancelled')}</Text> : null}
+        {cancelSyncPending ? <Text style={styles.muted}>Annulation enregistrée sur cet appareil. Synchronisation avec le PC en attente.</Text> : null}
         <View style={styles.lines}>
           {sale.lines.map(line => (
             <View key={line.saleLineId} style={styles.lineRow}>
