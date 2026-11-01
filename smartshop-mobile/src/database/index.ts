@@ -658,6 +658,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
 
     const payload = {
       id: saleId,
+      saleDate: createdAt,
       customerId: input.customerId,
       discount: input.discount,
       amountPaid,
@@ -892,6 +893,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
 
     const payload = {
       id: purchaseId,
+      purchaseDate: createdAt,
       supplierId: input.supplierId,
       amountPaid: input.amountPaid,
       note: input.note,
