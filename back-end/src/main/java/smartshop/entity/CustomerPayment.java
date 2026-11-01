@@ -13,6 +13,9 @@ public class CustomerPayment {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "payment_request_id")
+    private UUID paymentRequestId;
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "customer_id")
     private Customer customer;
@@ -36,6 +39,11 @@ public class CustomerPayment {
     }
 
     public UUID getId() { return id; }
+
+    public UUID getPaymentRequestId() { return paymentRequestId; }
+    public void setPaymentRequestId(UUID paymentRequestId) { this.paymentRequestId = paymentRequestId; }
+
+    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
 
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
