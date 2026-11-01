@@ -78,8 +78,9 @@ export default function ProductsScreen({ navigation }: Props) {
     // 3. Mettre à jour SQLite
     await saveProducts(data);
 
-    // 4. Mettre à jour l'interface
-    setProducts(data);
+    // 4. Relire SQLite pour conserver les mouvements locaux non synchronisés
+    const refreshedLocalProducts = await getCachedProducts();
+    setProducts(refreshedLocalProducts);
 
     console.log('[API] Produits récupérés:', data.length);
     console.log('[SQLite] Cache mis à jour');
