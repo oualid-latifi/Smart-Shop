@@ -1426,7 +1426,7 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
   await withSerializedTransaction(db, async () => {
     for (const payment of history.customerPayments) {
       // Replace the provisional initial-sale payment with the authoritative server ledger entry.
-      await db.runAsync("DELETE FROM customer_payments WHERE sale_id = ? AND id = ? AND sync_status IN ('PENDING', 'FAILED')", payment.saleId, payment.saleId);
+      await db.runAsync("DELETE FROM customer_payments WHERE sale_id = ? AND id = ?", payment.saleId, payment.saleId);
       await db.runAsync(
         `INSERT INTO customer_payments (id, customer_id, sale_id, amount, paid_at, sync_status)
          VALUES (?, ?, ?, ?, ?, 'SYNCED')
@@ -1442,7 +1442,7 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
     }
     for (const payment of history.purchasePayments) {
       // Remove the provisional initial-purchase payment; later instalments have their own IDs.
-      await db.runAsync("DELETE FROM purchase_payments WHERE id = ? AND purchase_id = ? AND sync_status IN ('PENDING', 'FAILED')", payment.purchaseId, payment.purchaseId);
+      await db.runAsync("DELETE FROM purchase_payments WHERE id = ? AND purchase_id = ?", payment.purchaseId, payment.purchaseId);
       await db.runAsync(
         `INSERT INTO purchase_payments (id, purchase_id, amount, paid_at, sync_status)
          VALUES (?, ?, ?, ?, 'SYNCED')
