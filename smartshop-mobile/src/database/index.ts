@@ -456,6 +456,12 @@ function createLocalUuid(): string {
   });
 }
 
+function getLocalDateTimeString(): string {
+  const date = new Date();
+  const pad = (value: number) => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
 export async function saveCustomers(customers: Customer[]): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
@@ -518,7 +524,7 @@ export async function getCachedCustomers(): Promise<Customer[]> {
 export async function createLocalSale(input: LocalSaleInput): Promise<string> {
   const db = await getDatabase();
   const saleId = createLocalUuid();
-  const createdAt = new Date().toISOString();
+  const createdAt = getLocalDateTimeString();
 
   await withSerializedTransaction(db, async () => {
     if (input.lines.length === 0) throw new Error('La vente doit contenir au moins un produit.');
@@ -779,7 +785,7 @@ export async function getCachedSuppliers(): Promise<Supplier[]> {
 export async function createLocalPurchase(input: LocalPurchaseInput): Promise<string> {
   const db = await getDatabase();
   const purchaseId = createLocalUuid();
-  const createdAt = new Date().toISOString();
+  const createdAt = getLocalDateTimeString();
 
   await withSerializedTransaction(db, async () => {
     if (input.lines.length === 0) throw new Error('L’achat doit contenir au moins un produit.');
