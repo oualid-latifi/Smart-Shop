@@ -36,6 +36,7 @@ export default function PurchasesScreen({ navigation }: Props) {
     setError(null);
     const cached = await getCachedPurchases().catch(() => []);
     setPurchases(unpaidOnly ? cached.filter((purchase) => purchase.remaining > 0) : cached);
+    setLoading(false);
 
     try {
       const data = await api<Purchase[]>(unpaidOnly ? '/api/purchases/unpaid' : '/api/purchases');
