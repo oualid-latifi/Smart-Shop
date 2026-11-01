@@ -1,4 +1,4 @@
-import type { Product } from '../api/types';
+import type { Customer, Product } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
@@ -345,4 +345,290 @@ export async function getCachedProducts(): Promise<Product[]> {
     lowStock: row.stock_quantity <= row.alert_threshold,
     active: row.active === 1,
   }));
+}
+
+export interface LocalSaleInput {
+  customerId: string | null;
+  discount: number;
+  amountPaid: number | null;
+  lines: Array<{ productId: string; quantity: number; unitPrice: number }>;
+}
+
+export interface PendingOutboxItem {
+  id: string;
+  idempotency_key: string;
+  entity_type: string;
+  operation: string;
+  payload: string;
+  status: string;
+  attempts: number;
+  created_at: string;
+  last_error: string | null;
+}
+
+function createLocalUuid(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (character) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = character === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
+export async function saveCustomers(customers: Customer[]): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    for (const customer of customers) {
+      await db.runAsync(
+        `INSERT INTO customers (id, name, phone, credit_limit, balance, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           phone = excluded.phone,
+           credit_limit = excluded.credit_limit,
+           balance = excluded.balance,
+           updated_at = excluded.updated_at`,
+        customer.id,
+        customer.name,
+        customer.phone,
+        customer.creditLimit,
+        customer.balance,
+        new Date().toISOString(),
+      );
+    }
+  });
+}
+
+export async function getCachedCustomers(): Promise<Customer[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    name: string;
+    phone: string | null;
+    credit_limit: number | null;
+    balance: number;
+  }>('SELECT id, name, phone, credit_limit, balance FROM customers ORDER BY name ASC');
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+    creditLimit: row.credit_limit,
+    balance: row.balance,
+  }));
+}
+
+/**
+ * Persists a sale, its stock movements and its sync command atomically.
+ * The server receives the same UUID, making a retry safe after a lost response.
+ */
+export async function createLocalSale(input: LocalSaleInput): Promise<string> {
+  const db = await getDatabase();
+  const saleId = createLocalUuid();
+  const createdAt = new Date().toISOString();
+
+  await db.withTransactionAsync(async () => {
+    if (input.lines.length === 0) throw new Error('La vente doit contenir au moins un produit.');
+
+    let subtotal = 0;
+    let costTotal = 0;
+    const lines: Array<{
+      productId: string;
+      quantity: number;
+      unitPrice: number;
+      unitCost: number;
+    }> = [];
+
+    for (const requestedLine of input.lines) {
+      if (!Number.isInteger(requestedLine.quantity) || requestedLine.quantity <= 0) {
+        throw new Error('Quantité de vente invalide.');
+      }
+      const product = await db.getFirstAsync<{
+        id: string;
+        name: string;
+        active: number;
+        stock_quantity: number;
+        sale_price: number;
+        average_purchase_price: number;
+      }>(
+        `SELECT id, name, active, stock_quantity, sale_price, average_purchase_price
+         FROM products WHERE id = ?`,
+        requestedLine.productId,
+      );
+      if (!product || product.active !== 1) {
+        throw new Error('Produit introuvable ou désactivé.');
+      }
+      if (product.stock_quantity < requestedLine.quantity) {
+        throw new Error(`Stock insuffisant pour ${product.name}.`);
+      }
+
+      const unitPrice = requestedLine.unitPrice;
+      if (!Number.isFinite(unitPrice) || unitPrice < 0) {
+        throw new Error('Prix de vente invalide.');
+      }
+      const unitCost = product.average_purchase_price || 0;
+      subtotal += unitPrice * requestedLine.quantity;
+      costTotal += unitCost * requestedLine.quantity;
+      lines.push({
+        productId: product.id,
+        quantity: requestedLine.quantity,
+        unitPrice,
+        unitCost,
+      });
+    }
+
+    if (!Number.isFinite(input.discount) || input.discount < 0 || input.discount > subtotal) {
+      throw new Error('Remise invalide.');
+    }
+    const total = subtotal - input.discount;
+    const amountPaid = input.amountPaid === null ? total : input.amountPaid;
+    if (!Number.isFinite(amountPaid) || amountPaid < 0 || amountPaid > total) {
+      throw new Error('Montant payé invalide.');
+    }
+    const remaining = total - amountPaid;
+
+    if (remaining > 0 && !input.customerId) {
+      throw new Error('Une vente à crédit nécessite un client.');
+    }
+
+    if (input.customerId) {
+      const customer = await db.getFirstAsync<{
+        id: string;
+        credit_limit: number | null;
+        balance: number;
+      }>(
+        'SELECT id, credit_limit, balance FROM customers WHERE id = ?',
+        input.customerId,
+      );
+      if (!customer) throw new Error('Client introuvable dans la base locale.');
+      if (
+        remaining > 0 &&
+        customer.credit_limit !== null &&
+        customer.balance + remaining > customer.credit_limit
+      ) {
+        throw new Error('La limite de crédit du client sera dépassée.');
+      }
+    }
+
+    await db.runAsync(
+      `INSERT INTO sales (
+        id, customer_id, sale_date, discount, total, amount_paid,
+        remaining, profit, status, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'VALIDATED', 'PENDING')`,
+      saleId,
+      input.customerId,
+      createdAt,
+      input.discount,
+      total,
+      amountPaid,
+      remaining,
+      total - costTotal,
+    );
+
+    for (const line of lines) {
+      await db.runAsync(
+        `INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price, unit_cost)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        createLocalUuid(),
+        saleId,
+        line.productId,
+        line.quantity,
+        line.unitPrice,
+        line.unitCost,
+      );
+      await db.runAsync(
+        'UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?',
+        line.quantity,
+        createdAt,
+        line.productId,
+      );
+      await db.runAsync(
+        `INSERT INTO stock_movements (id, product_id, type, quantity, reference_id, created_at, note)
+         VALUES (?, ?, 'SALE', ?, ?, ?, ?)`,
+        createLocalUuid(),
+        line.productId,
+        -line.quantity,
+        saleId,
+        createdAt,
+        'Vente locale',
+      );
+    }
+
+    if (input.customerId && remaining > 0) {
+      await db.runAsync(
+        'UPDATE customers SET balance = balance + ?, updated_at = ? WHERE id = ?',
+        remaining,
+        createdAt,
+        input.customerId,
+      );
+    }
+
+    const payload = {
+      id: saleId,
+      customerId: input.customerId,
+      discount: input.discount,
+      amountPaid,
+      lines: lines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+      })),
+    };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'SALE', 'CREATE', ?, 'PENDING', 0, ?)`,
+      saleId,
+      saleId,
+      JSON.stringify(payload),
+      createdAt,
+    );
+  });
+
+  return saleId;
+}
+
+export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]> {
+  const db = await getDatabase();
+  return db.getAllAsync<PendingOutboxItem>(
+    `SELECT id, idempotency_key, entity_type, operation, payload, status,
+            attempts, created_at, last_error
+     FROM outbox
+     WHERE status = 'PENDING'
+     ORDER BY created_at ASC
+     LIMIT ?`,
+    limit,
+  );
+}
+
+export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    await db.runAsync(
+      "UPDATE outbox SET status = 'SYNCED', last_error = NULL WHERE id = ?",
+      item.id,
+    );
+    if (item.entity_type === 'SALE') {
+      await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    } else if (item.entity_type === 'PURCHASE') {
+      await db.runAsync("UPDATE purchases SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    }
+  });
+}
+
+export async function recordOutboxFailure(
+  itemId: string,
+  message: string,
+  permanent = false,
+): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE outbox
+     SET attempts = attempts + 1,
+         last_error = ?,
+         status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+     WHERE id = ?`,
+    message.slice(0, 1000),
+    permanent ? 1 : 0,
+    itemId,
+  );
 }
