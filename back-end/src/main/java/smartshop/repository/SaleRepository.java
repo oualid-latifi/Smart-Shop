@@ -22,6 +22,8 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     List<Sale> findByCustomer_IdOrderBySaleDateDesc(UUID customerId);
 
+    boolean existsByCustomer_Id(UUID customerId);
+
     // Dette totale d'un client (ventes annulées exclues). Peut renvoyer null s'il n'a aucune vente.
     @Query("""
             select sum(s.total - s.amountPaid - s.creditApplied) from Sale s
