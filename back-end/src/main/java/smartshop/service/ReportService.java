@@ -63,7 +63,7 @@ public class ReportService {
         List<PaymentHistoryResponse.CustomerPaymentEntry> customerPayments =
                 customerPaymentRepository.findAllByOrderByPaidAtAsc().stream()
                         .map(p -> new PaymentHistoryResponse.CustomerPaymentEntry(
-                                p.getId(), p.getCustomer().getId(), p.getAmount(), p.getPaidAt()))
+                                p.getPaymentRequestId() != null ? p.getPaymentRequestId() : p.getId(), p.getCustomer().getId(), p.getAmount(), p.getPaidAt()))
                         .toList();
         List<PaymentHistoryResponse.PurchasePaymentEntry> purchasePayments =
                 purchasePaymentRepository.findAllByOrderByPaidAtAsc().stream()
