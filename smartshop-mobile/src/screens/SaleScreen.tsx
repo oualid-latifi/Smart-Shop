@@ -264,19 +264,26 @@ export default function SaleScreen() {
               <Text style={styles.totalValue}>{formatMoney(total)}</Text>
             </View>
 
-            <View style={styles.paidRow}>
-              <View style={styles.paidField}>
-                <TextField
-                  label={t('sales.amountPaid')}
-                  hint={t('sales.amountPaidHint')}
+            <View style={styles.paidSection}>
+              <Text style={styles.label}>{t('sales.amountPaid')}</Text>
+              <View style={styles.paidInputRow}>
+                <TextInput
+                  style={styles.paidInput}
                   value={paid}
                   onChangeText={setPaid}
                   keyboardType="decimal-pad"
+                  placeholder="0.00"
+                  placeholderTextColor={colors.muted}
                 />
+                <Pressable
+                  style={({ pressed }) => [styles.fullPaymentButton, pressed && styles.productPressed]}
+                  onPress={() => setPaid(total.toFixed(2))}
+                >
+                  <Ionicons name="checkmark-circle-outline" size={17} color={colors.onPrimary} />
+                  <Text style={styles.fullPaymentText}>{t('sales.allPaid')}</Text>
+                </Pressable>
               </View>
-              <Pressable style={styles.fullPaymentButton} onPress={() => setPaid(total.toFixed(2))}>
-                <Text style={styles.fullPaymentText}>{t('sales.allPaid')}</Text>
-              </Pressable>
+              <Text style={styles.paidHint}>{t('sales.amountPaidHint')}</Text>
             </View>
 
             {remaining > 0 ? (
@@ -391,10 +398,12 @@ const styles = StyleSheet.create({
   qtyText: { fontSize: 20, color: colors.primary, fontWeight: '700' },
   qtyValue: { fontSize: 16, fontWeight: '700', minWidth: 24, textAlign: 'center', color: colors.text },
   summary: { marginTop: spacing.md },
-  paidRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm },
-  paidField: { flex: 1 },
-  fullPaymentButton: { marginBottom: spacing.md, borderRadius: radius, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: spacing.md, paddingVertical: 12, backgroundColor: colors.neutralBg },
-  fullPaymentText: { color: colors.primary, fontWeight: '800', fontSize: 12 },
+  paidSection: { marginBottom: spacing.md },
+  paidInputRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  paidInput: { flex: 1, minWidth: 0, borderWidth: 1, borderColor: colors.border, borderRadius: radius, backgroundColor: colors.card, paddingHorizontal: spacing.md, paddingVertical: 13, fontSize: 15, color: colors.text },
+  fullPaymentButton: { minHeight: 48, borderRadius: radius, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, backgroundColor: colors.primary },
+  fullPaymentText: { color: colors.onPrimary, fontWeight: '800', fontSize: 12 },
+  paidHint: { color: colors.muted, fontSize: 12, marginTop: spacing.xs },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
   totalLabel: { fontSize: 18, fontWeight: '700', color: colors.text },
   totalValue: { fontSize: 18, fontWeight: '800', color: colors.primary },
