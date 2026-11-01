@@ -38,8 +38,13 @@ public class Product {
     @Column(name = "image_url", length = 500)
     private String imageUrl;
 
+    // Prix moyen pondéré du stock : utilisé pour calculer le coût des ventes.
     @Column(name = "average_purchase_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal averagePurchasePrice = BigDecimal.ZERO;
+
+    // Prix de référence modifiable pour préremplir le prochain achat.
+    @Column(name = "purchase_price", nullable = false, precision = 12, scale = 2)
+    private BigDecimal purchasePrice = BigDecimal.ZERO;
 
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal salePrice = BigDecimal.ZERO;
@@ -92,6 +97,9 @@ public class Product {
 
     public BigDecimal getAveragePurchasePrice() { return averagePurchasePrice; }
     public void setAveragePurchasePrice(BigDecimal averagePurchasePrice) { this.averagePurchasePrice = averagePurchasePrice; }
+
+    public BigDecimal getPurchasePrice() { return purchasePrice; }
+    public void setPurchasePrice(BigDecimal purchasePrice) { this.purchasePrice = purchasePrice; }
 
     public BigDecimal getSalePrice() { return salePrice; }
     public void setSalePrice(BigDecimal salePrice) { this.salePrice = salePrice; }
