@@ -15,6 +15,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
+import { getCachedCustomers, saveCustomers } from '../database';
 import { errorMessage } from '../api/errors';
 import type { Customer } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -34,12 +35,17 @@ export default function CustomersScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
+    const cached = await getCachedCustomers().catch(() => []);
+    setCustomers(cached);
+    setLoading(false);
+
     try {
-      setError(null);
       const data = await api<Customer[]>('/api/customers');
-      setCustomers(data);
+      await saveCustomers(data);
+      setCustomers(await getCachedCustomers());
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (cached.length === 0) setError(errorMessage(e, t));
     }
   }, [t]);
 
