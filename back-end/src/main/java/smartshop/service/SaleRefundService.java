@@ -37,6 +37,17 @@ public class SaleRefundService {
 
     @Transactional
     public SaleRefund refund(UUID saleId, RefundRequest request) {
+        // Return the already-committed refund if a mobile retry follows a lost response.
+        if (request.id() != null) {
+            SaleRefund existing = refundRepository.findById(request.id()).orElse(null);
+            if (existing != null) {
+                if (!existing.getSale().getId().equals(saleId)) {
+                    throw new IllegalArgumentException("Cet identifiant de remboursement est déjà utilisé");
+                }
+                return existing;
+            }
+        }
+
         Sale sale = saleRepository.findByIdForUpdate(saleId)
                 .orElseThrow(() -> new IllegalArgumentException("Vente introuvable"));
 
@@ -99,6 +110,7 @@ public class SaleRefundService {
         BigDecimal cashRefunded = refundTotal.subtract(creditApplied);
 
         SaleRefund refund = new SaleRefund();
+        if (request.id() != null) refund.setId(request.id());
         refund.setSale(sale);
         refund.setReason(request.reason().trim());
         refund.setAmount(refundTotal);
