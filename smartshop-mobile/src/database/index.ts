@@ -1560,6 +1560,54 @@ export async function recordOutboxFailure(
       permanent ? 1 : 0,
       itemId,
     );
+    await db.runAsync(
+      `UPDATE sales
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (
+         SELECT id FROM outbox WHERE id = ? AND entity_type = 'SALE'
+       )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE purchases
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (
+         SELECT id FROM outbox WHERE id = ? AND entity_type = 'PURCHASE'
+       )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE purchases
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (
+         SELECT json_extract(payload, '$.purchaseId')
+         FROM outbox WHERE id = ? AND entity_type = 'PURCHASE_PAYMENT'
+       )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE sales
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (
+         SELECT json_extract(payload, '$.saleId')
+         FROM outbox WHERE id = ? AND entity_type IN ('SALE_CANCEL', 'SALE_REFUND')
+       )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE expenses
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (
+         SELECT json_extract(payload, '$.id')
+         FROM outbox WHERE id = ? AND entity_type = 'EXPENSE'
+       )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
   });
 }
 
