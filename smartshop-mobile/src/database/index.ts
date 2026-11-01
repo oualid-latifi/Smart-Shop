@@ -389,6 +389,18 @@ function createLocalUuid(): string {
 export async function saveCustomers(customers: Customer[]): Promise<void> {
   const db = await getDatabase();
   await db.withTransactionAsync(async () => {
+    const pendingDebt = await db.getAllAsync<{ customer_id: string; debt_delta: number }>(
+      `SELECT customer_id, SUM(remaining) AS debt_delta
+       FROM sales
+       WHERE sync_status IN ('PENDING', 'FAILED')
+         AND status = 'VALIDATED'
+         AND customer_id IS NOT NULL
+       GROUP BY customer_id`,
+    );
+    const pendingDebtByCustomer = new Map(
+      pendingDebt.map((row) => [row.customer_id, row.debt_delta]),
+    );
+
     for (const customer of customers) {
       await db.runAsync(
         `INSERT INTO customers (id, name, phone, credit_limit, balance, updated_at)
@@ -403,7 +415,7 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
         customer.name,
         customer.phone,
         customer.creditLimit,
-        customer.balance,
+        customer.balance + (pendingDebtByCustomer.get(customer.id) ?? 0),
         new Date().toISOString(),
       );
     }
