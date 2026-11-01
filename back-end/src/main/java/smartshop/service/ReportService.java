@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.ReportSummaryResponse;
 import smartshop.dto.PaymentHistoryResponse;
+import smartshop.dto.RefundResponse;
 import smartshop.dto.TopProductResponse;
 import smartshop.repository.CustomerPaymentRepository;
 import smartshop.repository.ExpenseRepository;
@@ -56,6 +57,13 @@ public class ReportService {
         this.productRepository = productRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.saleRefundLineRepository = saleRefundLineRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<RefundResponse> refundHistory() {
+        return saleRefundRepository.findAllByOrderByRefundedAtDesc().stream()
+                .map(RefundResponse::from)
+                .toList();
     }
 
     @Transactional(readOnly = true)
