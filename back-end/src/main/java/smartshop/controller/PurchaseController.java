@@ -46,6 +46,6 @@ public class PurchaseController {
     @PostMapping("/{id}/payments")
     public PurchaseResponse addPayment(@PathVariable UUID id,
                                        @Valid @RequestBody PaymentRequest request) {
-        return PurchaseResponse.from(purchaseService.addPayment(id, request.amount()));
+        return PurchaseResponse.from(purchaseService.addPayment(id, request));
     }
 }
