@@ -57,6 +57,7 @@
     "noCategory": "Aucune",
     "salePrice": "Prix de vente",
     "purchasePrice": "Prix d'achat",
+    "purchasePriceHint": "Prix de référence pour le prochain achat. Le coût moyen du stock et les ventes passées restent inchangés.",
     "initialStock": "Stock de départ",
     "alertThreshold": "Seuil d'alerte (stock bas)",
     "optional": "Facultatif",
