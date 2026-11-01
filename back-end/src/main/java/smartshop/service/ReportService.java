@@ -4,6 +4,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.ReportSummaryResponse;
+import smartshop.dto.PaymentHistoryResponse;
 import smartshop.dto.TopProductResponse;
 import smartshop.repository.CustomerPaymentRepository;
 import smartshop.repository.ExpenseRepository;
@@ -55,6 +56,21 @@ public class ReportService {
         this.productRepository = productRepository;
         this.saleRefundRepository = saleRefundRepository;
         this.saleRefundLineRepository = saleRefundLineRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public PaymentHistoryResponse paymentHistory() {
+        List<PaymentHistoryResponse.CustomerPaymentEntry> customerPayments =
+                customerPaymentRepository.findAllByOrderByPaidAtAsc().stream()
+                        .map(p -> new PaymentHistoryResponse.CustomerPaymentEntry(
+                                p.getId(), p.getCustomer().getId(), p.getAmount(), p.getPaidAt()))
+                        .toList();
+        List<PaymentHistoryResponse.PurchasePaymentEntry> purchasePayments =
+                purchasePaymentRepository.findAllByOrderByPaidAtAsc().stream()
+                        .map(p -> new PaymentHistoryResponse.PurchasePaymentEntry(
+                                p.getId(), p.getPurchase().getId(), p.getAmount(), p.getPaidAt()))
+                        .toList();
+        return new PaymentHistoryResponse(customerPayments, purchasePayments);
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
