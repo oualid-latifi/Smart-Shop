@@ -15,8 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cacheReportSummary, getCachedReportSummary } from '../database';
-import type { ReportSummary } from '../api/types';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary } from '../database';
+import type { PaymentHistory, ReportSummary } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
 import type { ReportsStackParamList } from '../navigation/types';
@@ -47,6 +47,10 @@ export default function ReportsScreen({ navigation }: Props) {
       setReport(data);
       setShowingCachedReport(false);
       void cacheReportSummary(period, data).catch(() => undefined);
+      // Payment ledgers are refreshed independently so a ledger failure does not hide a valid report.
+      void api<PaymentHistory>('/api/reports/payment-history')
+        .then(cachePaymentHistory)
+        .catch(() => undefined);
     } catch (e) {
       const cached = await getCachedReportSummary(period);
       if (cached) {
