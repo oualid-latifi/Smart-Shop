@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { getCachedCustomers, saveCustomers } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Customer } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -39,6 +40,11 @@ export default function CustomersScreen({ navigation }: Props) {
     const cached = await getCachedCustomers().catch(() => []);
     setCustomers(cached);
     setLoading(false);
+
+    const syncSummary = await syncPendingOperations().catch(() => ({
+      synced: 0, pending: 1, failed: 0,
+    }));
+    if (syncSummary.pending > 0) return;
 
     try {
       const data = await api<Customer[]>('/api/customers');
