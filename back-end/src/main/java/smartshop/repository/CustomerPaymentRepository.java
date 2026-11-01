@@ -8,10 +8,13 @@ import smartshop.entity.CustomerPayment;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.UUID;
+import java.util.List;
 
 public interface CustomerPaymentRepository extends JpaRepository<CustomerPayment, UUID> {
 
     boolean existsByPaymentRequestId(UUID paymentRequestId);
+
+    List<CustomerPayment> findAllByOrderByPaidAtAsc();
 
     // Historique réel des encaissements : une annulation de vente n'efface pas l'argent déjà reçu.
     @Query("""
