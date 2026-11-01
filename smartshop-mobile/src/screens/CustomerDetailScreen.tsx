@@ -1,11 +1,13 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, Linking, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
+import { deleteLocalCustomer } from '../database';
+import { syncPendingOperations } from '../sync';
 import type { Customer, Sale } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -47,6 +49,28 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
   useFocusEffect(useCallback(() => {
     void loadHistory();
   }, [loadHistory]));
+
+  function removeCustomer() {
+    Alert.alert(
+      'Supprimer le client',
+      "Un client avec un historique de ventes ne peut pas être supprimé.",
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteLocalCustomer(customer.id)
+              .then(() => {
+                navigation.goBack();
+                void syncPendingOperations();
+              })
+              .catch((e) => setError(errorMessage(e, t)));
+          },
+        },
+      ],
+    );
+  }
 
   async function pay() {
     const value = parseNumber(amount);
@@ -97,6 +121,10 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
           onPress={() => navigation.navigate('CustomerForm', { customer })}
           variant="outline"
         />
+      </View>
+
+      <View style={styles.block}>
+        <PrimaryButton title="Supprimer le client" onPress={removeCustomer} variant="outline" />
       </View>
 
       {customer.phone ? (
