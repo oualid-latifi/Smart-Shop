@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
+import { cacheReportSummary, getCachedReportSummary } from '../database';
 import type { ReportSummary } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
@@ -37,14 +38,24 @@ export default function ReportsScreen({ navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showingCachedReport, setShowingCachedReport] = useState(false);
 
   const load = useCallback(async () => {
     try {
       setError(null);
       const data = await api<ReportSummary>(ENDPOINTS[period]);
       setReport(data);
+      setShowingCachedReport(false);
+      await cacheReportSummary(period, data);
     } catch (e) {
-      setError(errorMessage(e, t));
+      const cached = await getCachedReportSummary(period);
+      if (cached) {
+        setReport(cached);
+        setShowingCachedReport(true);
+        setError(null);
+      } else {
+        setError(errorMessage(e, t));
+      }
     }
   }, [period, t]);
 
@@ -103,6 +114,9 @@ export default function ReportsScreen({ navigation }: Props) {
               {formatDate(report.from)} → {formatDate(report.to)} ·{' '}
               {t('reports.salesCount', { n: report.salesCount })}
             </Text>
+            {showingCachedReport ? (
+              <Text style={styles.cachedNotice}>Rapport en cache — dernière synchronisation disponible (hors ligne).</Text>
+            ) : null}
 
             <View style={styles.grid}>
               <Kpi icon="cash-outline" label={t('reports.revenue')} value={formatMoney(report.revenue)} />
@@ -244,6 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   range: { color: colors.muted, fontSize: 13, marginTop: spacing.sm },
+  cachedNotice: { color: colors.warning ?? colors.muted, fontSize: 12, fontWeight: '600' },
   section: {
     fontSize: 18,
     fontWeight: '700',
