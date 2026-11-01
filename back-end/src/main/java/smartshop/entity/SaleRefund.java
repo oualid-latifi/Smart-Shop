@@ -39,7 +39,7 @@ public class SaleRefund {
     public SaleRefund() {}
 
     @PrePersist
-    void onCreate() { refundedAt = LocalDateTime.now(); }
+    void onCreate() { if (refundedAt == null) refundedAt = LocalDateTime.now(); }
 
     public void addLine(SaleRefundLine line) {
         line.setRefund(this);
@@ -47,6 +47,8 @@ public class SaleRefund {
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+    public void setRefundedAt(LocalDateTime refundedAt) { this.refundedAt = refundedAt; }
     public Sale getSale() { return sale; }
     public void setSale(Sale sale) { this.sale = sale; }
     public BigDecimal getAmount() { return amount; }
