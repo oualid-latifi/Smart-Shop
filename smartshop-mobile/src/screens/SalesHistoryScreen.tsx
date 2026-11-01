@@ -34,6 +34,7 @@ export default function SalesHistoryScreen({ navigation }: Props) {
     setError(null);
     const cached = await getCachedSales().catch(() => []);
     setSales(cached);
+    setLoading(false);
 
     try {
       const data = await api<Sale[]>('/api/sales');
