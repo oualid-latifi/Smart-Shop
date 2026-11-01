@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
 import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
@@ -57,6 +57,7 @@ export default function ReportsScreen({ navigation }: Props) {
         api<PaymentHistory>('/api/reports/payment-history'),
         api<SaleRefund[]>('/api/reports/refund-history'),
       ]).then(async ([sales,purchases,expenses,products,customers,suppliers,payments,refunds]) => {
+        await markReportDatasetSnapshotIncomplete();
         await Promise.all([saveSales(sales),savePurchases(purchases),saveExpenses(expenses),saveProducts(products),saveCustomers(customers),saveSuppliers(suppliers),cachePaymentHistory(payments),saveSaleRefunds(refunds)]);
         await markReportDatasetSnapshotComplete();
       }).catch(() => undefined);
