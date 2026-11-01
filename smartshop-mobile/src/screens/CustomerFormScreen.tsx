@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { saveLocalCustomer } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -34,15 +35,14 @@ export default function CustomerFormScreen({ route, navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api(customer ? `/api/customers/${customer.id}` : '/api/customers', {
-        method: customer ? 'PUT' : 'POST',
-        body: {
-          name: name.trim(),
-          phone: phone.trim() || null,
-          creditLimit: limit,
-        },
+      await saveLocalCustomer({
+        id: customer?.id,
+        name: name.trim(),
+        phone: phone.trim() || null,
+        creditLimit: limit,
       });
       navigation.goBack();
+      void syncPendingOperations();
     } catch (e) {
       setError(errorMessage(e, t));
       setSaving(false);
