@@ -10,6 +10,8 @@ public record RefundResponse(
         UUID id,
         UUID saleId,
         BigDecimal amount,
+        BigDecimal creditApplied,
+        BigDecimal cashRefunded,
         String reason,
         LocalDateTime refundedAt,
         List<RefundLineResponse> lines
@@ -19,6 +21,8 @@ public record RefundResponse(
                 refund.getId(),
                 refund.getSale().getId(),
                 refund.getAmount(),
+                refund.getCreditApplied(),
+                refund.getCashRefunded(),
                 refund.getReason(),
                 refund.getRefundedAt(),
                 refund.getLines().stream().map(RefundLineResponse::from).toList()
