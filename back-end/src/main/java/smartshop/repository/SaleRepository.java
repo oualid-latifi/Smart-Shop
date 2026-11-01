@@ -24,7 +24,7 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     // Dette totale d'un client (ventes annulées exclues). Peut renvoyer null s'il n'a aucune vente.
     @Query("""
-            select sum(s.total - s.amountPaid) from Sale s
+            select sum(s.total - s.amountPaid - s.creditApplied) from Sale s
             where s.customer.id = :customerId
               and s.status = smartshop.entity.SaleStatus.VALIDATED
             """)
@@ -35,7 +35,7 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
             select s from Sale s
             where s.customer.id = :customerId
               and s.status = smartshop.entity.SaleStatus.VALIDATED
-              and s.amountPaid < s.total
+              and (s.amountPaid + s.creditApplied) < s.total
             order by s.saleDate asc
             """)
     List<Sale> findUnpaidByCustomer(@Param("customerId") UUID customerId);
