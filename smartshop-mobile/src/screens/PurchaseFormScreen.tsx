@@ -13,6 +13,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { createLocalPurchase, getCachedProducts, getCachedSuppliers, saveProducts, saveSuppliers } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Product, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -49,22 +51,33 @@ export default function PurchaseFormScreen({ navigation }: Props) {
 
   const loadSuppliers = useCallback(async () => {
     setSuppliersError(false);
+    const cached = await getCachedSuppliers().catch(() => []);
+    if (cached.length > 0) setSuppliers(cached);
     try {
-      setSuppliers(await api<Supplier[]>('/api/suppliers'));
+      const data = await api<Supplier[]>('/api/suppliers');
+      await saveSuppliers(data);
+      setSuppliers(data);
     } catch {
-      setSuppliersError(true);
+      setSuppliersError(cached.length === 0);
     }
   }, []);
 
   const load = useCallback(async () => {
     setError(null);
+    const cachedProducts = await getCachedProducts().catch(() => []);
+    if (cachedProducts.length > 0) {
+      setProducts(cachedProducts.filter((item) => item.active));
+    }
+    setLoading(false);
+
     try {
       const p = await api<Product[]>('/api/products');
+      await saveProducts(p);
       setProducts(p.filter((item) => item.active));
-      await loadSuppliers();
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (cachedProducts.length === 0) setError(errorMessage(e, t));
     }
+    await loadSuppliers();
   }, [loadSuppliers, t]);
 
   // Recharge à chaque retour (par exemple après avoir créé un fournisseur)
@@ -140,19 +153,18 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api('/api/purchases', {
-        method: 'POST',
-        body: {
-          supplierId,
-          amountPaid: paidValue,
-          note: note.trim() || null,
-          lines: cart.map((line) => ({
-            productId: line.product.id,
-            quantity: line.quantity,
-            unitPrice: parseNumber(line.unitPrice) ?? 0,
-          })),
-        },
+      // Save the purchase and stock changes locally before attempting network sync.
+      await createLocalPurchase({
+        supplierId,
+        amountPaid: paidValue,
+        note: note.trim() || null,
+        lines: cart.map((line) => ({
+          productId: line.product.id,
+          quantity: line.quantity,
+          unitPrice: parseNumber(line.unitPrice) ?? 0,
+        })),
       });
+      void syncPendingOperations().catch(() => undefined);
       navigation.goBack();
     } catch (e) {
       setError(errorMessage(e, t));
