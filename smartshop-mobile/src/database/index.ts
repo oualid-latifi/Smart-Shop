@@ -1592,6 +1592,7 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
     );
     if (item.entity_type === 'SALE') {
       await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+      await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'SALE_CANCEL' || item.entity_type === 'SALE_REFUND') {
       const payload = JSON.parse(item.payload) as { saleId?: string };
       if (payload.saleId) {
@@ -1614,6 +1615,7 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
       await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE') {
       await db.runAsync("UPDATE purchases SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+      await db.runAsync("UPDATE purchase_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE_PAYMENT') {
       await db.runAsync("UPDATE purchase_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'EXPENSE') {
@@ -1677,6 +1679,16 @@ export async function recordOutboxFailure(
        WHERE id = (
          SELECT id FROM outbox WHERE id = ? AND entity_type = 'PURCHASE'
        )`,
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      "UPDATE customer_payments SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'SALE')",
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      "UPDATE purchase_payments SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'PURCHASE')",
       permanent ? 1 : 0,
       itemId,
     );
