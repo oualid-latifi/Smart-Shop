@@ -1,5 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -47,12 +48,20 @@ function Root() {
   const { status } = useAuth();
 
   useEffect(() => {
-    if (status === 'signedIn') {
-      // Resume queued offline sales and purchases after the owner signs in.
+    if (status !== 'signedIn') return;
+
+    const flushQueue = () => {
       void syncPendingOperations().catch((error) => {
         console.warn('[SYNC] Impossible de traiter la file locale', error);
       });
-    }
+    };
+
+    // Resume the outbox after login and whenever the app returns to foreground.
+    flushQueue();
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') flushQueue();
+    });
+    return () => subscription.remove();
   }, [status]);
 
   if (status === 'loading') {
