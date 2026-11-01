@@ -56,7 +56,7 @@ public class Sale {
     @PrePersist
     void onCreate() {
         if (this.id == null) this.id = UUID.randomUUID();
-        this.saleDate = LocalDateTime.now();
+        if (this.saleDate == null) this.saleDate = LocalDateTime.now();
     }
 
     public void addLine(SaleLine line) {
@@ -83,6 +83,7 @@ public class Sale {
     public void setCustomer(Customer customer) { this.customer = customer; }
 
     public LocalDateTime getSaleDate() { return saleDate; }
+    public void setSaleDate(LocalDateTime saleDate) { this.saleDate = saleDate; }
 
     public BigDecimal getDiscount() { return discount; }
     public void setDiscount(BigDecimal discount) { this.discount = discount; }
