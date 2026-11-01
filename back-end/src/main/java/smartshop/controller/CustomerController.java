@@ -66,6 +66,6 @@ public class CustomerController {
     @PostMapping("/{id}/payments")
     public CustomerResponse pay(@PathVariable UUID id,
                                 @Valid @RequestBody PaymentRequest request) {
-        return customerService.pay(id, request.amount());
+        return customerService.pay(id, request);
     }
 }
