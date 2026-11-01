@@ -40,7 +40,7 @@ export default function MoreScreen({ navigation }: Props) {
     setRetrying(true);
     setSyncMessage('');
     try {
-      const count = await retryFailedOutboxOperations();
+      await retryFailedOutboxOperations();
       const result = await syncPendingOperations();
       await refreshSyncStatus();
       setSyncMessage(isAr
