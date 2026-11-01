@@ -12,7 +12,7 @@ import smartshop.repository.PurchasePaymentRepository;
 import smartshop.repository.PurchaseRepository;
 import smartshop.repository.SaleLineRepository;
 import smartshop.repository.SaleRepository;
-import smartshop.repository.SaleRefundRepository;
+import smartshop.repository.SaleRefundRepository;\nimport smartshop.repository.SaleRefundLineRepository;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -33,7 +33,7 @@ public class ReportService {
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
-    private final SaleRefundRepository saleRefundRepository;
+    private final SaleRefundRepository saleRefundRepository;\n    private final SaleRefundLineRepository saleRefundLineRepository;
 
     public ReportService(SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
@@ -42,7 +42,7 @@ public class ReportService {
                          PurchasePaymentRepository purchasePaymentRepository,
                          ExpenseRepository expenseRepository,
                          ProductRepository productRepository,
-                         SaleRefundRepository saleRefundRepository) {
+                         SaleRefundRepository saleRefundRepository,\n                         SaleRefundLineRepository saleRefundLineRepository) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
         this.customerPaymentRepository = customerPaymentRepository;
@@ -50,7 +50,7 @@ public class ReportService {
         this.purchasePaymentRepository = purchasePaymentRepository;
         this.expenseRepository = expenseRepository;
         this.productRepository = productRepository;
-        this.saleRefundRepository = saleRefundRepository;
+        this.saleRefundRepository = saleRefundRepository;\n        this.saleRefundLineRepository = saleRefundLineRepository;
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
