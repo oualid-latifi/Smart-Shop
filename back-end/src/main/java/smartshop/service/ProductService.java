@@ -65,10 +65,11 @@ public class ProductService {
         product.setCapacity(data.getCapacity());
         product.setImageUrl(data.getImageUrl());
         product.setSalePrice(data.getSalePrice());
+        // Le prix de référence peut changer sans réévaluer le coût moyen du stock existant.
+        product.setPurchasePrice(data.getPurchasePrice());
         product.setAlertThreshold(data.getAlertThreshold());
         product.setCategory(findCategory(categoryId));
-        // Le stock et le prix d'achat moyen ne se modifient PAS ici :
-        // ils changent uniquement via les achats, les ventes et les ajustements.
+        // Le stock et le coût moyen pondéré restent inchangés lors d'une modification du catalogue.
         return productRepository.save(product);
     }
 
