@@ -1039,3 +1039,104 @@ export async function getCachedPurchases(): Promise<Purchase[]> {
   }
   return result;
 }
+
+
+export async function saveSales(sales: Sale[]): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const sale of sales) {
+      await db.runAsync(
+        `INSERT INTO sales (
+          id, customer_id, sale_date, discount, total, amount_paid,
+          remaining, profit, status, cancellation_reason, sync_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'SYNCED')
+        ON CONFLICT(id) DO UPDATE SET
+          customer_id = excluded.customer_id,
+          sale_date = excluded.sale_date,
+          discount = excluded.discount,
+          total = excluded.total,
+          amount_paid = excluded.amount_paid,
+          remaining = excluded.remaining,
+          profit = excluded.profit,
+          status = excluded.status,
+          cancellation_reason = excluded.cancellation_reason,
+          sync_status = 'SYNCED'`,
+        sale.id,
+        sale.customerId,
+        sale.saleDate,
+        sale.discount,
+        sale.total,
+        sale.amountPaid,
+        sale.remaining,
+        sale.profit,
+        sale.status,
+        sale.cancellationReason,
+      );
+
+      await db.runAsync('DELETE FROM sale_lines WHERE sale_id = ?', sale.id);
+      for (const line of sale.lines) {
+        await db.runAsync(
+          `INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price, unit_cost)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          line.saleLineId,
+          sale.id,
+          line.productId,
+          line.quantity,
+          line.unitPrice,
+          line.unitCost,
+        );
+      }
+
+      await db.runAsync(
+        "UPDATE outbox SET status = 'SYNCED', last_error = NULL WHERE id = ? AND entity_type = 'SALE'",
+        sale.id,
+      );
+    }
+  });
+}
+
+export async function savePurchases(purchases: Purchase[]): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const purchase of purchases) {
+      await db.runAsync(
+        `INSERT INTO purchases (
+          id, supplier_id, purchase_date, total, amount_paid, remaining, note, sync_status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, 'SYNCED')
+        ON CONFLICT(id) DO UPDATE SET
+          supplier_id = excluded.supplier_id,
+          purchase_date = excluded.purchase_date,
+          total = excluded.total,
+          amount_paid = excluded.amount_paid,
+          remaining = excluded.remaining,
+          note = excluded.note,
+          sync_status = 'SYNCED'`,
+        purchase.id,
+        purchase.supplierId,
+        purchase.purchaseDate,
+        purchase.total,
+        purchase.amountPaid,
+        purchase.remaining,
+        purchase.note,
+      );
+
+      await db.runAsync('DELETE FROM purchase_lines WHERE purchase_id = ?', purchase.id);
+      for (const line of purchase.lines) {
+        await db.runAsync(
+          `INSERT INTO purchase_lines (id, purchase_id, product_id, quantity, unit_price)
+           VALUES (?, ?, ?, ?, ?)`,
+          createLocalUuid(),
+          purchase.id,
+          line.productId,
+          line.quantity,
+          line.unitPrice,
+        );
+      }
+
+      await db.runAsync(
+        "UPDATE outbox SET status = 'SYNCED', last_error = NULL WHERE id = ? AND entity_type = 'PURCHASE'",
+        purchase.id,
+      );
+    }
+  });
+}
