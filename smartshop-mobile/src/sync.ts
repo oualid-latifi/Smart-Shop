@@ -57,6 +57,13 @@ async function flushPendingOperations(): Promise<SyncSummary> {
         await api('/api/sales', { method, body: payload });
       } else if (item.entity_type === 'PURCHASE' && method === 'POST') {
         await api('/api/purchases', { method, body: payload });
+      } else if (item.entity_type === 'EXPENSE') {
+        const expenseId = typeof payload.id === 'string' ? payload.id : '';
+        if (!expenseId) throw new Error('Identifiant de dépense absent de la synchronisation.');
+        await api(method === 'POST' ? '/api/expenses' : `/api/expenses/${expenseId}`, {
+          method,
+          ...(method === 'DELETE' ? {} : { body: payload }),
+        });
       } else if (item.entity_type === 'CUSTOMER_PAYMENT' && method === 'POST') {
         const customerId = typeof payload.customerId === 'string' ? payload.customerId : '';
         if (!customerId) throw new Error('Identifiant client absent du paiement.');
