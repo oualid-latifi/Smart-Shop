@@ -1,8 +1,8 @@
  import React, { useLayoutEffect, useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { saveLocalSupplier } from '../database';
+import { deleteLocalSupplier, saveLocalSupplier } from '../database';
 import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import PrimaryButton from '../components/PrimaryButton';
@@ -23,6 +23,29 @@ export default function SupplierFormScreen({ route, navigation }: Props) {
   const [phone, setPhone] = useState(supplier?.phone ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  function removeSupplier() {
+    if (!supplier) return;
+    Alert.alert(
+      'Supprimer le fournisseur',
+      "Un fournisseur avec un historique d'achats ne peut pas être supprimé.",
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: () => {
+            deleteLocalSupplier(supplier.id)
+              .then(() => {
+                navigation.goBack();
+                void syncPendingOperations();
+              })
+              .catch((e) => setError(errorMessage(e, t)));
+          },
+        },
+      ],
+    );
+  }
 
   async function save() {
     if (!name.trim()) {
@@ -59,6 +82,9 @@ export default function SupplierFormScreen({ route, navigation }: Props) {
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
       <PrimaryButton title={supplier ? t('purchases.updateSupplier') : t('purchases.save')} onPress={save} loading={saving} />
+      {supplier ? (
+        <PrimaryButton title="Supprimer le fournisseur" onPress={removeSupplier} variant="outline" />
+      ) : null}
     </Screen>
   );
 }
