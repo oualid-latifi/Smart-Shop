@@ -5,6 +5,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
+import { getCachedSuppliers, saveSuppliers } from '../database';
 import { errorMessage } from '../api/errors';
 import type { Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -22,11 +23,17 @@ export default function SuppliersScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
+    const cached = await getCachedSuppliers().catch(() => []);
+    setSuppliers(cached);
+    setLoading(false);
+
     try {
-      setError(null);
-      setSuppliers(await api<Supplier[]>('/api/suppliers'));
+      const data = await api<Supplier[]>('/api/suppliers');
+      await saveSuppliers(data);
+      setSuppliers(await getCachedSuppliers());
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (cached.length === 0) setError(errorMessage(e, t));
     }
   }, [t]);
 
