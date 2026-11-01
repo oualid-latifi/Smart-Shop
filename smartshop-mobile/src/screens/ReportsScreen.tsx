@@ -258,7 +258,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   range: { color: colors.muted, fontSize: 13, marginTop: spacing.sm },
-  cachedNotice: { color: colors.warning ?? colors.muted, fontSize: 12, fontWeight: '600' },
+  cachedNotice: { color: colors.muted, fontSize: 12, fontWeight: '600' },
   section: {
     fontSize: 18,
     fontWeight: '700',
