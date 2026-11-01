@@ -17,6 +17,7 @@ import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { colors, isDark } from './src/theme';
 import { testDatabase, testProductCRUD } from './src/database';
+import { syncPendingOperations } from './src/sync';
 
 const RootStack = createNativeStackNavigator();
 
@@ -44,6 +45,15 @@ function Splash() {
 
 function Root() {
   const { status } = useAuth();
+
+  useEffect(() => {
+    if (status === 'signedIn') {
+      // Resume queued offline sales and purchases after the owner signs in.
+      void syncPendingOperations().catch((error) => {
+        console.warn('[SYNC] Impossible de traiter la file locale', error);
+      });
+    }
+  }, [status]);
 
   if (status === 'loading') {
     return <Splash />;
