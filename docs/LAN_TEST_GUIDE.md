@@ -1,6 +1,6 @@
 # Guide de démarrage et de test LAN
 
-Ce guide explique comment lancer Smart Shop sur un PC Windows et connecter l'application Android au backend par le même Wi-Fi. Le fonctionnement visé est local : PostgreSQL et Spring Boot tournent sur le PC, SQLite conserve les opérations sur le téléphone lorsque le serveur est inaccessible.
+Ce guide explique comment lancer Smart Shop sur un PC Windows et connecter l'application Android par le même Wi-Fi. PostgreSQL et Spring Boot tournent sur le PC ; SQLite conserve les opérations sur le téléphone lorsque le serveur est inaccessible.
 
 ## 1. Préparer PostgreSQL
 
@@ -9,44 +9,44 @@ Ce guide explique comment lancer Smart Shop sur un PC Windows et connecter l'app
 3. Garder PostgreSQL accessible sur `localhost:5432` : seul le backend du PC doit s'y connecter.
 4. Noter le nom d'utilisateur et le mot de passe PostgreSQL.
 
-La configuration par défaut du backend utilise :
+La configuration par défaut du backend utilise l'URL `jdbc:postgresql://localhost:5432/smartshop` et l'utilisateur `postgres`. Le mot de passe est demandé au démarrage.
 
-- URL : `jdbc:postgresql://localhost:5432/smartshop`
-- utilisateur : `postgres` (modifiable)
-- mot de passe : fourni par la variable `DB_PASSWORD`
+## 2. Installer les prérequis du backend
 
-## 2. Configurer et lancer le backend
+Installer :
+- **JDK 21** ;
+- **Maven** et l'ajouter au `PATH` Windows ;
+- **PostgreSQL**.
 
-Prérequis : JDK 21 et Maven (ou le Maven Wrapper s'il est présent dans le dossier).
-
-Ouvrir PowerShell dans le dossier `back-end`, puis définir les variables pour la session PowerShell courante (remplacer les valeurs d'exemple) :
-
-```powershell
-$env:DB_URL = "jdbc:postgresql://localhost:5432/smartshop"
-$env:DB_USERNAME = "postgres"
-$env:DB_PASSWORD = "VOTRE_MOT_DE_PASSE_POSTGRES"
-$env:JWT_SECRET = "REMPLACER_PAR_UNE_CLE_ALEATOIRE_DE_32_CARACTERES_MINIMUM"
-```
-
-La clé JWT doit contenir au moins 32 caractères. Ne partagez pas ces valeurs et ne les ajoutez pas à Git.
-
-Lancer le backend :
+Ouvrir un nouveau PowerShell et vérifier :
 
 ```powershell
-.mvnw.cmd spring-boot:run
+java -version
+mvn -version
 ```
 
-Si le projet ne contient pas `mvnw.cmd`, utilisez :
+## 3. Démarrer le backend
+
+Ouvrir PowerShell dans le dossier `back-end` :
 
 ```powershell
-mvn spring-boot:run
+.\run-local.ps1
 ```
 
-Le serveur écoute sur le port **8080**. Garder cette fenêtre ouverte pendant le test.
+Le script demande le nom d'utilisateur PostgreSQL, le mot de passe PostgreSQL et une clé JWT secrète d'au moins 32 caractères. Les secrets sont demandés à l'exécution et ne sont pas enregistrés dans le dépôt Git. Le serveur écoute sur le port **8080**. Garder cette fenêtre ouverte pendant le test.
 
-## 3. Vérifier le backend depuis le PC
+Si Windows bloque l'exécution du script, ouvrir PowerShell dans le dossier du backend et exécuter pour cette fenêtre uniquement :
 
-Dans un navigateur du PC, ouvrir :
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+.\run-local.ps1
+```
+
+Ne changez pas la stratégie d'exécution de façon permanente.
+
+## 4. Vérifier le backend depuis le PC
+
+Dans le navigateur du PC, ouvrir :
 
 ```text
 http://localhost:8080/api/auth/status
@@ -54,7 +54,7 @@ http://localhost:8080/api/auth/status
 
 Une réponse JSON avec le champ `accountExists` indique que le backend répond. La valeur `false` signifie qu'aucun compte n'a encore été créé ; ce n'est pas une erreur réseau.
 
-## 4. Trouver l'adresse IPv4 du PC
+## 5. Trouver l'adresse IPv4 du PC
 
 1. Sur le PC, ouvrir CMD.
 2. Exécuter `ipconfig`.
@@ -63,30 +63,22 @@ Une réponse JSON avec le champ `accountExists` indique que le backend répond. 
 
 Le téléphone et le PC doivent être connectés au même Wi-Fi/LAN. Éviter le Wi-Fi invité ou l'isolation des appareils clients.
 
-## 5. Autoriser le port dans le pare-feu Windows si nécessaire
+## 6. Autoriser le port dans le pare-feu Windows si nécessaire
 
 Si le navigateur du PC fonctionne mais que le téléphone ne parvient pas à joindre le serveur, vérifier le pare-feu Windows. Autoriser TCP **8080** uniquement sur le profil **Privé** et uniquement pour le réseau local de confiance.
 
 Ne désactivez pas complètement le pare-feu. Ne créez aucune redirection de port sur le routeur et n'exposez pas le backend à Internet.
 
-## 6. Connecter l'application mobile
+## 7. Connecter l'application mobile
 
 1. Ouvrir Smart Shop sur Android.
 2. Aller dans **Plus → Connexion au PC**.
-3. Saisir l'adresse sous la forme :
-
-```text
-http://ADRESSE_IPV4_DU_PC:8080
-```
-
-Exemple : `http://192.168.1.47:8080`.
-
+3. Saisir l'adresse `http://ADRESSE_IPV4_DU_PC:8080`, par exemple `http://192.168.1.47:8080`.
 4. Appuyer sur **Enregistrer et tester**.
-5. Le message de réussite confirme que l'application a atteint `/api/auth/status`.
 
 L'adresse IP de l'exemple est fictive : utiliser celle affichée par `ipconfig` sur votre PC.
 
-## 7. Scénarios de test à effectuer
+## 8. Scénarios de test à effectuer
 
 Faire d'abord les tests avec de petites données non critiques :
 
@@ -102,19 +94,19 @@ Faire d'abord les tests avec de petites données non critiques :
 
 Ne pas utiliser de données comptables réelles avant d'avoir vérifié les montants, le stock et l'absence de doublons sur plusieurs cycles de déconnexion/reconnexion.
 
-## 8. Construire l'APK Android
+## 9. Construire l'APK Android
 
 Depuis le dossier `smartshop-mobile` :
 
 ```bash
-npm install
+npm ci
 npx eas-cli login
 npx eas-cli build --platform android --profile preview
 ```
 
-Le profil `preview` dans `eas.json` est configuré pour produire un APK en distribution interne. Après le build EAS, récupérer l'APK depuis la page de build et l'installer sur le téléphone.
+Le profil `preview` dans `eas.json` produit un APK distribuable en interne. Le projet possède déjà un identifiant EAS configuré. Le build doit être lancé avec un compte EAS auquel ce projet est accessible. Après le build EAS, récupérer l'APK depuis la page de build et l'installer sur le téléphone.
 
-Avant de générer l'APK, vérifier que le projet EAS est bien lié au compte utilisé et que le PC conserve une adresse IP stable (réservation DHCP recommandée) ou mettre à jour l'adresse dans **Connexion au PC** si elle change.
+Avant le test, vérifier que le PC conserve une adresse IP stable (réservation DHCP recommandée) ou mettre à jour l'adresse dans **Connexion au PC** si elle change.
 
 ## Dépannage rapide
 
@@ -129,4 +121,4 @@ Avant de générer l'APK, vérifier que le projet EAS est bien lié au compte ut
 
 ## Limites du test
 
-Ce guide prépare le test, mais ne prouve pas que le téléphone et le PC ont déjà été connectés physiquement. Il faut effectuer les scénarios ci-dessus sur vos propres appareils avant de considérer la version comme validée.
+Ce guide prépare le test, mais ne prouve pas que le téléphone et le PC ont déjà été connectés physiquement. Effectuer les scénarios ci-dessus sur vos propres appareils avant de considérer la version comme validée.
