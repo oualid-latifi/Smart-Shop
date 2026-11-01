@@ -12,7 +12,8 @@ import smartshop.repository.PurchasePaymentRepository;
 import smartshop.repository.PurchaseRepository;
 import smartshop.repository.SaleLineRepository;
 import smartshop.repository.SaleRepository;
-import smartshop.repository.SaleRefundRepository;\nimport smartshop.repository.SaleRefundLineRepository;
+import smartshop.repository.SaleRefundRepository;
+import smartshop.repository.SaleRefundLineRepository;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -33,7 +34,8 @@ public class ReportService {
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
-    private final SaleRefundRepository saleRefundRepository;\n    private final SaleRefundLineRepository saleRefundLineRepository;
+    private final SaleRefundRepository saleRefundRepository;
+    private final SaleRefundLineRepository saleRefundLineRepository;
 
     public ReportService(SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
@@ -42,7 +44,8 @@ public class ReportService {
                          PurchasePaymentRepository purchasePaymentRepository,
                          ExpenseRepository expenseRepository,
                          ProductRepository productRepository,
-                         SaleRefundRepository saleRefundRepository,\n                         SaleRefundLineRepository saleRefundLineRepository) {
+                         SaleRefundRepository saleRefundRepository,
+                         SaleRefundLineRepository saleRefundLineRepository) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
         this.customerPaymentRepository = customerPaymentRepository;
@@ -50,7 +53,8 @@ public class ReportService {
         this.purchasePaymentRepository = purchasePaymentRepository;
         this.expenseRepository = expenseRepository;
         this.productRepository = productRepository;
-        this.saleRefundRepository = saleRefundRepository;\n        this.saleRefundLineRepository = saleRefundLineRepository;
+        this.saleRefundRepository = saleRefundRepository;
+        this.saleRefundLineRepository = saleRefundLineRepository;
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
@@ -62,20 +66,21 @@ public class ReportService {
             throw new IllegalArgumentException("La date de début doit être avant la date de fin");
         }
 
-        // La fin est exclusive : on prend toute la journée de "to"
+        // La fin est exclusive : on prend toute la journée de "to".
         LocalDateTime startTime = start.atStartOfDay();
         LocalDateTime endTime = end.plusDays(1).atStartOfDay();
 
         long salesCount = saleRepository.countValidatedBetween(startTime, endTime);
-        BigDecimal revenue = nz(saleRepository.sumTotalBetween(startTime, endTime));
-        BigDecimal cost = nz(saleLineRepository.sumCostBetween(startTime, endTime));
+        BigDecimal refunds = nz(saleRefundRepository.sumBetween(startTime, endTime));
+        BigDecimal returnedCost = nz(saleRefundLineRepository.sumReturnedCostBetween(startTime, endTime));
+        BigDecimal revenue = nz(saleRepository.sumTotalBetween(startTime, endTime)).subtract(refunds);
+        BigDecimal cost = nz(saleLineRepository.sumCostBetween(startTime, endTime)).subtract(returnedCost);
         BigDecimal grossProfit = revenue.subtract(cost);
 
         BigDecimal expenses = nz(expenseRepository.sumBetween(start, end));
         BigDecimal netProfit = grossProfit.subtract(expenses);
 
-        // Les remboursements diminuent les encaissements nets sur la période où ils sont effectués.
-        BigDecimal refunds = nz(saleRefundRepository.sumBetween(startTime, endTime));
+        // Les remboursements diminuent aussi les encaissements nets sur leur date réelle.
         BigDecimal cashCollected = nz(customerPaymentRepository.sumValidatedBetween(startTime, endTime))
                 .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)))
                 .subtract(refunds);
@@ -117,7 +122,7 @@ public class ReportService {
         return summary(today.withDayOfMonth(1), today.with(TemporalAdjusters.lastDayOfMonth()));
     }
 
-    // Une somme sans résultat renvoie null : on la remplace par 0
+    // Une somme sans résultat renvoie null : on la remplace par 0.
     private BigDecimal nz(BigDecimal value) {
         return value != null ? value : BigDecimal.ZERO;
     }
