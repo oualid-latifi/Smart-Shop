@@ -55,6 +55,13 @@ async function flushPendingOperations(): Promise<SyncSummary> {
 
       if (item.entity_type === 'SALE' && method === 'POST') {
         await api('/api/sales', { method, body: payload });
+      } else if (item.entity_type === 'SALE_CANCEL' && method === 'POST') {
+        const saleId = typeof payload.saleId === 'string' ? payload.saleId : '';
+        if (!saleId) throw new Error('Identifiant de vente absent de l’annulation.');
+        await api(`/api/sales/${saleId}/cancel`, {
+          method: 'POST',
+          body: { reason: payload.reason },
+        });
       } else if (item.entity_type === 'PURCHASE' && method === 'POST') {
         await api('/api/purchases', { method, body: payload });
       } else if (item.entity_type === 'EXPENSE') {
