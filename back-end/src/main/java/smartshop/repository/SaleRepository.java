@@ -43,11 +43,11 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
     // Clients qui ont encore une dette, la plus ancienne d'abord
     @Query("""
             select c.id as customerId, c.name as name, c.phone as phone,
-                   sum(s.total - s.amountPaid) as debt,
+                   sum(s.total - s.amountPaid - s.creditApplied) as debt,
                    min(s.saleDate) as oldestSaleDate
             from Sale s join s.customer c
             where s.status = smartshop.entity.SaleStatus.VALIDATED
-              and s.amountPaid < s.total
+              and (s.amountPaid + s.creditApplied) < s.total
             group by c.id, c.name, c.phone
             order by min(s.saleDate) asc
             """)
@@ -80,7 +80,7 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     // Kridi restant chez tous les clients
     @Query("""
-            select sum(s.total - s.amountPaid) from Sale s
+            select sum(s.total - s.amountPaid - s.creditApplied) from Sale s
             where s.status = smartshop.entity.SaleStatus.VALIDATED
             """)
     BigDecimal sumAllDebt();
