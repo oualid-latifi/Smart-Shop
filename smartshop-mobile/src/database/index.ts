@@ -631,7 +631,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       saleId,
       input.customerId,
       createdAt,
-      input.discount,
+      discount,
       total,
       amountPaid,
       remaining,
