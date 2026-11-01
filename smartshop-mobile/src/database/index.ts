@@ -959,7 +959,7 @@ export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]>
             attempts, created_at, last_error
      FROM outbox
      WHERE status = 'PENDING'
-     ORDER BY created_at ASC
+     ORDER BY created_at ASC, rowid ASC
      LIMIT ?`,
     limit,
   );
