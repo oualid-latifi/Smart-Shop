@@ -3,6 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { createLocalPurchasePayment, getCachedPurchases } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Purchase } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -21,6 +23,7 @@ export default function PurchaseDetailScreen({ route }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [syncPending, setSyncPending] = useState(false);
 
   const due = purchase.remaining > 0;
 
@@ -35,13 +38,18 @@ export default function PurchaseDetailScreen({ route }: Props) {
     setError(null);
     setSuccess(false);
     try {
-      const updated = await api<Purchase>(`/api/purchases/${purchase.id}/payments`, {
-        method: 'POST',
-        body: { amount: value },
-      });
-      setPurchase(updated);
+      // Persist the supplier payment locally first; the outbox retries it when
+      // the PC becomes reachable. Its UUID makes backend retries idempotent.
+      await createLocalPurchasePayment(purchase.id, value);
+      const refreshed = await getCachedPurchases();
+      const updated = refreshed.find((item) => item.id === purchase.id);
+      if (updated) setPurchase(updated);
       setAmount('');
       setSuccess(true);
+      setSyncPending(true);
+      void syncPendingOperations()
+        .then((summary) => setSyncPending(summary.pending > 0 || summary.failed > 0))
+        .catch(() => setSyncPending(true));
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {
@@ -98,6 +106,7 @@ export default function PurchaseDetailScreen({ route }: Props) {
       ) : null}
 
       {success ? <Text style={styles.success}>{t('purchases.paySuccess')}</Text> : null}
+      {syncPending ? <Text style={styles.muted}>Paiement enregistré sur cet appareil. Il sera synchronisé avec le PC dès que la connexion sera disponible.</Text> : null}
     </Screen>
   );
 }
