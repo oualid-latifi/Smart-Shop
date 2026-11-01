@@ -19,8 +19,8 @@ export default function SaleDetailScreen({ route }: Props) {
   const { t } = useTranslation();
   const [sale, setSale] = useState<Sale>(route.params.sale);
   const [reason, setReason] = useState('');
-  const [refundAmount, setRefundAmount] = useState('');
   const [refundReason, setRefundReason] = useState('');
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
   const [refunds, setRefunds] = useState<SaleRefund[]>([]);
   const [refundsLoaded, setRefundsLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +30,15 @@ export default function SaleDetailScreen({ route }: Props) {
 
   const cancelled = sale.status === 'CANCELLED';
   const refundedTotal = refunds.reduce((sum, item) => sum + item.amount, 0);
-  const refundable = Math.max(0, sale.amountPaid - refundedTotal);
+  const returnedQuantities = refunds.reduce<Record<string, number>>((totals, refund) => {
+    refund.lines.forEach(line => {
+      totals[line.saleLineId] = (totals[line.saleLineId] ?? 0) + line.quantity;
+    });
+    return totals;
+  }, {});
+  const returnableLines = sale.lines.filter(line =>
+    line.quantity - (returnedQuantities[line.saleLineId] ?? 0) > 0
+  );
 
   const loadRefunds = useCallback(async () => {
     try {
@@ -57,18 +65,42 @@ export default function SaleDetailScreen({ route }: Props) {
   }
 
   function askRefund() {
-    const amount = Number(refundAmount.replace(',', '.'));
-    if (!Number.isFinite(amount) || amount <= 0 || amount > refundable) {
-      setRefundError(t('history.refundInvalidAmount', { amount: formatMoney(refundable) })); return;
+    if (!refundReason.trim()) {
+      setRefundError(t('history.refundInvalidReason'));
+      return;
     }
-    if (!refundReason.trim()) { setRefundError(t('history.refundInvalidReason')); return; }
-    confirmAction(t('history.refundConfirm', { amount: formatMoney(amount) }), async () => {
+
+    const lines = sale.lines.flatMap(line => {
+      const rawQuantity = returnQuantities[line.saleLineId]?.trim();
+      if (!rawQuantity) return [];
+      const quantity = Number(rawQuantity);
+      const remaining = line.quantity - (returnedQuantities[line.saleLineId] ?? 0);
+      if (!Number.isInteger(quantity) || quantity <= 0 || quantity > remaining) {
+        return [{ saleLineId: line.saleLineId, quantity: -1 }];
+      }
+      return [{ saleLineId: line.saleLineId, quantity }];
+    });
+
+    if (lines.length === 0) {
+      setRefundError(t('history.refundInvalidQuantity'));
+      return;
+    }
+    if (lines.some(line => line.quantity < 1)) {
+      setRefundError(t('history.refundInvalidQuantity'));
+      return;
+    }
+
+    const totalQuantity = lines.reduce((sum, line) => sum + line.quantity, 0);
+    confirmAction(t('history.refundConfirmItems', { count: totalQuantity }), async () => {
       setRefundSaving(true); setRefundError(null);
       try {
         await api<SaleRefund>(`/api/sales/${sale.id}/refunds`, {
-          method: 'POST', body: { amount, reason: refundReason.trim() },
+          method: 'POST',
+          body: { lines, reason: refundReason.trim() },
         });
-        setRefundAmount(''); setRefundReason('');
+        setReturnQuantities({});
+        setRefundReason('');
+        setSale(await api<Sale>(`/api/sales/${sale.id}`));
         await loadRefunds();
       } catch (e) { setRefundError(errorMessage(e, t)); }
       finally { setRefundSaving(false); }
@@ -82,8 +114,8 @@ export default function SaleDetailScreen({ route }: Props) {
         <Text style={styles.muted}>{formatDateTime(sale.saleDate)}</Text>
         {cancelled ? <Text style={styles.badgeOff}>{t('history.cancelled')}</Text> : null}
         <View style={styles.lines}>
-          {sale.lines.map((line, index) => (
-            <View key={`${line.productId}-${index}`} style={styles.lineRow}>
+          {sale.lines.map(line => (
+            <View key={line.saleLineId} style={styles.lineRow}>
               <Text style={styles.lineName}>{line.productName}</Text>
               <Text style={styles.lineValue}>{line.quantity} × {formatMoney(line.unitPrice)}</Text>
             </View>
@@ -93,7 +125,6 @@ export default function SaleDetailScreen({ route }: Props) {
         <Row label={t('sales.total')} value={formatMoney(sale.total)} strong />
         <Row label={t('history.paid')} value={formatMoney(sale.amountPaid)} />
         <Row label={t('history.refunded')} value={formatMoney(refundedTotal)} />
-        <Row label={t('history.refundable')} value={formatMoney(refundable)} />
         <Row label={t('history.kridi')} value={formatMoney(sale.remaining)} danger={sale.remaining > 0 && !cancelled} />
         {!cancelled ? <Row label={t('history.profit')} value={formatMoney(sale.profit)} /> : null}
         {cancelled && sale.cancellationReason ? <Text style={styles.reason}>{t('history.reason')} : {sale.cancellationReason}</Text> : null}
@@ -110,6 +141,13 @@ export default function SaleDetailScreen({ route }: Props) {
           <View key={item.id} style={styles.refundRow}>
             <View style={styles.flex}>
               <Text style={styles.value}>{formatMoney(item.amount)}</Text>
+              <Text style={styles.muted}>{t('history.refundCreditApplied')}: {formatMoney(item.creditApplied)}</Text>
+              <Text style={styles.muted}>{t('history.refundCashRefunded')}: {formatMoney(item.cashRefunded)}</Text>
+              {item.lines.map((line, index) => (
+                <Text key={`${line.saleLineId}-${index}`} style={styles.muted}>
+                  {line.productName} · {line.quantity} × {formatMoney(line.amount / line.quantity)}
+                </Text>
+              ))}
               <Text style={styles.muted}>{item.reason}</Text>
               <Text style={styles.muted}>{formatDateTime(item.refundedAt)}</Text>
             </View>
@@ -117,12 +155,34 @@ export default function SaleDetailScreen({ route }: Props) {
         ))}
       </View>
 
-      {refundsLoaded && refundable > 0 ? (
+      {refundsLoaded && !cancelled && returnableLines.length > 0 ? (
         <View style={styles.block}>
           <Text style={styles.section}>{t('history.newRefund')}</Text>
-          <TextField label={t('history.refundAmount')} value={refundAmount} onChangeText={setRefundAmount} keyboardType="decimal-pad" placeholder={String(refundable)} />
+          <Text style={styles.muted}>{t('history.refundSelectProduct')}</Text>
+          {returnableLines.map(line => {
+            const returned = returnedQuantities[line.saleLineId] ?? 0;
+            const remaining = line.quantity - returned;
+            return (
+              <View key={line.saleLineId} style={styles.returnLine}>
+                <Text style={styles.lineName}>{line.productName}</Text>
+                <Text style={styles.muted}>{t('history.refundAvailability', {
+                  sold: line.quantity, returned, remaining,
+                })}</Text>
+                <TextField
+                  label={t('history.refundQuantity')}
+                  value={returnQuantities[line.saleLineId] ?? ''}
+                  onChangeText={value => setReturnQuantities(current => ({
+                    ...current, [line.saleLineId]: value,
+                  }))}
+                  keyboardType="number-pad"
+                  placeholder={String(remaining)}
+                />
+              </View>
+            );
+          })}
           <TextField label={t('history.refundReason')} value={refundReason} onChangeText={setRefundReason} />
-            <PrimaryButton title={t('history.refundButton')} onPress={askRefund} loading={refundSaving} />
+          {refundError ? <Text style={styles.error}>{refundError}</Text> : null}
+          <PrimaryButton title={t('history.refundButton')} onPress={askRefund} loading={refundSaving} />
         </View>
       ) : null}
 
@@ -149,7 +209,7 @@ const styles = StyleSheet.create({
   badgeOff: { alignSelf: 'flex-start', marginTop: spacing.sm, color: colors.muted, backgroundColor: colors.neutralBg, fontSize: 12, fontWeight: '700', paddingHorizontal: spacing.sm, paddingVertical: 2, borderRadius: 999, overflow: 'hidden' },
   lines: { marginVertical: spacing.md, borderTopWidth: 1, borderBottomWidth: 1, borderColor: colors.border, paddingVertical: spacing.sm, gap: spacing.sm },
   lineRow: { flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm },
-  lineName: { flex: 1, color: colors.text, fontSize: 15 },
+  lineName: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '600' },
   lineValue: { color: colors.muted, fontSize: 14 },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginTop: spacing.xs },
   value: { color: colors.text, fontSize: 15, fontWeight: '600' },
@@ -161,5 +221,6 @@ const styles = StyleSheet.create({
   error: { color: colors.danger, backgroundColor: colors.dangerBg, padding: spacing.sm, borderRadius: radius, marginBottom: spacing.md },
   errorBlock: { gap: spacing.xs },
   refundRow: { flexDirection: 'row', paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border },
+  returnLine: { paddingVertical: spacing.sm, borderBottomWidth: 1, borderBottomColor: colors.border, gap: spacing.xs },
   flex: { flex: 1 },
 });
