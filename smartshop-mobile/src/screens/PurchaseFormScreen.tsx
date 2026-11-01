@@ -73,7 +73,8 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     try {
       const p = await api<Product[]>('/api/products');
       await saveProducts(p);
-      setProducts(p.filter((item) => item.active));
+      const refreshedLocalProducts = await getCachedProducts();
+      setProducts(refreshedLocalProducts.filter((item) => item.active));
     } catch (e) {
       if (cachedProducts.length === 0) setError(errorMessage(e, t));
     }
