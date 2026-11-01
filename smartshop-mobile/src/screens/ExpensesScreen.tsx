@@ -13,6 +13,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { deleteLocalExpense, getCachedExpenses, saveExpenses } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Expense } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -31,12 +33,23 @@ export default function ExpensesScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
     try {
-      setError(null);
+      const cached = await getCachedExpenses();
+      setExpenses(cached);
+    } catch {
+      // Continue with the server request if the local cache is unavailable.
+    }
+    try {
       const data = await api<Expense[]>('/api/expenses');
-      setExpenses([...data].sort((a, b) => b.expenseDate.localeCompare(a.expenseDate)));
+      await saveExpenses(data);
+      const refreshed = await getCachedExpenses();
+      setExpenses(refreshed);
     } catch (e) {
-      setError(errorMessage(e, t));
+      // Cached expenses remain visible when the PC is offline.
+      const cached = await getCachedExpenses().catch(() => []);
+      setExpenses(cached);
+      if (cached.length === 0) setError(errorMessage(e, t));
     }
   }, [t]);
 
@@ -58,8 +71,9 @@ export default function ExpensesScreen({ navigation }: Props) {
       t('expenses.deleteConfirm'),
       async () => {
         try {
-          await api(`/api/expenses/${expense.id}`, { method: 'DELETE' });
+          await deleteLocalExpense(expense.id);
           await load();
+          void syncPendingOperations();
         } catch (e) {
           setError(errorMessage(e, t));
         }
