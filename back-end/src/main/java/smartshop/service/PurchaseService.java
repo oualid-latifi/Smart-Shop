@@ -45,6 +45,12 @@ public class PurchaseService {
 
     @Transactional
     public Purchase create(PurchaseRequest request) {
+        // A mobile operation keeps the same UUID when retried after a network failure.
+        if (request.id() != null) {
+            Purchase existing = purchaseRepository.findByIdForUpdate(request.id()).orElse(null);
+            if (existing != null) return existing;
+        }
+
         Supplier supplier = null;
         if (request.supplierId() != null) {
             supplier = supplierRepository.findById(request.supplierId())
@@ -52,6 +58,7 @@ public class PurchaseService {
         }
 
         Purchase purchase = new Purchase();
+        if (request.id() != null) purchase.setId(request.id());
         purchase.setSupplier(supplier);
         purchase.setNote(request.note());
 
