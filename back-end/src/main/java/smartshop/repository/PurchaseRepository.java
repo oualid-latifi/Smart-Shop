@@ -16,6 +16,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     List<Purchase> findAllByOrderByPurchaseDateDesc();
 
+    boolean existsBySupplier_Id(UUID supplierId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Purchase p where p.id = :id")
     java.util.Optional<Purchase> findByIdForUpdate(@Param("id") UUID id);
