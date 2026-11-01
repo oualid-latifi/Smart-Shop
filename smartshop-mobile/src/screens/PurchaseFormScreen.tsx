@@ -70,6 +70,11 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     }
     setLoading(false);
 
+    const syncSummary = await syncPendingOperations().catch(() => ({
+      synced: 0, pending: 1, failed: 0,
+    }));
+    if (syncSummary.pending > 0) return;
+
     try {
       const p = await api<Product[]>('/api/products');
       await saveProducts(p);
