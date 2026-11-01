@@ -11,6 +11,8 @@ import java.util.UUID;
 
 public interface CustomerPaymentRepository extends JpaRepository<CustomerPayment, UUID> {
 
+    boolean existsByPaymentRequestId(UUID paymentRequestId);
+
     // Historique réel des encaissements : une annulation de vente n'efface pas l'argent déjà reçu.
     @Query("""
             select sum(p.amount) from CustomerPayment p
