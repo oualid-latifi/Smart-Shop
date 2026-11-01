@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { saveLocalExpense } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { ExpenseCategory } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -34,11 +35,9 @@ export default function ExpenseFormScreen({ navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api('/api/expenses', {
-        method: 'POST',
-        body: { category, amount: value, note: note.trim() || null },
-      });
+      await saveLocalExpense({ category, amount: value, note: note.trim() || null });
       navigation.goBack();
+      void syncPendingOperations();
     } catch (e) {
       setError(errorMessage(e, t));
       setSaving(false);
