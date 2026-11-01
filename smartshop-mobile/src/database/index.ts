@@ -705,7 +705,7 @@ export async function createLocalCustomerPayment(
       amount,
       paidAt,
     );
-    const payload = { id: paymentId, amount, paidAt };
+    const payload = { id: paymentId, customerId, amount, paidAt };
     await db.runAsync(
       `INSERT INTO outbox (
         id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
