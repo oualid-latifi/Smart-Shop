@@ -196,7 +196,15 @@
     "paySuccess": "تم تسجيل الدفعة ✓",
     "invalid": "تحقق من المنتجات والأسعار والاسم",
     "invalidPaid": "لا يمكن أن يتجاوز المبلغ المدفوع المجموع",
-    "subtitle": "تتبع المشتريات والموردين"
+    "subtitle": "تتبع المشتريات والموردين",
+    "suppliersTitle": "الموردون",
+    "suppliersList": "جميع الموردين",
+    "suppliersEmpty": "لا يوجد موردون مسجلون.",
+    "noPhone": "لا يوجد هاتف",
+    "productCatalog": "قائمة المنتجات",
+    "searchResults": "نتائج البحث",
+    "productsAvailable": "منتج(ات)",
+    "addToPurchase": "أضف للشراء"
   },
   "reports": {
     "today": "اليوم",
