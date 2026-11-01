@@ -33,6 +33,7 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       purchase_price REAL NOT NULL DEFAULT 0,
       sale_price REAL NOT NULL DEFAULT 0,
       stock_quantity REAL NOT NULL DEFAULT 0,
+      server_stock_quantity REAL NOT NULL DEFAULT 0,
       alert_threshold REAL NOT NULL DEFAULT 0,
       active INTEGER NOT NULL DEFAULT 1,
       updated_at TEXT
@@ -105,7 +106,8 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       quantity REAL NOT NULL,
       reference_id TEXT,
       created_at TEXT NOT NULL,
-      note TEXT
+      note TEXT,
+      sync_status TEXT NOT NULL DEFAULT 'SYNCED'
     );
 
     CREATE TABLE IF NOT EXISTS outbox (
@@ -149,6 +151,32 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
     await database.execAsync(
       'UPDATE products SET purchase_price = average_purchase_price',
     );
+  }
+
+  // Migration: stock confirmé par le PC, séparé du stock local calculé.
+  const hasServerStock = productColumns.some(
+    (column) => column.name === 'server_stock_quantity',
+  );
+  if (!hasServerStock) {
+    await database.execAsync(`
+      ALTER TABLE products
+      ADD COLUMN server_stock_quantity REAL NOT NULL DEFAULT 0;
+      UPDATE products SET server_stock_quantity = stock_quantity;
+    `);
+  }
+
+  // Migration: suivi de synchronisation des mouvements de stock.
+  const movementColumns = await database.getAllAsync<{ name: string }>(
+    'PRAGMA table_info(stock_movements)',
+  );
+  const hasMovementSyncStatus = movementColumns.some(
+    (column) => column.name === 'sync_status',
+  );
+  if (!hasMovementSyncStatus) {
+    await database.execAsync(`
+      ALTER TABLE stock_movements
+      ADD COLUMN sync_status TEXT NOT NULL DEFAULT 'SYNCED';
+    `);
   }
 
   return database;
