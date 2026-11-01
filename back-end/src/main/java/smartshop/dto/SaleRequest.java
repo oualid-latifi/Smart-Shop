@@ -12,6 +12,11 @@ public record SaleRequest(
         UUID customerId,                               // facultatif : client de passage si absent
         @DecimalMin("0.00") BigDecimal discount,       // remise en DH (facultatif)
         @DecimalMin("0.00") BigDecimal amountPaid,     // facultatif : payé en entier si absent
-        @NotEmpty @Valid List<SaleLineRequest> lines
+        @NotEmpty @Valid List<SaleLineRequest> lines,
+        UUID id
 ) {
+    public SaleRequest(UUID customerId, BigDecimal discount, BigDecimal amountPaid,
+                       List<SaleLineRequest> lines) {
+        this(customerId, discount, amountPaid, lines, null);
+    }
 }
