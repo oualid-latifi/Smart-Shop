@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
-import { cancelLocalSale, getCachedSales } from '../database';
+import { cancelLocalSale, createLocalSaleRefund, getCachedSaleRefunds, getCachedSales, saveSaleRefunds } from '../database';
 import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Sale, SaleRefund } from '../api/types';
@@ -30,6 +30,7 @@ export default function SaleDetailScreen({ route }: Props) {
   const [saving, setSaving] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
   const [cancelSyncPending, setCancelSyncPending] = useState(false);
+  const [refundSyncPending, setRefundSyncPending] = useState(false);
 
   const cancelled = sale.status === 'CANCELLED';
   const refundedTotal = refunds.reduce((sum, item) => sum + item.amount, 0);
@@ -44,13 +45,17 @@ export default function SaleDetailScreen({ route }: Props) {
   );
 
   const loadRefunds = useCallback(async () => {
+    const cached = await getCachedSaleRefunds(sale.id);
+    setRefunds(cached);
+    setRefundsLoaded(true);
     try {
-      setRefunds(await api<SaleRefund[]>(`/api/sales/${sale.id}/refunds`));
-      setRefundsLoaded(true);
+      const remote = await api<SaleRefund[]>(`/api/sales/${sale.id}/refunds`);
+      await saveSaleRefunds(remote);
+      setRefunds(await getCachedSaleRefunds(sale.id));
       setRefundError(null);
     } catch (e) {
-      setRefundsLoaded(false);
-      setRefundError(errorMessage(e, t));
+      // The local history remains usable when the PC is offline.
+      setRefundError(cached.length === 0 ? errorMessage(e, t) : null);
     }
   }, [sale.id, t]);
 
@@ -105,14 +110,20 @@ export default function SaleDetailScreen({ route }: Props) {
     confirmAction(t('history.refundConfirmItems', { count: totalQuantity }), async () => {
       setRefundSaving(true); setRefundError(null);
       try {
-        await api<SaleRefund>(`/api/sales/${sale.id}/refunds`, {
-          method: 'POST',
-          body: { lines, reason: refundReason.trim() },
-        });
+        await createLocalSaleRefund(sale.id, lines, refundReason.trim());
         setReturnQuantities({});
         setRefundReason('');
-        setSale(await api<Sale>(`/api/sales/${sale.id}`));
-        await loadRefunds();
+        const cachedSales = await getCachedSales();
+        const updatedSale = cachedSales.find(item => item.id === sale.id);
+        if (updatedSale) setSale(updatedSale);
+        setRefunds(await getCachedSaleRefunds(sale.id));
+        setRefundsLoaded(true);
+        setRefundError(null);
+        setRefundSyncPending(true);
+        void syncPendingOperations()
+          .then(summary => setRefundSyncPending(summary.pending > 0 || summary.failed > 0))
+          .then(() => loadRefunds())
+          .catch(() => setRefundSyncPending(true));
       } catch (e) { setRefundError(errorMessage(e, t)); }
       finally { setRefundSaving(false); }
     }, t('common.cancel'), t('common.confirm'));
@@ -125,6 +136,7 @@ export default function SaleDetailScreen({ route }: Props) {
         <Text style={styles.muted}>{formatDateTime(sale.saleDate)}</Text>
         {cancelled ? <Text style={styles.badgeOff}>{t('history.cancelled')}</Text> : null}
         {cancelSyncPending ? <Text style={styles.muted}>Annulation enregistrée sur cet appareil. Synchronisation avec le PC en attente.</Text> : null}
+        {refundSyncPending ? <Text style={styles.muted}>Retour enregistré sur cet appareil. Synchronisation avec le PC en attente.</Text> : null}
         <View style={styles.lines}>
           {sale.lines.map(line => (
             <View key={line.saleLineId} style={styles.lineRow}>
