@@ -25,7 +25,17 @@ function describeError(error: unknown): string {
  * Flushes durable local operations. The server-side operation ID is identical
  * to the local UUID, so retrying after a lost HTTP response cannot duplicate it.
  */
-export async function syncPendingOperations(): Promise<SyncSummary> {
+let syncInFlight: Promise<SyncSummary> | null = null;
+
+export function syncPendingOperations(): Promise<SyncSummary> {
+  if (syncInFlight) return syncInFlight;
+  syncInFlight = flushPendingOperations().finally(() => {
+    syncInFlight = null;
+  });
+  return syncInFlight;
+}
+
+async function flushPendingOperations(): Promise<SyncSummary> {
   const queue = await getPendingOutbox();
   const summary: SyncSummary = { synced: 0, pending: 0, failed: 0 };
 
