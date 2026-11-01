@@ -168,6 +168,8 @@
     "newTitle": "شراء جديد",
     "detailTitle": "تفاصيل الشراء",
     "supplierTitle": "مورّد جديد",
+    "editSupplier": "تعديل",
+    "updateSupplier": "حفظ التعديلات",
     "empty": "لا توجد مشتريات حاليا",
     "all": "الكل",
     "unpaid": "غير المدفوعة",
