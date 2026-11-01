@@ -1428,10 +1428,11 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
       // Replace the provisional initial-sale payment with the authoritative server ledger entry.
       await db.runAsync("DELETE FROM customer_payments WHERE sale_id = ? AND id = ? AND sync_status IN ('PENDING', 'FAILED')", payment.saleId, payment.saleId);
       await db.runAsync(
-        `INSERT INTO customer_payments (id, customer_id, amount, paid_at, sync_status)
-         VALUES (?, ?, ?, ?, 'SYNCED')
+        `INSERT INTO customer_payments (id, customer_id, sale_id, amount, paid_at, sync_status)
+         VALUES (?, ?, ?, ?, ?, 'SYNCED')
          ON CONFLICT(id) DO UPDATE SET
            customer_id = excluded.customer_id,
+           sale_id = excluded.sale_id,
            amount = excluded.amount,
            paid_at = excluded.paid_at,
            sync_status = CASE WHEN customer_payments.sync_status IN ('PENDING', 'FAILED')
