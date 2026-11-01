@@ -1423,6 +1423,19 @@ export async function saveSales(sales: Sale[]): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
     for (const sale of sales) {
+      // A server snapshot must never replace a sale that is still waiting in the
+      // local outbox. Its local lines and totals are the source of truth until
+      // the backend acknowledges the exact operation.
+      const pendingSale = await db.getFirstAsync<{ id: string }>(
+        `SELECT id FROM outbox
+         WHERE entity_type = 'SALE'
+           AND status IN ('PENDING', 'FAILED')
+           AND id = ?
+         LIMIT 1`,
+        sale.id,
+      );
+      if (pendingSale) continue;
+
       await db.runAsync(
         `INSERT INTO sales (
           id, customer_id, sale_date, discount, total, amount_paid,
@@ -1477,6 +1490,18 @@ export async function savePurchases(purchases: Purchase[]): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
     for (const purchase of purchases) {
+      // Keep the locally-created purchase and its stock-affecting lines intact
+      // until its outbox operation has been acknowledged by the backend.
+      const pendingPurchase = await db.getFirstAsync<{ id: string }>(
+        `SELECT id FROM outbox
+         WHERE entity_type = 'PURCHASE'
+           AND status IN ('PENDING', 'FAILED')
+           AND id = ?
+         LIMIT 1`,
+        purchase.id,
+      );
+      if (pendingPurchase) continue;
+
       await db.runAsync(
         `INSERT INTO purchases (
           id, supplier_id, purchase_date, total, amount_paid, remaining, note, sync_status
