@@ -6,6 +6,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import smartshop.dto.ReportSummaryResponse;
+import smartshop.dto.PaymentHistoryResponse;
 import smartshop.service.ReportService;
 
 import java.time.LocalDate;
@@ -26,6 +27,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return reportService.summary(from, to);
+    }
+
+    @GetMapping("/payment-history")
+    public PaymentHistoryResponse paymentHistory() {
+        return reportService.paymentHistory();
     }
 
     @GetMapping("/today")
