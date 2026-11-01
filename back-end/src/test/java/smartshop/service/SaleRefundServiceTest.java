@@ -64,6 +64,8 @@ class SaleRefundServiceTest {
                 new RefundRequest(List.of(new RefundLineRequest(saleLineId, 1)), "  Retour client  "));
 
         assertEquals(new BigDecimal("45.00"), result.getAmount());
+        assertEquals(new BigDecimal("0.00"), result.getCreditApplied());
+        assertEquals(new BigDecimal("45.00"), result.getCashRefunded());
         assertEquals("Retour client", result.getReason());
         assertEquals(4, product.getStockQuantity());
         assertEquals(1, result.getLines().get(0).getQuantity());
@@ -71,6 +73,46 @@ class SaleRefundServiceTest {
                 movement.getType() == StockMovementType.SALE_RETURN
                         && movement.getQuantity() == 1
                         && saleId.equals(movement.getReferenceId())));
+    }
+
+    @Test
+    void appliesReturnAgainstOutstandingCreditBeforeCash() throws Exception {
+        UUID saleId = UUID.randomUUID();
+        UUID saleLineId = UUID.randomUUID();
+        UUID productId = UUID.randomUUID();
+
+        Product product = new Product();
+        setId(product, productId);
+        product.setName("Smartphone");
+        product.setStockQuantity(1);
+
+        SaleLine saleLine = new SaleLine();
+        setId(saleLine, saleLineId);
+        saleLine.setProduct(product);
+        saleLine.setQuantity(2);
+        saleLine.setUnitPrice(new BigDecimal("50.00"));
+        saleLine.setUnitCost(new BigDecimal("30.00"));
+
+        Sale sale = new Sale();
+        sale.setTotal(new BigDecimal("100.00"));
+        sale.setAmountPaid(new BigDecimal("40.00"));
+        sale.addLine(saleLine);
+
+        when(sales.findByIdForUpdate(saleId)).thenReturn(Optional.of(sale));
+        when(refundLines.sumReturnedQuantityBySaleLineId(saleLineId)).thenReturn(0L);
+        when(products.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
+        when(refunds.save(any(SaleRefund.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        SaleRefundService service = new SaleRefundService(
+                sales, refunds, refundLines, products, stockMovements);
+
+        SaleRefund result = service.refund(saleId,
+                new RefundRequest(List.of(new RefundLineRequest(saleLineId, 1)), "Retour"));
+
+        assertEquals(new BigDecimal("50.00"), result.getAmount());
+        assertEquals(new BigDecimal("50.00"), result.getCreditApplied());
+        assertEquals(new BigDecimal("0.00"), result.getCashRefunded());
+        assertEquals(new BigDecimal("10.00"), sale.getRemaining());
     }
 
     @Test
