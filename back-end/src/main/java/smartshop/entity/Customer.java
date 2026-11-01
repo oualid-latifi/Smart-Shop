@@ -19,7 +19,6 @@ public class Customer {
     @Column(length = 30)
     private String phone;
 
-    // null = pas de limite de kridi
     @Column(name = "credit_limit", precision = 12, scale = 2)
     private BigDecimal creditLimit;
 
@@ -35,6 +34,7 @@ public class Customer {
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
