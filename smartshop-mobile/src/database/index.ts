@@ -1458,6 +1458,12 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
   });
 }
 
+export async function markReportDatasetSnapshotIncomplete(): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
+  });
+}
 export async function markReportDatasetSnapshotComplete(): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
