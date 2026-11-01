@@ -25,6 +25,12 @@ public class SupplierController {
         return SupplierResponse.from(supplierService.create(request.name(), request.phone()));
     }
 
+    @PutMapping("/{id}")
+    public SupplierResponse update(@PathVariable java.util.UUID id,
+                                   @Valid @RequestBody SupplierRequest request) {
+        return SupplierResponse.from(supplierService.update(id, request.name(), request.phone()));
+    }
+
     @GetMapping
     public List<SupplierResponse> findAll() {
         return supplierService.findAll().stream().map(SupplierResponse::from).toList();
