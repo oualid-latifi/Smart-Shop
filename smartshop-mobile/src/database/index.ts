@@ -523,7 +523,12 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
         customer.name,
         customer.phone,
         customer.creditLimit,
-        customer.balance + (pendingDebtByCustomer.get(customer.id) ?? 0),
+        Math.max(
+          0,
+          customer.balance
+            + (pendingDebtByCustomer.get(customer.id) ?? 0)
+            - (pendingPaymentsByCustomer.get(customer.id) ?? 0),
+        ),
         new Date().toISOString(),
       );
     }
