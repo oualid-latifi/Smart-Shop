@@ -1,4 +1,4 @@
- import React, { useState } from 'react';
+ import React, { useLayoutEffect, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
@@ -15,6 +15,9 @@ type Props = NativeStackScreenProps<PurchasesStackParamList, 'SupplierForm'>;
 export default function SupplierFormScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const supplier = route.params?.supplier;
+  useLayoutEffect(() => {
+    navigation.setOptions({ title: supplier ? t('purchases.editSupplier') : t('purchases.supplierTitle') });
+  }, [navigation, supplier, t]);
   const [name, setName] = useState(supplier?.name ?? '');
   const [phone, setPhone] = useState(supplier?.phone ?? '');
   const [error, setError] = useState<string | null>(null);
