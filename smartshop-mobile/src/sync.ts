@@ -62,6 +62,13 @@ async function flushPendingOperations(): Promise<SyncSummary> {
           method: 'POST',
           body: { reason: payload.reason },
         });
+      } else if (item.entity_type === 'SALE_REFUND' && method === 'POST') {
+        const saleId = typeof payload.saleId === 'string' ? payload.saleId : '';
+        if (!saleId) throw new Error('Identifiant de vente absent du retour.');
+        await api(`/api/sales/${saleId}/refunds`, {
+          method: 'POST',
+          body: { id: payload.id, lines: payload.lines, reason: payload.reason },
+        });
       } else if (item.entity_type === 'PURCHASE' && method === 'POST') {
         await api('/api/purchases', { method, body: payload });
       } else if (item.entity_type === 'EXPENSE') {
