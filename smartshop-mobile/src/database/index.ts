@@ -201,6 +201,28 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
   return databasePromise;
 }
 
+// Serialize writes made through this module. Expo's async transactions share
+// one connection, so unrelated concurrent writes must not overlap a transaction.
+let transactionTail: Promise<void> = Promise.resolve();
+
+async function withSerializedTransaction<T>(
+  db: SQLiteDatabase,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const execution = transactionTail.then(async () => {
+    let result!: T;
+    await db.withTransactionAsync(async () => {
+      result = await operation();
+    });
+    return result;
+  });
+  transactionTail = execution.then(
+    () => undefined,
+    () => undefined,
+  );
+  return execution;
+}
+
 export async function testDatabase(): Promise<string> {
   const db = await getDatabase();
 
@@ -270,7 +292,7 @@ export async function testProductCRUD(): Promise<string> {
 export async function saveProducts(products: Product[]): Promise<void> {
   const db = await getDatabase();
 
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     // Keep stock movements from unsynced local operations on top of the server snapshot.
     const pendingStock = await db.getAllAsync<{ product_id: string; quantity_delta: number }>(
       `SELECT movement.product_id, SUM(movement.quantity) AS quantity_delta
@@ -432,7 +454,7 @@ function createLocalUuid(): string {
 
 export async function saveCustomers(customers: Customer[]): Promise<void> {
   const db = await getDatabase();
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     const pendingDebt = await db.getAllAsync<{ customer_id: string; debt_delta: number }>(
       `SELECT customer_id, SUM(remaining) AS debt_delta
        FROM sales
@@ -494,7 +516,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
   const saleId = createLocalUuid();
   const createdAt = new Date().toISOString();
 
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     if (input.lines.length === 0) throw new Error('La vente doit contenir au moins un produit.');
 
     let subtotal = 0;
@@ -670,7 +692,7 @@ export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]>
 
 export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
   const db = await getDatabase();
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     await db.runAsync(
       "UPDATE outbox SET status = 'SYNCED', last_error = NULL WHERE id = ?",
       item.id,
@@ -711,7 +733,7 @@ export interface LocalPurchaseInput {
 
 export async function saveSuppliers(suppliers: Supplier[]): Promise<void> {
   const db = await getDatabase();
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     for (const supplier of suppliers) {
       await db.runAsync(
         `INSERT INTO suppliers (id, name, phone, updated_at)
@@ -752,7 +774,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
   const purchaseId = createLocalUuid();
   const createdAt = new Date().toISOString();
 
-  await db.withTransactionAsync(async () => {
+  await withSerializedTransaction(db, async () => {
     if (input.lines.length === 0) throw new Error('L’achat doit contenir au moins un produit.');
 
     let total = 0;
