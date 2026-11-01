@@ -13,6 +13,11 @@ public record PurchaseRequest(
         UUID supplierId,                                 // facultatif
         @DecimalMin("0.00") BigDecimal amountPaid,       // payé tout de suite (facultatif)
         @Size(max = 255) String note,
-        @NotEmpty @Valid List<PurchaseLineRequest> lines
+        @NotEmpty @Valid List<PurchaseLineRequest> lines,
+        UUID id
 ) {
+    public PurchaseRequest(UUID supplierId, BigDecimal amountPaid, String note,
+                           List<PurchaseLineRequest> lines) {
+        this(supplierId, amountPaid, note, lines, null);
+    }
 }
