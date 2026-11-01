@@ -69,6 +69,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
       setProducts(cachedProducts.filter((item) => item.active));
     }
     setLoading(false);
+    await loadSuppliers();
 
     const syncSummary = await syncPendingOperations().catch(() => ({
       synced: 0, pending: 1, failed: 0,
@@ -83,7 +84,6 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     } catch (e) {
       if (cachedProducts.length === 0) setError(errorMessage(e, t));
     }
-    await loadSuppliers();
   }, [loadSuppliers, t]);
 
   // Recharge à chaque retour (par exemple après avoir créé un fournisseur)
