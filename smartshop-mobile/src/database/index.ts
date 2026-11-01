@@ -1,4 +1,4 @@
-import type { Customer, Product, Supplier } from '../api/types';
+import type { Customer, Product, Purchase, Sale, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
@@ -881,4 +881,125 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
   });
 
   return purchaseId;
+}
+
+
+export async function getCachedSales(): Promise<Sale[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    customer_id: string | null;
+    customer_name: string | null;
+    sale_date: string;
+    discount: number;
+    total: number;
+    amount_paid: number;
+    remaining: number;
+    profit: number;
+    status: 'VALIDATED' | 'CANCELLED';
+    cancellation_reason: string | null;
+  }>(
+    `SELECT sale.id, sale.customer_id, customer.name AS customer_name,
+            sale.sale_date, sale.discount, sale.total, sale.amount_paid,
+            sale.remaining, sale.profit, sale.status, sale.cancellation_reason
+     FROM sales sale
+     LEFT JOIN customers customer ON customer.id = sale.customer_id
+     ORDER BY sale.sale_date DESC`,
+  );
+
+  const result: Sale[] = [];
+  for (const row of rows) {
+    const lineRows = await db.getAllAsync<{
+      id: string;
+      product_id: string;
+      product_name: string | null;
+      quantity: number;
+      unit_price: number;
+      unit_cost: number;
+    }>(
+      `SELECT line.id, line.product_id, product.name AS product_name,
+              line.quantity, line.unit_price, line.unit_cost
+       FROM sale_lines line
+       LEFT JOIN products product ON product.id = line.product_id
+       WHERE line.sale_id = ?`,
+      row.id,
+    );
+    result.push({
+      id: row.id,
+      customerId: row.customer_id,
+      customerName: row.customer_name,
+      saleDate: row.sale_date,
+      discount: row.discount,
+      total: row.total,
+      amountPaid: row.amount_paid,
+      remaining: row.remaining,
+      profit: row.profit,
+      status: row.status,
+      cancellationReason: row.cancellation_reason,
+      lines: lineRows.map((line) => ({
+        saleLineId: line.id,
+        productId: line.product_id,
+        productName: line.product_name ?? 'Produit',
+        quantity: line.quantity,
+        unitPrice: line.unit_price,
+        unitCost: line.unit_cost,
+      })),
+    });
+  }
+  return result;
+}
+
+export async function getCachedPurchases(): Promise<Purchase[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    supplier_id: string | null;
+    supplier_name: string | null;
+    purchase_date: string;
+    total: number;
+    amount_paid: number;
+    remaining: number;
+    note: string | null;
+  }>(
+    `SELECT purchase.id, purchase.supplier_id, supplier.name AS supplier_name,
+            purchase.purchase_date, purchase.total, purchase.amount_paid,
+            purchase.remaining, purchase.note
+     FROM purchases purchase
+     LEFT JOIN suppliers supplier ON supplier.id = purchase.supplier_id
+     ORDER BY purchase.purchase_date DESC`,
+  );
+
+  const result: Purchase[] = [];
+  for (const row of rows) {
+    const lineRows = await db.getAllAsync<{
+      product_id: string;
+      product_name: string | null;
+      quantity: number;
+      unit_price: number;
+    }>(
+      `SELECT line.product_id, product.name AS product_name,
+              line.quantity, line.unit_price
+       FROM purchase_lines line
+       LEFT JOIN products product ON product.id = line.product_id
+       WHERE line.purchase_id = ?`,
+      row.id,
+    );
+    result.push({
+      id: row.id,
+      supplierId: row.supplier_id,
+      supplierName: row.supplier_name,
+      purchaseDate: row.purchase_date,
+      total: row.total,
+      amountPaid: row.amount_paid,
+      remaining: row.remaining,
+      note: row.note,
+      lines: lineRows.map((line) => ({
+        productId: line.product_id,
+        productName: line.product_name ?? 'Produit',
+        quantity: line.quantity,
+        unitPrice: line.unit_price,
+      })),
+    });
+  }
+  return result;
 }
