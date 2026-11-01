@@ -84,6 +84,7 @@
     "remaining": "Reste à payer (kridi)",
     "customer": "Client",
     "walkIn": "Client de passage",
+    "allPaid": "Tout payé",
     "save": "Valider la vente",
     "success": "Vente enregistrée ✓",
     "invalid": "Panier vide, remise ou montant invalide",
