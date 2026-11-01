@@ -111,11 +111,27 @@ export interface ReportSummary {
   lowStockCount: number;
 }
 
-export interface SaleRefundLine { saleLineId: string; productId: string; productName: string; quantity: number; amount: number; }\n\nexport interface SaleRefund { id: string; saleId: string; amount: number; reason: string; refundedAt: string; lines: SaleRefundLine[]; }
+export interface SaleRefundLine {
+  saleLineId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  amount: number;
+}
+
+export interface SaleRefund {
+  id: string;
+  saleId: string;
+  amount: number;
+  reason: string;
+  refundedAt: string;
+  lines: SaleRefundLine[];
+}
 
 export type SaleStatus = 'VALIDATED' | 'CANCELLED';
 
 export interface SaleLine {
+  saleLineId: string;
   productId: string;
   productName: string;
   quantity: number;
