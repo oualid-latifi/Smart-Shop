@@ -23,6 +23,7 @@ export type PurchasesStackParamList = {
   PurchaseForm: undefined;
   PurchaseDetail: { purchase: Purchase };
   SupplierForm: undefined;
+  SuppliersList: undefined;
 };
 
 export type ReportsStackParamList = {
