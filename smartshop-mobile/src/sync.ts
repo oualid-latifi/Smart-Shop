@@ -65,8 +65,11 @@ async function flushPendingOperations(): Promise<SyncSummary> {
       const permanent =
         error instanceof ApiError &&
         error.status >= 400 &&
+        error.status < 500 &&
         error.status !== 401 &&
-        error.status !== 403;
+        error.status !== 403 &&
+        error.status !== 408 &&
+        error.status !== 429;
       await recordOutboxFailure(item.id, describeError(error), permanent);
       if (permanent) {
         summary.failed += 1;
