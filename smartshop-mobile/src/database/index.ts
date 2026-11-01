@@ -1071,16 +1071,25 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
     if (!sale) throw new Error('Vente introuvable dans la base locale.');
     if (sale.status === 'CANCELLED') throw new Error('Cette vente est déjà annulée.');
 
-    const lines = await db.getAllAsync<{ product_id: string; quantity: number }>(
-      'SELECT product_id, quantity FROM sale_lines WHERE sale_id = ?',
+    const lines = await db.getAllAsync<{
+      id: string; product_id: string; quantity: number; returned_quantity: number;
+    }>(
+      `SELECT line.id, line.product_id, line.quantity,
+              COALESCE(SUM(refund_line.quantity), 0) AS returned_quantity
+       FROM sale_lines line
+       LEFT JOIN sale_refund_lines refund_line ON refund_line.sale_line_id = line.id
+       WHERE line.sale_id = ?
+       GROUP BY line.id, line.product_id, line.quantity`,
       saleId,
     );
     if (lines.length === 0) throw new Error('Les lignes de cette vente sont introuvables.');
 
     for (const line of lines) {
+      const quantityToRestore = line.quantity - line.returned_quantity;
+      if (quantityToRestore <= 0) continue;
       await db.runAsync(
         'UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?',
-        line.quantity,
+        quantityToRestore,
         createdAt,
         line.product_id,
       );
@@ -1089,7 +1098,7 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
          VALUES (?, ?, 'SALE_CANCELLATION', ?, ?, ?, ?)`,
         createLocalUuid(),
         line.product_id,
-        line.quantity,
+        quantityToRestore,
         cancellationId,
         createdAt,
         normalizedReason,
