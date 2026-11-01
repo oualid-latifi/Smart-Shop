@@ -1,4 +1,4 @@
-import type { Customer, Product } from '../api/types';
+import type { Customer, Product, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
@@ -655,4 +655,186 @@ export async function recordOutboxFailure(
     permanent ? 1 : 0,
     itemId,
   );
+}
+
+
+export interface LocalPurchaseInput {
+  supplierId: string | null;
+  amountPaid: number;
+  note: string | null;
+  lines: Array<{ productId: string; quantity: number; unitPrice: number }>;
+}
+
+export async function saveSuppliers(suppliers: Supplier[]): Promise<void> {
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    for (const supplier of suppliers) {
+      await db.runAsync(
+        `INSERT INTO suppliers (id, name, phone, updated_at)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           name = excluded.name,
+           phone = excluded.phone,
+           updated_at = excluded.updated_at`,
+        supplier.id,
+        supplier.name,
+        supplier.phone,
+        new Date().toISOString(),
+      );
+    }
+  });
+}
+
+export async function getCachedSuppliers(): Promise<Supplier[]> {
+  const db = await getDatabase();
+  const rows = await db.getAllAsync<{
+    id: string;
+    name: string;
+    phone: string | null;
+  }>('SELECT id, name, phone FROM suppliers ORDER BY name ASC');
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    phone: row.phone,
+  }));
+}
+
+/**
+ * Persists a purchase, weighted average cost, stock movements and its outbox
+ * command in one transaction.
+ */
+export async function createLocalPurchase(input: LocalPurchaseInput): Promise<string> {
+  const db = await getDatabase();
+  const purchaseId = createLocalUuid();
+  const createdAt = new Date().toISOString();
+
+  await db.withTransactionAsync(async () => {
+    if (input.lines.length === 0) throw new Error('L’achat doit contenir au moins un produit.');
+
+    let total = 0;
+    const lines: Array<{ productId: string; quantity: number; unitPrice: number }> = [];
+
+    for (const requestedLine of input.lines) {
+      if (!Number.isInteger(requestedLine.quantity) || requestedLine.quantity <= 0) {
+        throw new Error('Quantité d’achat invalide.');
+      }
+      if (!Number.isFinite(requestedLine.unitPrice) || requestedLine.unitPrice < 0) {
+        throw new Error('Prix d’achat invalide.');
+      }
+
+      const product = await db.getFirstAsync<{
+        id: string;
+        name: string;
+        active: number;
+        stock_quantity: number;
+        average_purchase_price: number;
+      }>(
+        `SELECT id, name, active, stock_quantity, average_purchase_price
+         FROM products WHERE id = ?`,
+        requestedLine.productId,
+      );
+      if (!product || product.active !== 1) {
+        throw new Error('Produit introuvable ou désactivé.');
+      }
+
+      total += requestedLine.quantity * requestedLine.unitPrice;
+      lines.push({
+        productId: product.id,
+        quantity: requestedLine.quantity,
+        unitPrice: requestedLine.unitPrice,
+      });
+    }
+
+    if (!Number.isFinite(input.amountPaid) || input.amountPaid < 0 || input.amountPaid > total) {
+      throw new Error('Montant payé invalide.');
+    }
+    if (input.supplierId) {
+      const supplier = await db.getFirstAsync<{ id: string }>(
+        'SELECT id FROM suppliers WHERE id = ?',
+        input.supplierId,
+      );
+      if (!supplier) throw new Error('Fournisseur introuvable dans la base locale.');
+    }
+
+    const remaining = total - input.amountPaid;
+    await db.runAsync(
+      `INSERT INTO purchases (
+        id, supplier_id, purchase_date, total, amount_paid, remaining, note, sync_status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')`,
+      purchaseId,
+      input.supplierId,
+      createdAt,
+      total,
+      input.amountPaid,
+      remaining,
+      input.note,
+    );
+
+    for (const line of lines) {
+      const product = await db.getFirstAsync<{
+        stock_quantity: number;
+        average_purchase_price: number;
+      }>(
+        'SELECT stock_quantity, average_purchase_price FROM products WHERE id = ?',
+        line.productId,
+      );
+      if (!product) throw new Error('Produit introuvable pendant la mise à jour du stock.');
+
+      const oldQuantity = product.stock_quantity;
+      const newQuantity = oldQuantity + line.quantity;
+      const oldValue = (product.average_purchase_price || 0) * Math.max(0, oldQuantity);
+      const newAverage = oldQuantity <= 0
+        ? line.unitPrice
+        : (oldValue + line.unitPrice * line.quantity) / newQuantity;
+
+      await db.runAsync(
+        `INSERT INTO purchase_lines (id, purchase_id, product_id, quantity, unit_price)
+         VALUES (?, ?, ?, ?, ?)`,
+        createLocalUuid(),
+        purchaseId,
+        line.productId,
+        line.quantity,
+        line.unitPrice,
+      );
+      await db.runAsync(
+        `UPDATE products
+         SET stock_quantity = ?, average_purchase_price = ?, purchase_price = ?, updated_at = ?
+         WHERE id = ?`,
+        newQuantity,
+        Math.round(newAverage * 100) / 100,
+        line.unitPrice,
+        createdAt,
+        line.productId,
+      );
+      await db.runAsync(
+        `INSERT INTO stock_movements (id, product_id, type, quantity, reference_id, created_at, note)
+         VALUES (?, ?, 'PURCHASE', ?, ?, ?, ?)`,
+        createLocalUuid(),
+        line.productId,
+        line.quantity,
+        purchaseId,
+        createdAt,
+        'Achat local',
+      );
+    }
+
+    const payload = {
+      id: purchaseId,
+      supplierId: input.supplierId,
+      amountPaid: input.amountPaid,
+      note: input.note,
+      lines,
+    };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'PURCHASE', 'CREATE', ?, 'PENDING', 0, ?)`,
+      purchaseId,
+      purchaseId,
+      JSON.stringify(payload),
+      createdAt,
+    );
+  });
+
+  return purchaseId;
 }
