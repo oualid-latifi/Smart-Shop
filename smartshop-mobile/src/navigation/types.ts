@@ -1,4 +1,4 @@
-import type { Customer, Product, Purchase, Sale } from '../api/types';
+import type { Customer, Product, Purchase, Sale, Supplier } from '../api/types';
 
 export type SalesStackParamList = {
   SaleNew: undefined;
@@ -22,7 +22,7 @@ export type PurchasesStackParamList = {
   PurchasesList: undefined;
   PurchaseForm: undefined;
   PurchaseDetail: { purchase: Purchase };
-  SupplierForm: undefined;
+  SupplierForm: { supplier?: Supplier } | undefined;
   SuppliersList: undefined;
 };
 
