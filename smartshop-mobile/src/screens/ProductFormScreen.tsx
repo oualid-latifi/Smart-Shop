@@ -32,7 +32,9 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [alertThreshold, setAlertThreshold] = useState(
     product ? String(product.alertThreshold) : '5',
   );
-  const [purchasePrice, setPurchasePrice] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState(
+    product ? String(product.purchasePrice) : '',
+  );
   const [initialStock, setInitialStock] = useState('');
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -69,7 +71,8 @@ export default function ProductFormScreen({ route, navigation }: Props) {
     // Optional values must not be silently discarded when the user entered invalid text.
     const purchase = parseNumber(purchasePrice);
     const stock = parseNumber(initialStock);
-    if (!editing && purchasePrice.trim() !== '' && (purchase === null || purchase < 0)) {
+    if ((editing && (purchase === null || purchase < 0)) ||
+        (!editing && purchasePrice.trim() !== '' && (purchase === null || purchase < 0))) {
       setError(t('products.invalid'));
       return;
     }
@@ -94,6 +97,7 @@ export default function ProductFormScreen({ route, navigation }: Props) {
             capacity: capacity.trim() || null,
             imageUrl: imageUrl.trim() || null,
             salePrice: price,
+            purchasePrice: purchase,
             alertThreshold: Math.round(threshold ?? 5),
           },
         });
@@ -211,23 +215,21 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         keyboardType="number-pad"
       />
 
+      <TextField
+        label={`${t('products.purchasePrice')} (DH)`}
+        hint={editing ? t('products.purchasePriceHint') : t('products.optional')}
+        value={purchasePrice}
+        onChangeText={setPurchasePrice}
+        keyboardType="decimal-pad"
+      />
       {!editing ? (
-        <>
-          <TextField
-            label={`${t('products.purchasePrice')} (DH)`}
-            hint={t('products.optional')}
-            value={purchasePrice}
-            onChangeText={setPurchasePrice}
-            keyboardType="decimal-pad"
-          />
-          <TextField
-            label={t('products.initialStock')}
-            hint={t('products.optional')}
-            value={initialStock}
-            onChangeText={setInitialStock}
-            keyboardType="number-pad"
-          />
-        </>
+        <TextField
+          label={t('products.initialStock')}
+          hint={t('products.optional')}
+          value={initialStock}
+          onChangeText={setInitialStock}
+          keyboardType="number-pad"
+        />
       ) : null}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
