@@ -12,10 +12,11 @@ import { colors, radius, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<PurchasesStackParamList, 'SupplierForm'>;
 
-export default function SupplierFormScreen({ navigation }: Props) {
+export default function SupplierFormScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
+  const supplier = route.params?.supplier;
+  const [name, setName] = useState(supplier?.name ?? '');
+  const [phone, setPhone] = useState(supplier?.phone ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -28,8 +29,8 @@ export default function SupplierFormScreen({ navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api('/api/suppliers', {
-        method: 'POST',
+      await api(supplier ? `/api/suppliers/${supplier.id}` : '/api/suppliers', {
+        method: supplier ? 'PUT' : 'POST',
         body: { name: name.trim(), phone: phone.trim() || null },
       });
       navigation.goBack();
@@ -51,7 +52,7 @@ export default function SupplierFormScreen({ navigation }: Props) {
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <PrimaryButton title={t('purchases.save')} onPress={save} loading={saving} />
+      <PrimaryButton title={supplier ? t('purchases.updateSupplier') : t('purchases.save')} onPress={save} loading={saving} />
     </Screen>
   );
 }
