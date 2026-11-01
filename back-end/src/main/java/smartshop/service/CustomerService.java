@@ -35,6 +35,7 @@ public class CustomerService {
     @Transactional
     public CustomerResponse create(CustomerRequest request) {
         Customer customer = new Customer();
+        customer.setId(request.id());
         customer.setName(request.name());
         customer.setPhone(request.phone());
         customer.setCreditLimit(request.creditLimit());
