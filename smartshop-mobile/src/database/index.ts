@@ -464,6 +464,10 @@ function getLocalDateTimeString(): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
+function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
 export async function saveCustomers(customers: Customer[]): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
@@ -568,7 +572,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
         throw new Error(`Stock insuffisant pour ${product.name}.`);
       }
 
-      const unitPrice = requestedLine.unitPrice;
+      const unitPrice = roundMoney(requestedLine.unitPrice);
       if (!Number.isFinite(unitPrice) || unitPrice < 0) {
         throw new Error('Prix de vente invalide.');
       }
@@ -583,15 +587,18 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       });
     }
 
-    if (!Number.isFinite(input.discount) || input.discount < 0 || input.discount > subtotal) {
+    const discount = roundMoney(input.discount);
+    subtotal = roundMoney(subtotal);
+    costTotal = roundMoney(costTotal);
+    if (!Number.isFinite(discount) || discount < 0 || discount > subtotal) {
       throw new Error('Remise invalide.');
     }
-    const total = subtotal - input.discount;
-    const amountPaid = input.amountPaid === null ? total : input.amountPaid;
+    const total = roundMoney(subtotal - discount);
+    const amountPaid = input.amountPaid === null ? total : roundMoney(input.amountPaid);
     if (!Number.isFinite(amountPaid) || amountPaid < 0 || amountPaid > total) {
       throw new Error('Montant payé invalide.');
     }
-    const remaining = total - amountPaid;
+    const remaining = roundMoney(total - amountPaid);
 
     if (remaining > 0 && !input.customerId) {
       throw new Error('Une vente à crédit nécessite un client.');
@@ -628,7 +635,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       total,
       amountPaid,
       remaining,
-      total - costTotal,
+      roundMoney(total - costTotal),
     );
 
     for (const line of lines) {
@@ -673,7 +680,7 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       id: saleId,
       saleDate: createdAt,
       customerId: input.customerId,
-      discount: input.discount,
+      discount,
       amountPaid,
       lines: lines.map((line) => ({
         productId: line.productId,
@@ -827,15 +834,17 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
         throw new Error('Produit introuvable ou désactivé.');
       }
 
-      total += requestedLine.quantity * requestedLine.unitPrice;
+      total += requestedLine.quantity * roundMoney(requestedLine.unitPrice);
       lines.push({
         productId: product.id,
         quantity: requestedLine.quantity,
-        unitPrice: requestedLine.unitPrice,
+        unitPrice: roundMoney(requestedLine.unitPrice),
       });
     }
 
-    if (!Number.isFinite(input.amountPaid) || input.amountPaid < 0 || input.amountPaid > total) {
+    total = roundMoney(total);
+    const amountPaid = roundMoney(input.amountPaid);
+    if (!Number.isFinite(amountPaid) || amountPaid < 0 || amountPaid > total) {
       throw new Error('Montant payé invalide.');
     }
     if (input.supplierId) {
@@ -846,7 +855,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       if (!supplier) throw new Error('Fournisseur introuvable dans la base locale.');
     }
 
-    const remaining = total - input.amountPaid;
+    const remaining = roundMoney(total - amountPaid);
     await db.runAsync(
       `INSERT INTO purchases (
         id, supplier_id, purchase_date, total, amount_paid, remaining, note, sync_status
@@ -855,7 +864,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       input.supplierId,
       createdAt,
       total,
-      input.amountPaid,
+      amountPaid,
       remaining,
       input.note,
     );
@@ -912,7 +921,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       id: purchaseId,
       purchaseDate: createdAt,
       supplierId: input.supplierId,
-      amountPaid: input.amountPaid,
+      amountPaid,
       note: input.note,
       lines,
     };
