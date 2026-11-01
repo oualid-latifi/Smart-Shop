@@ -6,6 +6,7 @@ import java.math.BigDecimal;
 import java.util.UUID;
 
 public record SaleLineResponse(
+        UUID saleLineId,
         UUID productId,
         String productName,
         Integer quantity,
@@ -15,6 +16,7 @@ public record SaleLineResponse(
 
     public static SaleLineResponse from(SaleLine l) {
         return new SaleLineResponse(
+                l.getId(),
                 l.getProduct().getId(),
                 l.getProduct().getName(),
                 l.getQuantity(),
