@@ -4,7 +4,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 5;
+const CURRENT_SCHEMA_VERSION = 6;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -270,6 +270,13 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
               ON sale_refund_lines(refund_id);
             PRAGMA user_version = 5;
           `);
+        }
+        if (versionRow.user_version < 6) {
+          const customerPaymentColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(customer_payments)');
+          if (!customerPaymentColumns.some((column) => column.name === 'sale_id')) {
+            await db.execAsync('ALTER TABLE customer_payments ADD COLUMN sale_id TEXT');
+          }
+          await db.execAsync('PRAGMA user_version = 6');
         }
       });
 
@@ -988,6 +995,10 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       roundMoney(total - costTotal),
     );
 
+    // Mirror initial customer-sale payments in the local ledger; reconcile by sale_id after sync.
+    if (input.customerId && amountPaid > 0) {
+      await db.runAsync("INSERT INTO customer_payments (id, customer_id, sale_id, amount, paid_at, sync_status) VALUES (?, ?, ?, ?, ?, 'PENDING')", saleId, input.customerId, saleId, amountPaid, createdAt);
+    }
     for (const line of lines) {
       await db.runAsync(
         `INSERT INTO sale_lines (id, sale_id, product_id, quantity, unit_price, unit_cost)
@@ -1414,6 +1425,8 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
     for (const payment of history.customerPayments) {
+      // Replace the provisional initial-sale payment with the authoritative server ledger entry.
+      await db.runAsync("DELETE FROM customer_payments WHERE sale_id = ? AND id = ? AND sync_status IN ('PENDING', 'FAILED')", payment.saleId, payment.saleId);
       await db.runAsync(
         `INSERT INTO customer_payments (id, customer_id, amount, paid_at, sync_status)
          VALUES (?, ?, ?, ?, 'SYNCED')
@@ -1427,6 +1440,8 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
       );
     }
     for (const payment of history.purchasePayments) {
+      // Remove the provisional initial-purchase payment; later instalments have their own IDs.
+      await db.runAsync("DELETE FROM purchase_payments WHERE id = ? AND purchase_id = ? AND sync_status IN ('PENDING', 'FAILED')", payment.purchaseId, payment.purchaseId);
       await db.runAsync(
         `INSERT INTO purchase_payments (id, purchase_id, amount, paid_at, sync_status)
          VALUES (?, ?, ?, ?, 'SYNCED')
@@ -1473,10 +1488,10 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
     scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'",from,to),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
-    scalar("SELECT COALESCE(SUM(sale.amount_paid),0) value FROM sales sale JOIN outbox queued ON queued.id=sale.id AND queued.entity_type='SALE' AND queued.status IN ('PENDING','FAILED') WHERE sale.customer_id IS NOT NULL AND sale.status='VALIDATED' AND sale.sale_date>=? AND sale.sale_date<?",startTime,endExclusive),
+    0, // Initial customer-sale payments are represented in customer_payments.
     scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
-    scalar("SELECT COALESCE(SUM(purchase.amount_paid),0) value FROM purchases purchase JOIN outbox queued ON queued.id=purchase.id AND queued.entity_type='PURCHASE' AND queued.status IN ('PENDING','FAILED') WHERE purchase.purchase_date>=? AND purchase.purchase_date<?",startTime,endExclusive),
+    0, // Initial purchase payments are represented in purchase_payments.
     scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM purchases"),
@@ -1488,8 +1503,8 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
   const costOfGoodsSold = Math.round((saleCost-returnedCost+Number.EPSILON)*100)/100;
   const grossProfit = Math.round((revenue-costOfGoodsSold+Number.EPSILON)*100)/100;
   const netProfit = Math.round((grossProfit-expenses+Number.EPSILON)*100)/100;
-  const cashCollected = Math.round((customerLedger+walkInPaid+localCustomerSalePaid-cashRefunds+Number.EPSILON)*100)/100;
-  const paidToSuppliers = Math.round((supplierLedger+localPurchasePaid+Number.EPSILON)*100)/100;
+  const cashCollected = Math.round((customerLedger+walkInPaid-cashRefunds+Number.EPSILON)*100)/100;
+  const paidToSuppliers = Math.round((supplierLedger+Number.EPSILON)*100)/100;
   return {from,to,salesCount,revenue,costOfGoodsSold,grossProfit,expenses,netProfit,cashCollected,paidToSuppliers,purchasesTotal,netCashFlow:Math.round((cashCollected-paidToSuppliers-expenses+Number.EPSILON)*100)/100,topProducts:topRows.map(row=>({productId:row.product_id,name:row.name,quantitySold:row.quantity,revenue:row.revenue})),totalCustomerDebt:customerDebt,totalSupplierDebt:supplierDebt,stockValue,lowStockCount};
 }
 export async function cacheReportSummary(period: string, report: ReportSummary): Promise<void> {
@@ -1822,6 +1837,10 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       input.note,
     );
 
+    // Mirror the initial purchase payment in the local payment ledger.
+    if (amountPaid > 0) {
+      await db.runAsync("INSERT INTO purchase_payments (id, purchase_id, amount, paid_at, sync_status) VALUES (?, ?, ?, ?, 'PENDING')", purchaseId, purchaseId, amountPaid, createdAt);
+    }
     for (const line of lines) {
       const product = await db.getFirstAsync<{
         stock_quantity: number;
