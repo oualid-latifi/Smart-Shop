@@ -1418,7 +1418,7 @@ export async function getCachedReportSummary(period: string): Promise<ReportSumm
   if (!row) return null;
   try { return JSON.parse(row.payload) as ReportSummary; } catch { return null; }
 }
-export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]> {
+export async function getPendingOutbox(limit = 500): Promise<PendingOutboxItem[]> {
   const db = await getDatabase();
   // Avoid reading a half-written operation from an active async transaction.
   await transactionTail;
@@ -1431,6 +1431,54 @@ export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]>
      LIMIT ?`,
     limit,
   );
+}
+
+export interface OutboxStatusSummary {
+  pending: number;
+  failed: number;
+}
+
+export async function getOutboxStatusSummary(): Promise<OutboxStatusSummary> {
+  const db = await getDatabase();
+  await transactionTail;
+  const rows = await db.getAllAsync<{ status: string; count: number }>(
+    `SELECT status, COUNT(*) AS count FROM outbox
+     WHERE status IN ('PENDING', 'FAILED')
+     GROUP BY status`,
+  );
+  return {
+    pending: rows.find(row => row.status === 'PENDING')?.count ?? 0,
+    failed: rows.find(row => row.status === 'FAILED')?.count ?? 0,
+  };
+}
+
+/** Make permanent failures visible and explicitly retryable after the user fixes the cause. */
+export async function retryFailedOutboxOperations(): Promise<number> {
+  const db = await getDatabase();
+  return withSerializedTransaction(db, async () => {
+    const result = await db.runAsync(
+      "UPDATE outbox SET status = 'PENDING', last_error = NULL WHERE status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE customer_payments SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE purchase_payments SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE sale_refunds SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE sales SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE purchases SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    await db.runAsync(
+      "UPDATE expenses SET sync_status = 'PENDING' WHERE sync_status = 'FAILED'",
+    );
+    return result.changes;
+  });
 }
 
 export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
