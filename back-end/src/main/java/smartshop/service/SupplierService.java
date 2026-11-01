@@ -18,8 +18,9 @@ public class SupplierService {
     }
 
     @Transactional
-    public Supplier create(String name, String phone) {
+    public Supplier create(UUID id, String name, String phone) {
         Supplier supplier = new Supplier();
+        supplier.setId(id);
         supplier.setName(name);
         supplier.setPhone(phone);
         return supplierRepository.save(supplier);
