@@ -561,7 +561,10 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
       if (!product || product.active !== 1) {
         throw new Error('Produit introuvable ou désactivé.');
       }
-      if (product.stock_quantity < requestedLine.quantity) {
+      const alreadyRequested = lines
+        .filter((line) => line.productId === product.id)
+        .reduce((quantity, line) => quantity + line.quantity, 0);
+      if (product.stock_quantity < alreadyRequested + requestedLine.quantity) {
         throw new Error(`Stock insuffisant pour ${product.name}.`);
       }
 
