@@ -1,10 +1,10 @@
-import type { Customer, Product, Purchase, Sale, Supplier } from '../api/types';
+import type { Customer, Expense, Product, Purchase, ReportSummary, Sale, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 2;
+const CURRENT_SCHEMA_VERSION = 3;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -202,6 +202,26 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
             CREATE INDEX IF NOT EXISTS idx_customer_payments_sync
               ON customer_payments(sync_status);
             PRAGMA user_version = 2;
+          `);
+        }
+        if (versionRow.user_version < 3) {
+          await db.execAsync(`
+            CREATE TABLE IF NOT EXISTS expenses (
+              id TEXT PRIMARY KEY NOT NULL,
+              category TEXT NOT NULL,
+              amount REAL NOT NULL,
+              expense_date TEXT NOT NULL,
+              note TEXT,
+              sync_status TEXT NOT NULL DEFAULT 'SYNCED'
+            );
+            CREATE INDEX IF NOT EXISTS idx_expenses_date
+              ON expenses(expense_date DESC);
+            CREATE TABLE IF NOT EXISTS report_cache (
+              period TEXT PRIMARY KEY NOT NULL,
+              payload TEXT NOT NULL,
+              updated_at TEXT NOT NULL
+            );
+            PRAGMA user_version = 3;
           `);
         }
       });
@@ -950,6 +970,72 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
   return saleId;
 }
 
+export async function saveLocalExpense(input: {
+  category: Expense['category'];
+  amount: number;
+  note: string | null;
+}): Promise<string> {
+  const db = await getDatabase();
+  const id = createLocalUuid();
+  const expenseDate = getLocalDateTimeString().slice(0, 10);
+  const amount = roundMoney(input.amount);
+  await withSerializedTransaction(db, async () => {
+    if (!Number.isFinite(amount) || amount <= 0) throw new Error('Montant de dépense invalide.');
+    await db.runAsync(`INSERT INTO expenses (id, category, amount, expense_date, note, sync_status) VALUES (?, ?, ?, ?, ?, 'PENDING')`, id, input.category, amount, expenseDate, input.note);
+    const payload = { id, category: input.category, amount, expenseDate, note: input.note };
+    await db.runAsync(`INSERT INTO outbox (id, idempotency_key, entity_type, operation, payload, status, attempts, created_at) VALUES (?, ?, 'EXPENSE', 'CREATE', ?, 'PENDING', 0, ?)`, id, id, JSON.stringify(payload), getLocalDateTimeString());
+  });
+  return id;
+}
+
+export async function deleteLocalExpense(expenseId: string): Promise<void> {
+  const db = await getDatabase();
+  const createdAt = getLocalDateTimeString();
+  await withSerializedTransaction(db, async () => {
+    const expense = await db.getFirstAsync<{ id: string }>('SELECT id FROM expenses WHERE id = ?', expenseId);
+    if (!expense) throw new Error('Dépense introuvable.');
+    const pendingCreate = await db.getFirstAsync<{ id: string }>(`SELECT id FROM outbox WHERE entity_type = 'EXPENSE' AND operation = 'CREATE' AND status IN ('PENDING', 'FAILED') AND id = ?`, expenseId);
+    if (pendingCreate) {
+      await db.runAsync('DELETE FROM outbox WHERE id = ?', expenseId);
+      await db.runAsync('DELETE FROM expenses WHERE id = ?', expenseId);
+      return;
+    }
+    await db.runAsync("UPDATE expenses SET sync_status = 'DELETE_PENDING' WHERE id = ?", expenseId);
+    const deleteId = createLocalUuid();
+    await db.runAsync(`INSERT INTO outbox (id, idempotency_key, entity_type, operation, payload, status, attempts, created_at) VALUES (?, ?, 'EXPENSE', 'DELETE', ?, 'PENDING', 0, ?)`, deleteId, deleteId, JSON.stringify({ id: expenseId }), createdAt);
+  });
+}
+
+export async function getCachedExpenses(): Promise<Expense[]> {
+  const db = await getDatabase();
+  await transactionTail;
+  const rows = await db.getAllAsync<{ id: string; category: Expense['category']; amount: number; expense_date: string; note: string | null }>("SELECT id, category, amount, expense_date, note FROM expenses WHERE sync_status <> 'DELETE_PENDING' ORDER BY expense_date DESC, rowid DESC");
+  return rows.map((row) => ({ id: row.id, category: row.category, amount: row.amount, expenseDate: row.expense_date, note: row.note }));
+}
+
+export async function saveExpenses(expenses: Expense[]): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const expense of expenses) {
+      await db.runAsync(`INSERT INTO expenses (id, category, amount, expense_date, note, sync_status) VALUES (?, ?, ?, ?, ?, 'SYNCED') ON CONFLICT(id) DO UPDATE SET category = excluded.category, amount = excluded.amount, expense_date = excluded.expense_date, note = excluded.note, sync_status = 'SYNCED' WHERE NOT EXISTS (SELECT 1 FROM outbox queued WHERE queued.entity_type = 'EXPENSE' AND queued.status IN ('PENDING', 'FAILED') AND json_extract(queued.payload, '$.id') = excluded.id)`, expense.id, expense.category, expense.amount, expense.expenseDate, expense.note);
+    }
+  });
+}
+
+export async function cacheReportSummary(period: string, report: ReportSummary): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    await db.runAsync(`INSERT INTO report_cache (period, payload, updated_at) VALUES (?, ?, ?) ON CONFLICT(period) DO UPDATE SET payload = excluded.payload, updated_at = excluded.updated_at`, period, JSON.stringify(report), getLocalDateTimeString());
+  });
+}
+
+export async function getCachedReportSummary(period: string): Promise<ReportSummary | null> {
+  const db = await getDatabase();
+  await transactionTail;
+  const row = await db.getFirstAsync<{ payload: string }>('SELECT payload FROM report_cache WHERE period = ?', period);
+  if (!row) return null;
+  try { return JSON.parse(row.payload) as ReportSummary; } catch { return null; }
+}
 export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]> {
   const db = await getDatabase();
   // Avoid reading a half-written operation from an active async transaction.
@@ -978,6 +1064,11 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
       await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE') {
       await db.runAsync("UPDATE purchases SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    }
+    else if (item.entity_type === 'EXPENSE') {
+      const payload = JSON.parse(item.payload) as { id?: string };
+      if (item.operation === 'DELETE' && payload.id) await db.runAsync('DELETE FROM expenses WHERE id = ?', payload.id);
+      else await db.runAsync("UPDATE expenses SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     }
   });
 }
