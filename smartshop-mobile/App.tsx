@@ -16,7 +16,7 @@ import AppTabs from './src/navigation/AppTabs';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { colors, isDark } from './src/theme';
-import { testDatabase, testProductCRUD } from './src/database';
+import { getDatabase } from './src/database';
 import { syncPendingOperations } from './src/sync';
 
 const RootStack = createNativeStackNavigator();
@@ -89,11 +89,8 @@ export default function App() {
     try {
       await initI18n();
 
-      const result = await testDatabase();
-      console.log('[SQLite TEST]', result);
-
-      const productResult = await testProductCRUD();
-      console.log('[SQLite CRUD]', productResult);
+      await getDatabase();
+      console.log('[SQLite] Database initialized');
 
     } catch (error) {
       console.error('[SQLite ERROR]', error);
