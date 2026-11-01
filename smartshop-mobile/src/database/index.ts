@@ -30,6 +30,7 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       capacity TEXT,
       image_url TEXT,
       average_purchase_price REAL NOT NULL DEFAULT 0,
+      purchase_price REAL NOT NULL DEFAULT 0,
       sale_price REAL NOT NULL DEFAULT 0,
       stock_quantity REAL NOT NULL DEFAULT 0,
       alert_threshold REAL NOT NULL DEFAULT 0,
