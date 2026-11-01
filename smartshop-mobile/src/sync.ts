@@ -43,16 +43,31 @@ async function flushPendingOperations(): Promise<SyncSummary> {
     try {
       const payload = JSON.parse(item.payload) as Record<string, unknown>;
 
-      if (item.operation !== 'CREATE') {
+      const method = item.operation === 'CREATE' ? 'POST' : item.operation === 'UPDATE' ? 'PUT' : null;
+      if (!method) {
         await recordOutboxFailure(item.id, 'Opération de synchronisation non prise en charge.', true);
         summary.failed += 1;
         continue;
       }
 
-      if (item.entity_type === 'SALE') {
-        await api('/api/sales', { method: 'POST', body: payload });
-      } else if (item.entity_type === 'PURCHASE') {
-        await api('/api/purchases', { method: 'POST', body: payload });
+      if (item.entity_type === 'SALE' && method === 'POST') {
+        await api('/api/sales', { method, body: payload });
+      } else if (item.entity_type === 'PURCHASE' && method === 'POST') {
+        await api('/api/purchases', { method, body: payload });
+      } else if (item.entity_type === 'CUSTOMER') {
+        const entityId = typeof payload.id === 'string' ? payload.id : '';
+        if (!entityId) throw new Error('Identifiant client absent de la synchronisation.');
+        await api(method === 'POST' ? '/api/customers' : `/api/customers/${entityId}`, {
+          method,
+          body: payload,
+        });
+      } else if (item.entity_type === 'SUPPLIER') {
+        const entityId = typeof payload.id === 'string' ? payload.id : '';
+        if (!entityId) throw new Error('Identifiant fournisseur absent de la synchronisation.');
+        await api(method === 'POST' ? '/api/suppliers' : `/api/suppliers/${entityId}`, {
+          method,
+          body: payload,
+        });
       } else {
         await recordOutboxFailure(item.id, 'Type de synchronisation non pris en charge.', true);
         summary.failed += 1;
