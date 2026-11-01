@@ -1416,7 +1416,7 @@ export async function saveExpenses(expenses: Expense[]): Promise<void> {
 }
 
 export interface CachedPaymentHistory {
-  customerPayments: Array<{ id: string; customerId: string; amount: number; paidAt: string }>;
+  customerPayments: Array<{ id: string; customerId: string; saleId: string; amount: number; paidAt: string }>;
   purchasePayments: Array<{ id: string; purchaseId: string; amount: number; paidAt: string }>;
 }
 
@@ -1436,7 +1436,7 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
            paid_at = excluded.paid_at,
            sync_status = CASE WHEN customer_payments.sync_status IN ('PENDING', 'FAILED')
              THEN customer_payments.sync_status ELSE 'SYNCED' END`,
-        payment.id, payment.customerId, payment.amount, payment.paidAt,
+        payment.id, payment.customerId, payment.saleId, payment.amount, payment.paidAt,
       );
     }
     for (const payment of history.purchasePayments) {
@@ -1479,7 +1479,7 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
   const nextDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()+1);
   const startTime = from + 'T00:00:00', endExclusive = dateKey(nextDay) + 'T00:00:00';
   const scalar = async (sql: string, ...params: (string | number)[]) => Number((await db.getFirstAsync<{value:number|null}>(sql, ...params))?.value ?? 0);
-  const [salesCount,grossSales,refunds,saleCost,returnedCost,expenses,customerLedger,walkInPaid,localCustomerSalePaid,cashRefunds,supplierLedger,localPurchasePaid,purchasesTotal,customerDebt,supplierDebt,stockValue,lowStockCount] = await Promise.all([
+  const [salesCount,grossSales,refunds,saleCost,returnedCost,expenses,customerLedger,walkInPaid,cashRefunds,supplierLedger,purchasesTotal,customerDebt,supplierDebt,stockValue,lowStockCount] = await Promise.all([
     scalar("SELECT COUNT(*) value FROM sales WHERE status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(total),0) value FROM sales WHERE status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
@@ -1488,10 +1488,8 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
     scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'",from,to),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
-    0, // Initial customer-sale payments are represented in customer_payments.
     scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
-    0, // Initial purchase payments are represented in purchase_payments.
     scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM purchases"),
