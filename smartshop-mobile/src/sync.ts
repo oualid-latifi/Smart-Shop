@@ -43,7 +43,10 @@ async function flushPendingOperations(): Promise<SyncSummary> {
     try {
       const payload = JSON.parse(item.payload) as Record<string, unknown>;
 
-      const method = item.operation === 'CREATE' ? 'POST' : item.operation === 'UPDATE' ? 'PUT' : null;
+      const method =
+        item.operation === 'CREATE' ? 'POST' :
+        item.operation === 'UPDATE' ? 'PUT' :
+        item.operation === 'DELETE' ? 'DELETE' : null;
       if (!method) {
         await recordOutboxFailure(item.id, 'Opération de synchronisation non prise en charge.', true);
         summary.failed += 1;
@@ -59,14 +62,14 @@ async function flushPendingOperations(): Promise<SyncSummary> {
         if (!entityId) throw new Error('Identifiant client absent de la synchronisation.');
         await api(method === 'POST' ? '/api/customers' : `/api/customers/${entityId}`, {
           method,
-          body: payload,
+          ...(method === 'DELETE' ? {} : { body: payload }),
         });
       } else if (item.entity_type === 'SUPPLIER') {
         const entityId = typeof payload.id === 'string' ? payload.id : '';
         if (!entityId) throw new Error('Identifiant fournisseur absent de la synchronisation.');
         await api(method === 'POST' ? '/api/suppliers' : `/api/suppliers/${entityId}`, {
           method,
-          body: payload,
+          ...(method === 'DELETE' ? {} : { body: payload }),
         });
       } else {
         await recordOutboxFailure(item.id, 'Type de synchronisation non pris en charge.', true);
