@@ -24,12 +24,16 @@ public class CustomerService {
     private final CustomerPaymentRepository paymentRepository;
     private final SaleRepository saleRepository;
 
+    private final smartshop.repository.PurchaseRepository purchaseRepository;
+
     public CustomerService(CustomerRepository customerRepository,
                            CustomerPaymentRepository paymentRepository,
-                           SaleRepository saleRepository) {
+                           SaleRepository saleRepository,
+                           smartshop.repository.PurchaseRepository purchaseRepository) {
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.saleRepository = saleRepository;
+        this.purchaseRepository = purchaseRepository;
     }
 
     @Transactional
@@ -121,6 +125,20 @@ public class CustomerService {
         }
 
         return CustomerResponse.from(customer, balanceOf(customerId));
+    }
+
+    @Transactional
+    public void delete(UUID customerId) {
+        Customer customer = customerRepository.findByIdForUpdate(customerId)
+                .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
+        if (saleRepository.existsByCustomer_Id(customerId)) {
+            throw new IllegalArgumentException(
+                    "Impossible de supprimer ce client : il possède un historique de ventes");
+        }
+        if (purchaseRepository.existsBySupplier_Id(customerId)) {
+            throw new IllegalArgumentException("Ce client est associé à des achats");
+        }
+        customerRepository.delete(customer);
     }
 
     private BigDecimal balanceOf(UUID customerId) {
