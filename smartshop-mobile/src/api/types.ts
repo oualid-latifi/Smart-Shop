@@ -34,6 +34,7 @@ export interface Product {
   capacity: string | null;
   imageUrl: string | null;
   averagePurchasePrice: number;
+  purchasePrice: number;
   salePrice: number;
   stockQuantity: number;
   alertThreshold: number;
