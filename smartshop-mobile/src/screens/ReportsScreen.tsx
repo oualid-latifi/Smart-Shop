@@ -15,7 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, getOutboxStatusSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
+import { syncPendingOperations } from '../sync';
 import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatDate, formatMoney } from '../format';
@@ -44,6 +45,29 @@ export default function ReportsScreen({ navigation }: Props) {
   const load = useCallback(async () => {
     try {
       setError(null);
+
+      // Send offline-created operations before asking the server for totals.
+      // Otherwise the online report can be older than the data already visible
+      // in the local SQLite database.
+      const queued = await getOutboxStatusSummary().catch(() => ({ pending: 0, failed: 0 }));
+      if (queued.pending > 0) {
+        await syncPendingOperations().catch(() => undefined);
+      }
+
+      // If some local operations still cannot be synchronized, prefer the
+      // complete local calculation so those operations are not hidden.
+      const remaining = await getOutboxStatusSummary().catch(() => ({ pending: 0, failed: 0 }));
+      if (remaining.pending > 0 || remaining.failed > 0) {
+        const localReport = await getOfflineReportSummary(period).catch(() => null);
+        if (localReport) {
+          setReport(localReport);
+          setShowingOfflineCalculated(true);
+          setShowingCachedReport(false);
+          setError(null);
+          return;
+        }
+      }
+
       const data = await api<ReportSummary>(ENDPOINTS[period]);
       setReport(data);
       setShowingCachedReport(false);
