@@ -18,6 +18,7 @@ import type { Product, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import TextField from '../components/TextField';
 import { formatMoney, parseNumber } from '../format';
+import { Ionicons } from '@expo/vector-icons';
 import type { PurchasesStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
 
@@ -76,10 +77,11 @@ export default function PurchaseFormScreen({ navigation }: Props) {
 
   const matches = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return [];
-    return products
-      .filter((p) => p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query))
-      .slice(0, 6);
+    if (!query) return products;
+    return products.filter((p) =>
+      [p.name, p.reference, p.brand ?? '', p.model ?? '']
+        .some((value) => value.toLowerCase().includes(query)),
+    );
   }, [products, search]);
 
   const total = cart.reduce(
@@ -178,24 +180,35 @@ export default function PurchaseFormScreen({ navigation }: Props) {
           autoCorrect={false}
         />
 
-        {search.trim() !== '' ? (
-          <View style={styles.results}>
-            {matches.length === 0 ? (
-              <Text style={styles.muted}>{t('purchases.noProducts')}</Text>
-            ) : (
-              matches.map((p) => (
-                <Pressable key={p.id} style={styles.resultRow} onPress={() => addProduct(p)}>
-                  <View style={styles.flex}>
-                    <Text style={styles.name}>{p.name}</Text>
-                    <Text style={styles.muted}>
-                      {p.reference} · {t('products.stock')} : {p.stockQuantity}
-                    </Text>
-                  </View>
-                </Pressable>
-              ))
-            )}
+        <View style={styles.catalogHeading}>
+          <View style={styles.flex}>
+            <Text style={styles.sectionTitle}>{search.trim() ? t('purchases.searchResults') : t('purchases.productCatalog')}</Text>
+            <Text style={styles.muted}>{matches.length} {t('purchases.productsAvailable')}</Text>
           </View>
-        ) : null}
+          <Ionicons name="grid-outline" size={21} color={colors.primary} />
+        </View>
+        {matches.length === 0 ? (
+          <View style={styles.emptyCatalog}>
+            <Ionicons name="cube-outline" size={26} color={colors.muted} />
+            <Text style={styles.muted}>{t('purchases.noProducts')}</Text>
+          </View>
+        ) : (
+          <View style={styles.catalogGrid}>
+            {matches.map((p) => (
+              <Pressable key={p.id} style={({ pressed }) => [styles.productCard, pressed && styles.pressed]} onPress={() => addProduct(p)}>
+                <View style={styles.productIcon}><Ionicons name="cube-outline" size={22} color={colors.primary} /></View>
+                <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
+                <Text style={styles.productMeta} numberOfLines={1}>{p.reference}</Text>
+                <Text style={styles.productPrice}>{formatMoney(p.averagePurchasePrice)}</Text>
+                <Text style={styles.muted}>{t('products.stock')}: {p.stockQuantity}</Text>
+                <View style={styles.addProduct}>
+                  <Ionicons name="add" size={16} color={colors.onPrimary} />
+                  <Text style={styles.addProductText}>{t('purchases.addToPurchase')}</Text>
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        )}
 
         <Text style={styles.sectionTitle}>{t('purchases.items')}</Text>
         {cart.length === 0 ? (
@@ -318,6 +331,17 @@ const styles = StyleSheet.create({
     maxWidth: 560,
     alignSelf: 'center',
   },
+  catalogHeading: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md, marginBottom: spacing.sm },
+  catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
+  productCard: { width: '48%', flexGrow: 1, minWidth: 145, backgroundColor: colors.card, borderRadius: radius + 2, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: 2 },
+  productIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
+  productName: { color: colors.text, fontSize: 14, fontWeight: '700', minHeight: 36 },
+  productMeta: { color: colors.muted, fontSize: 11, marginTop: 3 },
+  productPrice: { color: colors.primary, fontSize: 15, fontWeight: '800', marginTop: spacing.sm, marginBottom: 3 },
+  addProduct: { backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 7, marginTop: spacing.sm, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
+  addProductText: { color: colors.onPrimary, fontSize: 12, fontWeight: '700' },
+  emptyCatalog: { backgroundColor: colors.card, borderRadius: radius, padding: spacing.lg, alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
+  pressed: { opacity: 0.78 },
   search: {
     borderWidth: 1,
     borderColor: colors.border,
