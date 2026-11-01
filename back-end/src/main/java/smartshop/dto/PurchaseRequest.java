@@ -22,4 +22,9 @@ public record PurchaseRequest(
                            List<PurchaseLineRequest> lines) {
         this(supplierId, amountPaid, note, lines, null, null);
     }
+
+    public PurchaseRequest(UUID supplierId, BigDecimal amountPaid, String note,
+                           List<PurchaseLineRequest> lines, UUID id) {
+        this(supplierId, amountPaid, note, lines, id, null);
+    }
 }
