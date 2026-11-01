@@ -16,6 +16,7 @@ import smartshop.repository.CustomerPaymentRepository;
 import smartshop.repository.CustomerRepository;
 import smartshop.repository.ProductRepository;
 import smartshop.repository.SaleRepository;
+import smartshop.repository.SaleRefundLineRepository;
 import smartshop.repository.StockMovementRepository;
 
 import java.math.BigDecimal;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class SaleService {
 
     private final SaleRepository saleRepository;
+    private final SaleRefundLineRepository refundLineRepository;
     private final CustomerRepository customerRepository;
     private final CustomerPaymentRepository paymentRepository;
     private final ProductRepository productRepository;
@@ -36,12 +38,14 @@ public class SaleService {
                        CustomerRepository customerRepository,
                        CustomerPaymentRepository paymentRepository,
                        ProductRepository productRepository,
-                       StockMovementRepository stockMovementRepository) {
+                       StockMovementRepository stockMovementRepository,
+                       SaleRefundLineRepository refundLineRepository) {
         this.saleRepository = saleRepository;
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.productRepository = productRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.refundLineRepository = refundLineRepository;
     }
 
     @Transactional
@@ -159,17 +163,22 @@ public class SaleService {
             return sale;
         }
 
-        // On remet les articles en stock
+        // Restore only units that have not already been returned. Otherwise a
+        // partial refund followed by cancellation would add the same units twice.
         for (SaleLine line : sale.getLines()) {
+            Long returned = refundLineRepository.sumReturnedQuantityBySaleLineId(line.getId());
+            long quantityToRestore = line.getQuantity() - (returned == null ? 0L : returned);
+            if (quantityToRestore <= 0) continue;
+
             Product product = productRepository.findByIdForUpdate(line.getProduct().getId())
                     .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
-            product.setStockQuantity(product.getStockQuantity() + line.getQuantity());
+            product.setStockQuantity(product.getStockQuantity() + quantityToRestore);
             productRepository.save(product);
 
             StockMovement movement = new StockMovement();
             movement.setProduct(product);
             movement.setType(StockMovementType.SALE_CANCELLATION);
-            movement.setQuantity(line.getQuantity());
+            movement.setQuantity(quantityToRestore);
             movement.setReferenceId(sale.getId());
             movement.setNote(reason);
             stockMovementRepository.save(movement);
