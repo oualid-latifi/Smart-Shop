@@ -59,6 +59,7 @@ public class PurchaseService {
 
         Purchase purchase = new Purchase();
         if (request.id() != null) purchase.setId(request.id());
+        if (request.purchaseDate() != null) purchase.setPurchaseDate(request.purchaseDate());
         purchase.setSupplier(supplier);
         purchase.setNote(request.note());
 
