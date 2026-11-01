@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
 import CategoriesScreen from '../screens/CategoriesScreen';
+import ServerSettingsScreen from '../screens/ServerSettingsScreen';
 import PurchasesStack from './PurchasesStack';
 import ReportsStack from './ReportsStack';
 import { colors, radius, spacing } from '../theme';
@@ -29,6 +30,11 @@ function MoreHomeScreen({ navigation }: any) {
       onPress: () => navigation.navigate('Reports'),
     },
     {
+      title: t('settings.serverTitle', { defaultValue: 'Connexion au PC' }),
+      subtitle: t('settings.serverSubtitle', { defaultValue: 'Configurer le serveur local et tester le Wi-Fi' }),
+      icon: 'server-outline' as const,
+      onPress: () => navigation.navigate('ServerSettings'),
+    },    {
       title: t('products.category'),
       subtitle: t('products.catalogSubtitle'),
       icon: 'grid-outline' as const,
@@ -73,6 +79,7 @@ export default function MoreStack() {
       />
 
       <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Catégories' }} />
+      <Stack.Screen name="ServerSettings" component={ServerSettingsScreen} options={{ title: 'Connexion au PC' }} />
 
       <Stack.Screen
         name="Purchases"
