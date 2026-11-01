@@ -1442,6 +1442,56 @@ export async function cachePaymentHistory(history: CachedPaymentHistory): Promis
   });
 }
 
+export async function markReportDatasetSnapshotComplete(): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'complete', ?) ON CONFLICT(key) DO UPDATE SET value = 'complete', updated_at = excluded.updated_at", getLocalDateTimeString());
+  });
+}
+
+export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'): Promise<ReportSummary | null> {
+  const db = await getDatabase();
+  await transactionTail;
+  const snapshot = await db.getFirstAsync<{ value: string }>("SELECT value FROM local_metadata WHERE key = 'report_dataset_snapshot'");
+  if (snapshot?.value !== 'complete') return null;
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let start = new Date(end);
+  if (period === 'week') { const day = (end.getDay() + 6) % 7; start.setDate(end.getDate() - day); end.setDate(start.getDate() + 6); }
+  else if (period === 'month') { start = new Date(end.getFullYear(), end.getMonth(), 1); end.setMonth(end.getMonth() + 1, 0); }
+  const dateKey = (d: Date) => [d.getFullYear(), String(d.getMonth()+1).padStart(2,'0'), String(d.getDate()).padStart(2,'0')].join('-');
+  const from = dateKey(start), to = dateKey(end);
+  const nextDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()+1);
+  const startTime = from + 'T00:00:00', endExclusive = dateKey(nextDay) + 'T00:00:00';
+  const scalar = async (sql: string, ...params: (string | number)[]) => Number((await db.getFirstAsync<{value:number|null}>(sql, ...params))?.value ?? 0);
+  const [salesCount,grossSales,refunds,saleCost,returnedCost,expenses,customerLedger,walkInPaid,localCustomerSalePaid,cashRefunds,supplierLedger,localPurchasePaid,purchasesTotal,customerDebt,supplierDebt,stockValue,lowStockCount] = await Promise.all([
+    scalar("SELECT COUNT(*) value FROM sales WHERE status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(total),0) value FROM sales WHERE status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(line.quantity*line.unit_cost),0) value FROM sale_lines line JOIN sales sale ON sale.id=line.sale_id WHERE sale.status='VALIDATED' AND sale.sale_date>=? AND sale.sale_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(line.quantity*sale_line.unit_cost),0) value FROM sale_refund_lines line JOIN sale_refunds refund ON refund.id=line.refund_id JOIN sale_lines sale_line ON sale_line.id=line.sale_line_id WHERE refund.refunded_at>=? AND refund.refunded_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'",from,to),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(sale.amount_paid),0) value FROM sales sale JOIN outbox queued ON queued.id=sale.id AND queued.entity_type='SALE' AND queued.status IN ('PENDING','FAILED') WHERE sale.customer_id IS NOT NULL AND sale.status='VALIDATED' AND sale.sale_date>=? AND sale.sale_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(purchase.amount_paid),0) value FROM purchases purchase JOIN outbox queued ON queued.id=purchase.id AND queued.entity_type='PURCHASE' AND queued.status IN ('PENDING','FAILED') WHERE purchase.purchase_date>=? AND purchase.purchase_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
+    scalar("SELECT COALESCE(SUM(remaining),0) value FROM purchases"),
+    scalar("SELECT COALESCE(SUM(stock_quantity*average_purchase_price),0) value FROM products WHERE active=1 AND stock_quantity>0"),
+    scalar("SELECT COUNT(*) value FROM products WHERE active=1 AND stock_quantity<=alert_threshold"),
+  ]);
+  const topRows = await db.getAllAsync<{product_id:string;name:string;quantity:number;revenue:number}>("SELECT line.product_id,COALESCE(product.name,'Produit') name,SUM(line.quantity) quantity,SUM(line.quantity*line.unit_price) revenue FROM sale_lines line JOIN sales sale ON sale.id=line.sale_id LEFT JOIN products product ON product.id=line.product_id WHERE sale.status='VALIDATED' AND sale.sale_date>=? AND sale.sale_date<? GROUP BY line.product_id,product.name ORDER BY SUM(line.quantity) DESC LIMIT 5",startTime,endExclusive);
+  const revenue = Math.round((grossSales-refunds+Number.EPSILON)*100)/100;
+  const costOfGoodsSold = Math.round((saleCost-returnedCost+Number.EPSILON)*100)/100;
+  const grossProfit = Math.round((revenue-costOfGoodsSold+Number.EPSILON)*100)/100;
+  const netProfit = Math.round((grossProfit-expenses+Number.EPSILON)*100)/100;
+  const cashCollected = Math.round((customerLedger+walkInPaid+localCustomerSalePaid-cashRefunds+Number.EPSILON)*100)/100;
+  const paidToSuppliers = Math.round((supplierLedger+localPurchasePaid+Number.EPSILON)*100)/100;
+  return {from,to,salesCount,revenue,costOfGoodsSold,grossProfit,expenses,netProfit,cashCollected,paidToSuppliers,purchasesTotal,netCashFlow:Math.round((cashCollected-paidToSuppliers-expenses+Number.EPSILON)*100)/100,topProducts:topRows.map(row=>({productId:row.product_id,name:row.name,quantitySold:row.quantity,revenue:row.revenue})),totalCustomerDebt:customerDebt,totalSupplierDebt:supplierDebt,stockValue,lowStockCount};
+}
 export async function cacheReportSummary(period: string, report: ReportSummary): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
