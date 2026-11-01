@@ -135,9 +135,6 @@ public class CustomerService {
             throw new IllegalArgumentException(
                     "Impossible de supprimer ce client : il possède un historique de ventes");
         }
-        if (purchaseRepository.existsBySupplier_Id(customerId)) {
-            throw new IllegalArgumentException("Ce client est associé à des achats");
-        }
         customerRepository.delete(customer);
     }
 
