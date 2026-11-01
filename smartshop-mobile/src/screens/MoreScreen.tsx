@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Pressable,
   ScrollView,
@@ -10,6 +10,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../theme';
+import { getOutboxStatusSummary, retryFailedOutboxOperations } from '../database';
+import { syncPendingOperations } from '../sync';
 
 type Props = {
   navigation: {
@@ -20,6 +22,36 @@ type Props = {
 export default function MoreScreen({ navigation }: Props) {
   const { i18n, t } = useTranslation();
   const isAr = (i18n.language || '').startsWith('ar');
+  const [syncCounts, setSyncCounts] = useState({ pending: 0, failed: 0 });
+  const [retrying, setRetrying] = useState(false);
+  const [syncMessage, setSyncMessage] = useState('');
+
+  const refreshSyncStatus = useCallback(async () => {
+    try {
+      setSyncCounts(await getOutboxStatusSummary());
+    } catch {
+      // Keep the More screen usable if local storage is temporarily unavailable.
+    }
+  }, []);
+
+  useEffect(() => { void refreshSyncStatus(); }, [refreshSyncStatus]);
+
+  async function retryFailed() {
+    setRetrying(true);
+    setSyncMessage('');
+    try {
+      const count = await retryFailedOutboxOperations();
+      const result = await syncPendingOperations();
+      await refreshSyncStatus();
+      setSyncMessage(isAr
+        ? `تمت إعادة المحاولة: ${result.synced} ناجحة، ${result.pending} معلقة، ${result.failed} فاشلة.`
+        : `Nouvelle tentative : ${result.synced} réussie(s), ${result.pending} en attente, ${result.failed} en échec.`);
+    } catch {
+      setSyncMessage(isAr ? 'تعذرت إعادة المزامنة. تحقق من الاتصال بالخادم.' : 'Synchronisation impossible. Vérifiez la connexion au serveur.');
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   const items = [
     {
@@ -60,6 +92,31 @@ export default function MoreScreen({ navigation }: Props) {
           ? 'الأدوات والإعدادات الإضافية'
           : 'Autres fonctionnalités de gestion'}
       </Text>
+
+      <View style={styles.syncCard}>
+        <View style={styles.syncHeader}>
+          <Ionicons name="cloud-upload-outline" size={22} color={colors.primary} />
+          <Text style={styles.title}>{isAr ? 'مزامنة البيانات' : 'Synchronisation des données'}</Text>
+        </View>
+        <Text style={styles.description}>
+          {isAr
+            ? `في الانتظار: ${syncCounts.pending} · فشلت: ${syncCounts.failed}`
+            : `En attente : ${syncCounts.pending} · En échec : ${syncCounts.failed}`}
+        </Text>
+        {syncMessage ? <Text style={styles.syncMessage}>{syncMessage}</Text> : null}
+        <Pressable
+          onPress={retryFailed}
+          disabled={retrying || syncCounts.failed === 0}
+          style={({ pressed }) => [styles.retryButton, (pressed || retrying || syncCounts.failed === 0) && styles.retryDisabled]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.retryText}>
+            {retrying
+              ? (isAr ? 'جاري إعادة المحاولة...' : 'Nouvelle tentative...')
+              : (isAr ? 'إعادة محاولة العمليات الفاشلة' : 'Réessayer les opérations en échec')}
+          </Text>
+        </Pressable>
+      </View>
 
       {items.map((item) => (
         <Pressable
