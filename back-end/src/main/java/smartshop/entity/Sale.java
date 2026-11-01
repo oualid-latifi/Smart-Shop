@@ -12,7 +12,6 @@ import java.util.UUID;
 public class Sale {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     // null = client de passage
@@ -56,6 +55,7 @@ public class Sale {
 
     @PrePersist
     void onCreate() {
+        if (this.id == null) this.id = UUID.randomUUID();
         this.saleDate = LocalDateTime.now();
     }
 
@@ -77,6 +77,7 @@ public class Sale {
     }
 
     public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
 
     public Customer getCustomer() { return customer; }
     public void setCustomer(Customer customer) { this.customer = customer; }
