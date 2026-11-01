@@ -21,6 +21,12 @@ public class SaleRefund {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal amount;
 
+    @Column(name = "credit_applied", nullable = false, precision = 12, scale = 2)
+    private BigDecimal creditApplied = BigDecimal.ZERO;
+
+    @Column(name = "cash_refunded", nullable = false, precision = 12, scale = 2)
+    private BigDecimal cashRefunded = BigDecimal.ZERO;
+
     @Column(nullable = false, length = 255)
     private String reason;
 
@@ -45,6 +51,10 @@ public class SaleRefund {
     public void setSale(Sale sale) { this.sale = sale; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public BigDecimal getCreditApplied() { return creditApplied; }
+    public void setCreditApplied(BigDecimal creditApplied) { this.creditApplied = creditApplied; }
+    public BigDecimal getCashRefunded() { return cashRefunded; }
+    public void setCashRefunded(BigDecimal cashRefunded) { this.cashRefunded = cashRefunded; }
     public String getReason() { return reason; }
     public void setReason(String reason) { this.reason = reason; }
     public LocalDateTime getRefundedAt() { return refundedAt; }
