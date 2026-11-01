@@ -103,6 +103,10 @@ export default function PurchasesScreen({ navigation }: Props) {
             <Ionicons name="person-add-outline" size={18} color={colors.primary} />
             <Text style={styles.actionSecondaryText}>{t('purchases.addSupplier')}</Text>
           </Pressable>
+          <Pressable style={({ pressed }) => [styles.actionSecondary, pressed && styles.pressed]} onPress={() => navigation.navigate('SuppliersList')}>
+            <Ionicons name="people-outline" size={18} color={colors.primary} />
+            <Text style={styles.actionSecondaryText}>{t('purchases.suppliersList')}</Text>
+          </Pressable>
         </View>
 
         <View style={styles.totalBox}>
