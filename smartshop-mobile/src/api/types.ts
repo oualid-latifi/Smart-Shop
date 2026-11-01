@@ -123,6 +123,8 @@ export interface SaleRefund {
   id: string;
   saleId: string;
   amount: number;
+  creditApplied: number;
+  cashRefunded: number;
   reason: string;
   refundedAt: string;
   lines: SaleRefundLine[];
