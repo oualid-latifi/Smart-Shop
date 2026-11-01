@@ -79,8 +79,6 @@ public class SaleRefundService {
                         + saleLine.getProduct().getName() + " (restant : " + remainingQuantity + ")");
             }
 
-            BigDecimal lineGross = saleLine.getUnitPrice()
-                    .multiply(BigDecimal.valueOf(saleLine.getQuantity()));
             BigDecimal requestedGross = saleLine.getUnitPrice()
                     .multiply(BigDecimal.valueOf(requestedLine.quantity()));
             BigDecimal allocatedDiscount = sale.getDiscount()
