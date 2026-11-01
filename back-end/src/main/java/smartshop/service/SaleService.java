@@ -167,7 +167,8 @@ public class SaleService {
         // partial refund followed by cancellation would add the same units twice.
         for (SaleLine line : sale.getLines()) {
             Long returned = refundLineRepository.sumReturnedQuantityBySaleLineId(line.getId());
-            long quantityToRestore = line.getQuantity() - (returned == null ? 0L : returned);
+            int returnedQuantity = returned == null ? 0 : Math.toIntExact(returned);
+            int quantityToRestore = line.getQuantity() - returnedQuantity;
             if (quantityToRestore <= 0) continue;
 
             Product product = productRepository.findByIdForUpdate(line.getProduct().getId())
