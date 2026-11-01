@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
+import { cacheReportSummary, getCachedReportSummary, getOfflineReportSummary } from '../database';
+import type { ReportSummary } from '../api/types';
 import { errorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
@@ -55,9 +57,25 @@ export default function DashboardScreen() {
     setError(null);
 
     try {
-      setReport(await api<TodayReport>('/api/reports/today'));
+      const data = await api<TodayReport>('/api/reports/today');
+      setReport(data);
+      void cacheReportSummary('today', data as ReportSummary).catch(() => undefined);
     } catch (e) {
-      setError(errorMessage(e, t));
+      // Keep the dashboard usable without Wi-Fi: prefer a locally calculated
+      // report from the complete synchronized snapshot, then the last API cache.
+      const offlineReport = await getOfflineReportSummary('today').catch(() => null);
+      if (offlineReport) {
+        setReport(offlineReport);
+        setError(null);
+      } else {
+        const cachedReport = await getCachedReportSummary('today').catch(() => null);
+        if (cachedReport) {
+          setReport(cachedReport);
+          setError(null);
+        } else {
+          setError(errorMessage(e, t));
+        }
+      }
     } finally {
       setLoading(false);
     }
