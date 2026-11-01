@@ -4,6 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.PurchaseLineRequest;
 import smartshop.dto.PurchaseRequest;
+import smartshop.dto.PaymentRequest;
 import smartshop.entity.Product;
 import smartshop.entity.Purchase;
 import smartshop.entity.PurchaseLine;
@@ -117,16 +118,27 @@ public class PurchaseService {
     }
 
     @Transactional
-    public Purchase addPayment(UUID purchaseId, BigDecimal amount) {
+    public Purchase addPayment(UUID purchaseId, PaymentRequest request) {
+        if (request.id() != null) {
+            PurchasePayment existingPayment = paymentRepository.findById(request.id()).orElse(null);
+            if (existingPayment != null) {
+                if (!existingPayment.getPurchase().getId().equals(purchaseId)) {
+                    throw new IllegalArgumentException("Cet identifiant de paiement est déjà utilisé");
+                }
+                return existingPayment.getPurchase();
+            }
+        }
+
         Purchase purchase = purchaseRepository.findByIdForUpdate(purchaseId)
                 .orElseThrow(() -> new IllegalArgumentException("Achat introuvable"));
 
+        BigDecimal amount = request.amount();
         if (amount.compareTo(purchase.getRemaining()) > 0) {
             throw new IllegalArgumentException(
                     "Le paiement dépasse le reste à payer (" + purchase.getRemaining() + " DH)");
         }
 
-        savePayment(purchase, amount);
+        savePayment(purchase, amount, request.id(), request.paidAt());
         purchase.setAmountPaid(purchase.getAmountPaid().add(amount));
         return purchaseRepository.save(purchase);
     }
@@ -148,7 +160,14 @@ public class PurchaseService {
     }
 
     private void savePayment(Purchase purchase, BigDecimal amount) {
+        savePayment(purchase, amount, null, null);
+    }
+
+    private void savePayment(Purchase purchase, BigDecimal amount, UUID paymentId,
+                             java.time.LocalDateTime paidAt) {
         PurchasePayment payment = new PurchasePayment();
+        if (paymentId != null) payment.setId(paymentId);
+        if (paidAt != null) payment.setPaidAt(paidAt);
         payment.setPurchase(purchase);
         payment.setAmount(amount);
         paymentRepository.save(payment);
