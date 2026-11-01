@@ -7,6 +7,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import smartshop.dto.ReportSummaryResponse;
 import smartshop.dto.PaymentHistoryResponse;
+import smartshop.dto.RefundResponse;
+import java.util.List;
 import smartshop.service.ReportService;
 
 import java.time.LocalDate;
@@ -27,6 +29,11 @@ public class ReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
         return reportService.summary(from, to);
+    }
+
+    @GetMapping("/refund-history")
+    public List<RefundResponse> refundHistory() {
+        return reportService.refundHistory();
     }
 
     @GetMapping("/payment-history")
