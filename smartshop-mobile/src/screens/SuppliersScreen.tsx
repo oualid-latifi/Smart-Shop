@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
@@ -9,8 +9,12 @@ import { errorMessage } from '../api/errors';
 import type { Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, radius, spacing } from '../theme';
+import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import type { PurchasesStackParamList } from '../navigation/types';
 
-export default function SuppliersScreen() {
+type Props = NativeStackScreenProps<PurchasesStackParamList, 'SuppliersList'>;
+
+export default function SuppliersScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,13 +56,21 @@ export default function SuppliersScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
           ListEmptyComponent={<Text style={styles.empty}>{t('purchases.suppliersEmpty')}</Text>}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <Pressable
+              style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+              onPress={() => navigation.navigate('SupplierForm', { supplier: item })}
+              accessibilityRole="button"
+            >
               <View style={styles.icon}><Ionicons name="business-outline" size={22} color={colors.primary} /></View>
               <View style={styles.copy}>
                 <Text style={styles.name}>{item.name}</Text>
                 <Text style={styles.phone}>{item.phone || t('purchases.noPhone')}</Text>
               </View>
-            </View>
+              <View style={styles.editAction}>
+                <Ionicons name="create-outline" size={18} color={colors.primary} />
+                <Text style={styles.editText}>{t('purchases.editSupplier')}</Text>
+              </View>
+            </Pressable>
           )}
         />
       )}
@@ -70,6 +82,9 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   loader: { marginTop: spacing.xl },
   list: { padding: spacing.md, gap: spacing.sm, paddingBottom: spacing.xl, flexGrow: 1 },
+  pressed: { opacity: 0.75 },
+  editAction: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.sm, paddingVertical: spacing.xs, borderRadius: 10, backgroundColor: colors.neutralBg },
+  editText: { color: colors.primary, fontSize: 11, fontWeight: '700' },
   card: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius + 3, padding: spacing.md },
   icon: { width: 44, height: 44, borderRadius: 14, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   copy: { flex: 1 },
