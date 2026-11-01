@@ -24,6 +24,14 @@ public class ExpenseService {
 
     @Transactional
     public Expense create(ExpenseRequest request) {
+        if (request.id() != null) {
+            return expenseRepository.findById(request.id()).orElseGet(() -> {
+                Expense expense = new Expense();
+                expense.setId(request.id());
+                apply(expense, request);
+                return expenseRepository.save(expense);
+            });
+        }
         Expense expense = new Expense();
         apply(expense, request);
         return expenseRepository.save(expense);
