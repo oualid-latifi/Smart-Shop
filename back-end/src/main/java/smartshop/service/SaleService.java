@@ -60,6 +60,7 @@ public class SaleService {
 
         Sale sale = new Sale();
         if (request.id() != null) sale.setId(request.id());
+        if (request.saleDate() != null) sale.setSaleDate(request.saleDate());
         sale.setCustomer(customer);
 
         BigDecimal subtotal = BigDecimal.ZERO;
