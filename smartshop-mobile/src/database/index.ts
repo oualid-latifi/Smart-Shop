@@ -226,24 +226,27 @@ async function withSerializedTransaction<T>(
 export async function testDatabase(): Promise<string> {
   const db = await getDatabase();
 
-  await db.runAsync(
-    `INSERT OR REPLACE INTO local_metadata (key, value)
-     VALUES (?, ?)`,
-    'database_status',
-    'SQLite is working',
-  );
+  return withSerializedTransaction(db, async () => {
+    await db.runAsync(
+      `INSERT OR REPLACE INTO local_metadata (key, value)
+       VALUES (?, ?)`,
+      'database_status',
+      'SQLite is working',
+    );
 
-  const result = await db.getFirstAsync<{ value: string }>(
-    'SELECT value FROM local_metadata WHERE key = ?',
-    'database_status',
-  );
+    const result = await db.getFirstAsync<{ value: string }>(
+      'SELECT value FROM local_metadata WHERE key = ?',
+      'database_status',
+    );
 
-  return result?.value ?? 'Database test failed';
+    return result?.value ?? 'Database test failed';
+  });
 }
 
 export async function testProductCRUD(): Promise<string> {
   const db = await getDatabase();
 
+  return withSerializedTransaction(db, async () => {
   // 1. Ajouter un produit test
   await db.runAsync(
     `INSERT OR REPLACE INTO products (
@@ -286,6 +289,7 @@ export async function testProductCRUD(): Promise<string> {
   );
 
   return `CRUD OK: ${product.name} | ${product.sale_price} DH | Stock: ${product.stock_quantity}`;
+  });
 }
 
 // تخزين المنتجات القادمة من Backend في SQLite
@@ -711,16 +715,18 @@ export async function recordOutboxFailure(
   permanent = false,
 ): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(
-    `UPDATE outbox
-     SET attempts = attempts + 1,
-         last_error = ?,
-         status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
-     WHERE id = ?`,
-    message.slice(0, 1000),
-    permanent ? 1 : 0,
-    itemId,
-  );
+  await withSerializedTransaction(db, async () => {
+    await db.runAsync(
+      `UPDATE outbox
+       SET attempts = attempts + 1,
+           last_error = ?,
+           status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = ?`,
+      message.slice(0, 1000),
+      permanent ? 1 : 0,
+      itemId,
+    );
+  });
 }
 
 
