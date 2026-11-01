@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.UUID;
 
 public interface SaleRefundRepository extends JpaRepository<SaleRefund, UUID> {
+    @EntityGraph(attributePaths = {"sale", "lines", "lines.saleLine", "lines.saleLine.product"})
+    List<SaleRefund> findAllByOrderByRefundedAtDesc();
+
     @Query("select sum(r.amount) from SaleRefund r where r.sale.id = :saleId")
     BigDecimal sumBySaleId(@Param("saleId") UUID saleId);
 
