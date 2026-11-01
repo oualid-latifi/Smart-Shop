@@ -22,7 +22,7 @@ public class SupplierController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public SupplierResponse create(@Valid @RequestBody SupplierRequest request) {
-        return SupplierResponse.from(supplierService.create(request.name(), request.phone()));
+        return SupplierResponse.from(supplierService.create(request.id(), request.name(), request.phone()));
     }
 
     @PutMapping("/{id}")
