@@ -13,6 +13,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
+import { getCachedSales } from '../database';
 import { errorMessage } from '../api/errors';
 import type { Sale } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -30,12 +31,18 @@ export default function SalesHistoryScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setError(null);
+    const cached = await getCachedSales().catch(() => []);
+    setSales(cached);
+
     try {
-      setError(null);
       const data = await api<Sale[]>('/api/sales');
-      setSales([...data].sort((a, b) => b.saleDate.localeCompare(a.saleDate)));
+      const merged = new Map<string, Sale>();
+      for (const sale of cached) merged.set(sale.id, sale);
+      for (const sale of data) merged.set(sale.id, sale);
+      setSales([...merged.values()].sort((a, b) => b.saleDate.localeCompare(a.saleDate)));
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (cached.length === 0) setError(errorMessage(e, t));
     }
   }, [t]);
 
