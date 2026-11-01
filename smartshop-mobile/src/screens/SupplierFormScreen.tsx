@@ -2,7 +2,8 @@
 import { StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { saveLocalSupplier } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -32,11 +33,13 @@ export default function SupplierFormScreen({ route, navigation }: Props) {
     setSaving(true);
     setError(null);
     try {
-      await api(supplier ? `/api/suppliers/${supplier.id}` : '/api/suppliers', {
-        method: supplier ? 'PUT' : 'POST',
-        body: { name: name.trim(), phone: phone.trim() || null },
+      await saveLocalSupplier({
+        id: supplier?.id,
+        name: name.trim(),
+        phone: phone.trim() || null,
       });
       navigation.goBack();
+      void syncPendingOperations();
     } catch (e) {
       setError(errorMessage(e, t));
       setSaving(false);
