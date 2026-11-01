@@ -403,6 +403,8 @@ export async function saveProducts(products: Product[]): Promise<void> {
 // قراءة المنتجات المخزنة محلياً
 export async function getCachedProducts(): Promise<Product[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
 
   const rows = await db.getAllAsync<any>(
     'SELECT * FROM products ORDER BY name ASC',
@@ -500,6 +502,8 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
 
 export async function getCachedCustomers(): Promise<Customer[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
   const rows = await db.getAllAsync<{
     id: string;
     name: string;
@@ -690,6 +694,8 @@ export async function createLocalSale(input: LocalSaleInput): Promise<string> {
 
 export async function getPendingOutbox(limit = 25): Promise<PendingOutboxItem[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
   return db.getAllAsync<PendingOutboxItem>(
     `SELECT id, idempotency_key, entity_type, operation, payload, status,
             attempts, created_at, last_error
@@ -766,6 +772,8 @@ export async function saveSuppliers(suppliers: Supplier[]): Promise<void> {
 
 export async function getCachedSuppliers(): Promise<Supplier[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
   const rows = await db.getAllAsync<{
     id: string;
     name: string;
@@ -922,6 +930,8 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
 
 export async function getCachedSales(): Promise<Sale[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
   const rows = await db.getAllAsync<{
     id: string;
     customer_id: string | null;
@@ -987,6 +997,8 @@ export async function getCachedSales(): Promise<Sale[]> {
 
 export async function getCachedPurchases(): Promise<Purchase[]> {
   const db = await getDatabase();
+  // Avoid reading a half-written operation from an active async transaction.
+  await transactionTail;
   const rows = await db.getAllAsync<{
     id: string;
     supplier_id: string | null;
