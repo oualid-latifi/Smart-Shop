@@ -6,6 +6,7 @@ import smartshop.entity.Supplier;
 import smartshop.repository.SupplierRepository;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class SupplierService {
@@ -19,6 +20,15 @@ public class SupplierService {
     @Transactional
     public Supplier create(String name, String phone) {
         Supplier supplier = new Supplier();
+        supplier.setName(name);
+        supplier.setPhone(phone);
+        return supplierRepository.save(supplier);
+    }
+
+    @Transactional
+    public Supplier update(UUID id, String name, String phone) {
+        Supplier supplier = supplierRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Fournisseur introuvable"));
         supplier.setName(name);
         supplier.setPhone(phone);
         return supplierRepository.save(supplier);
