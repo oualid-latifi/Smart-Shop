@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { getCachedSuppliers, saveSuppliers } from '../database';
+import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -27,6 +28,11 @@ export default function SuppliersScreen({ navigation }: Props) {
     const cached = await getCachedSuppliers().catch(() => []);
     setSuppliers(cached);
     setLoading(false);
+
+    const syncSummary = await syncPendingOperations().catch(() => ({
+      synced: 0, pending: 1, failed: 0,
+    }));
+    if (syncSummary.pending > 0) return;
 
     try {
       const data = await api<Supplier[]>('/api/suppliers');
