@@ -24,16 +24,13 @@ public class CustomerService {
     private final CustomerPaymentRepository paymentRepository;
     private final SaleRepository saleRepository;
 
-    private final smartshop.repository.PurchaseRepository purchaseRepository;
 
     public CustomerService(CustomerRepository customerRepository,
                            CustomerPaymentRepository paymentRepository,
-                           SaleRepository saleRepository,
-                           smartshop.repository.PurchaseRepository purchaseRepository) {
+                           SaleRepository saleRepository) {
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.saleRepository = saleRepository;
-        this.purchaseRepository = purchaseRepository;
     }
 
     @Transactional
