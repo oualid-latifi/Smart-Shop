@@ -30,9 +30,13 @@ public class Sale {
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal total = BigDecimal.ZERO;
 
-    // Reste en kridi = total - amountPaid
+    // Montant réellement encaissé à la vente et lors des paiements ultérieurs.
     @Column(name = "amount_paid", nullable = false, precision = 12, scale = 2)
     private BigDecimal amountPaid = BigDecimal.ZERO;
+
+    // Valeur des retours déjà déduite de la dette du client.
+    @Column(name = "credit_applied", nullable = false, precision = 12, scale = 2)
+    private BigDecimal creditApplied = BigDecimal.ZERO;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 15)
@@ -61,7 +65,7 @@ public class Sale {
     }
 
     public BigDecimal getRemaining() {
-        return total.subtract(amountPaid);
+        return total.subtract(amountPaid).subtract(creditApplied);
     }
 
     // Bénéfice = total (après remise) - coût des articles vendus
@@ -87,6 +91,9 @@ public class Sale {
 
     public BigDecimal getAmountPaid() { return amountPaid; }
     public void setAmountPaid(BigDecimal amountPaid) { this.amountPaid = amountPaid; }
+
+    public BigDecimal getCreditApplied() { return creditApplied; }
+    public void setCreditApplied(BigDecimal creditApplied) { this.creditApplied = creditApplied; }
 
     public SaleStatus getStatus() { return status; }
     public void setStatus(SaleStatus status) { this.status = status; }
