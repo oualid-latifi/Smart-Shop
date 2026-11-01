@@ -4,7 +4,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 1;
+const CURRENT_SCHEMA_VERSION = 2;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -186,6 +186,23 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
           }
 
           await db.execAsync('PRAGMA user_version = 1');
+        }
+
+        if (versionRow.user_version < 2) {
+          await db.execAsync(`
+            CREATE TABLE IF NOT EXISTS customer_payments (
+              id TEXT PRIMARY KEY NOT NULL,
+              customer_id TEXT NOT NULL,
+              amount REAL NOT NULL,
+              paid_at TEXT NOT NULL,
+              sync_status TEXT NOT NULL DEFAULT 'PENDING'
+            );
+            CREATE INDEX IF NOT EXISTS idx_customer_payments_customer
+              ON customer_payments(customer_id, paid_at DESC);
+            CREATE INDEX IF NOT EXISTS idx_customer_payments_sync
+              ON customer_payments(sync_status);
+            PRAGMA user_version = 2;
+          `);
         }
       });
 
@@ -482,6 +499,15 @@ export async function saveCustomers(customers: Customer[]): Promise<void> {
     const pendingDebtByCustomer = new Map(
       pendingDebt.map((row) => [row.customer_id, row.debt_delta]),
     );
+    const pendingPayments = await db.getAllAsync<{ customer_id: string; paid_total: number }>(
+      `SELECT customer_id, SUM(amount) AS paid_total
+       FROM customer_payments
+       WHERE sync_status IN ('PENDING', 'FAILED')
+       GROUP BY customer_id`,
+    );
+    const pendingPaymentsByCustomer = new Map(
+      pendingPayments.map((row) => [row.customer_id, row.paid_total]),
+    );
 
     for (const customer of customers) {
       await db.runAsync(
@@ -631,6 +657,94 @@ export async function deleteLocalSupplier(supplierId: string): Promise<void> {
       createLocalUuid(), createLocalUuid(), JSON.stringify({ id: supplierId }), createdAt,
     );
   });
+}
+
+export interface LocalCustomerPayment {
+  id: string;
+  customerId: string;
+  amount: number;
+  paidAt: string;
+  syncStatus: 'PENDING' | 'SYNCED' | 'FAILED';
+}
+
+export async function createLocalCustomerPayment(
+  customerId: string,
+  requestedAmount: number,
+): Promise<string> {
+  const db = await getDatabase();
+  const paymentId = createLocalUuid();
+  const paidAt = getLocalDateTimeString();
+  const amount = roundMoney(requestedAmount);
+
+  await withSerializedTransaction(db, async () => {
+    if (!Number.isFinite(amount) || amount <= 0) {
+      throw new Error('Montant de paiement invalide.');
+    }
+    const customer = await db.getFirstAsync<{ balance: number }>(
+      'SELECT balance FROM customers WHERE id = ?',
+      customerId,
+    );
+    if (!customer) throw new Error('Client introuvable dans la base locale.');
+    const balance = roundMoney(customer.balance);
+    if (balance <= 0) throw new Error("Ce client n'a pas de dette.");
+    if (amount > balance) {
+      throw new Error(`Le paiement dépasse la dette du client (${balance.toFixed(2)} DH).`);
+    }
+
+    await db.runAsync(
+      'UPDATE customers SET balance = ?, updated_at = ? WHERE id = ?',
+      roundMoney(balance - amount),
+      paidAt,
+      customerId,
+    );
+    await db.runAsync(
+      `INSERT INTO customer_payments (id, customer_id, amount, paid_at, sync_status)
+       VALUES (?, ?, ?, ?, 'PENDING')`,
+      paymentId,
+      customerId,
+      amount,
+      paidAt,
+    );
+    const payload = { id: paymentId, amount, paidAt };
+    await db.runAsync(
+      `INSERT INTO outbox (
+        id, idempotency_key, entity_type, operation, payload, status, attempts, created_at
+      ) VALUES (?, ?, 'CUSTOMER_PAYMENT', 'CREATE', ?, 'PENDING', 0, ?)`,
+      paymentId,
+      paymentId,
+      JSON.stringify(payload),
+      paidAt,
+    );
+  });
+
+  return paymentId;
+}
+
+export async function getCachedCustomerPayments(
+  customerId: string,
+): Promise<LocalCustomerPayment[]> {
+  const db = await getDatabase();
+  await transactionTail;
+  const rows = await db.getAllAsync<{
+    id: string;
+    customer_id: string;
+    amount: number;
+    paid_at: string;
+    sync_status: 'PENDING' | 'SYNCED' | 'FAILED';
+  }>(
+    `SELECT id, customer_id, amount, paid_at, sync_status
+     FROM customer_payments
+     WHERE customer_id = ?
+     ORDER BY paid_at DESC`,
+    customerId,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    customerId: row.customer_id,
+    amount: row.amount,
+    paidAt: row.paid_at,
+    syncStatus: row.sync_status,
+  }));
 }
 
 export async function getCachedCustomers(): Promise<Customer[]> {
@@ -855,6 +969,8 @@ export async function markOutboxSynced(item: PendingOutboxItem): Promise<void> {
     );
     if (item.entity_type === 'SALE') {
       await db.runAsync("UPDATE sales SET sync_status = 'SYNCED' WHERE id = ?", item.id);
+    } else if (item.entity_type === 'CUSTOMER_PAYMENT') {
+      await db.runAsync("UPDATE customer_payments SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     } else if (item.entity_type === 'PURCHASE') {
       await db.runAsync("UPDATE purchases SET sync_status = 'SYNCED' WHERE id = ?", item.id);
     }
@@ -875,6 +991,13 @@ export async function recordOutboxFailure(
            status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
        WHERE id = ?`,
       message.slice(0, 1000),
+      permanent ? 1 : 0,
+      itemId,
+    );
+    await db.runAsync(
+      `UPDATE customer_payments
+       SET sync_status = CASE WHEN ? = 1 THEN 'FAILED' ELSE 'PENDING' END
+       WHERE id = (SELECT id FROM outbox WHERE id = ? AND entity_type = 'CUSTOMER_PAYMENT')`,
       permanent ? 1 : 0,
       itemId,
     );
