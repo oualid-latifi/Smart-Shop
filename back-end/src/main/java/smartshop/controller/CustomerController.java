@@ -45,6 +45,12 @@ public class CustomerController {
         return customerService.findById(id);
     }
 
+    @PutMapping("/{id}")
+    public CustomerResponse update(@PathVariable UUID id,
+                                   @Valid @RequestBody CustomerRequest request) {
+        return customerService.update(id, request);
+    }
+
     @GetMapping("/{id}/sales")
     public List<SaleResponse> findSales(@PathVariable UUID id) {
         return customerService.findSales(id);
