@@ -71,6 +71,9 @@ public class PurchaseService {
             line.setUnitPrice(lineRequest.unitPrice());
             purchase.addLine(line);
 
+            // Le dernier prix réellement payé devient le prix de référence du prochain achat.
+            product.setPurchasePrice(lineRequest.unitPrice());
+
             total = total.add(lineRequest.unitPrice()
                     .multiply(BigDecimal.valueOf(lineRequest.quantity())));
 
