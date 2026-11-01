@@ -46,7 +46,7 @@ export default function ReportsScreen({ navigation }: Props) {
       const data = await api<ReportSummary>(ENDPOINTS[period]);
       setReport(data);
       setShowingCachedReport(false);
-      await cacheReportSummary(period, data);
+      void cacheReportSummary(period, data).catch(() => undefined);
     } catch (e) {
       const cached = await getCachedReportSummary(period);
       if (cached) {
