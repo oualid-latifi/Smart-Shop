@@ -7,11 +7,16 @@ import smartshop.entity.ExpenseCategory;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.UUID;
 
 public record ExpenseRequest(
+        UUID id,
         @NotNull ExpenseCategory category,
         @NotNull @DecimalMin("0.01") BigDecimal amount,
-        LocalDate expenseDate,               // facultatif : aujourd'hui par défaut
+        LocalDate expenseDate,
         @Size(max = 255) String note
 ) {
+    public ExpenseRequest(ExpenseCategory category, BigDecimal amount, LocalDate expenseDate, String note) {
+        this(null, category, amount, expenseDate, note);
+    }
 }
