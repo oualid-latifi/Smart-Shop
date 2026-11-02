@@ -2,9 +2,7 @@ package smartshop.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import smartshop.entity.Category;
 import smartshop.entity.Product;
-import smartshop.repository.CategoryRepository;
 import smartshop.repository.ProductRepository;
 
 import java.util.List;
@@ -14,21 +12,17 @@ import java.util.UUID;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
 
-    public ProductService(ProductRepository productRepository,
-                          CategoryRepository categoryRepository) {
+    public ProductService(ProductRepository productRepository) {
         this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
     }
 
     @Transactional
-    public Product create(Product product, UUID categoryId) {
+    public Product create(Product product) {
         if (productRepository.existsByReference(product.getReference())) {
             throw new IllegalArgumentException(
                     "Un produit avec la référence " + product.getReference() + " existe déjà");
         }
-        product.setCategory(findCategory(categoryId));
         return productRepository.save(product);
     }
 
@@ -44,7 +38,7 @@ public class ProductService {
     }
 
     @Transactional
-    public Product update(UUID id, Product data, UUID categoryId) {
+    public Product update(UUID id, Product data) {
         Product product = findById(id);
 
         if (!product.getReference().equals(data.getReference())
@@ -61,7 +55,6 @@ public class ProductService {
         product.setImageUrl(data.getImageUrl());
         product.setSalePrice(data.getSalePrice());
         product.setAlertThreshold(data.getAlertThreshold());
-        product.setCategory(findCategory(categoryId));
         // Le stock et le prix d'achat moyen ne se modifient PAS ici :
         // ils changent uniquement via les achats, les ventes et les ajustements.
         return productRepository.save(product);
@@ -77,13 +70,5 @@ public class ProductService {
     @Transactional(readOnly = true)
     public List<Product> findLowStock() {
         return productRepository.findLowStock();
-    }
-
-    private Category findCategory(UUID categoryId) {
-        if (categoryId == null) {
-            return null;
-        }
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new IllegalArgumentException("Catégorie introuvable"));
     }
 }
