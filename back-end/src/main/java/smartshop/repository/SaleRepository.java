@@ -80,6 +80,13 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
             """)
     BigDecimal sumWalkInPaidBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 
+    @Query("""
+            select sum(s.cancellationCashRefund) from Sale s
+            where s.status = smartshop.entity.SaleStatus.CANCELLED
+              and s.cancelledAt >= :start and s.cancelledAt < :end
+            """)
+    BigDecimal sumCancellationCashRefundBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
+
     // Kridi restant chez tous les clients
     @Query("""
             select sum(s.total - s.amountPaid - s.creditApplied) from Sale s
