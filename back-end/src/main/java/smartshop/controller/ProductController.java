@@ -43,7 +43,7 @@ public class ProductController {
         product.setColor(request.color());
         product.setCapacity(request.capacity());
         product.setImageUrl(request.imageUrl());
-        return ProductResponse.from(productService.create(product, request.categoryId()));
+        return ProductResponse.from(productService.create(product));
     }
 
     @GetMapping
@@ -74,7 +74,7 @@ public class ProductController {
         data.setColor(request.color());
         data.setCapacity(request.capacity());
         data.setImageUrl(request.imageUrl());
-        return ProductResponse.from(productService.update(id, data, request.categoryId()));
+        return ProductResponse.from(productService.update(id, data));
     }
 
     @DeleteMapping("/{id}")

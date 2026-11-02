@@ -15,17 +15,10 @@ export interface MeResponse {
   email: string;
 }
 
-export interface Category {
-  id: string;
-  name: string;
-}
-
 export interface Product {
   id: string;
   reference: string;
   name: string;
-  categoryId: string | null;
-  categoryName: string | null;
   brand: string | null;
   model: string | null;
   color: string | null;

@@ -19,10 +19,6 @@ public class Product {
     @Column(nullable = false, length = 150)
     private String name;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "category_id")
-    private Category category;
-
     @Column(length = 80)
     private String brand;
 
@@ -71,9 +67,6 @@ public class Product {
 
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
-
-    public Category getCategory() { return category; }
-    public void setCategory(Category category) { this.category = category; }
 
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }

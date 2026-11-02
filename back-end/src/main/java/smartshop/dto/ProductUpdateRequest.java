@@ -7,12 +7,10 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import java.math.BigDecimal;
-import java.util.UUID;
 
 public record ProductUpdateRequest(
         @NotBlank @Size(max = 50) String reference,
         @NotBlank @Size(max = 150) String name,
-        UUID categoryId,
         @Size(max = 80) String brand,
         @Size(max = 100) String model,
         @Size(max = 50) String color,
