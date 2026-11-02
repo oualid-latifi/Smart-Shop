@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Category } from '../api/types';
+import { getCachedCategories, saveCategories } from '../database';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
@@ -45,7 +46,14 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const loadCategories = useCallback(async () => {
     setCategoriesError(false);
     try {
-      setCategories(await api<Category[]>('/api/categories'));
+      setCategories(await getCachedCategories());
+    } catch {
+      // Continue with the API request.
+    }
+    try {
+      const remote = await api<Category[]>('/api/categories');
+      await saveCategories(remote);
+      setCategories(await getCachedCategories());
     } catch {
       setCategoriesError(true);
     }
