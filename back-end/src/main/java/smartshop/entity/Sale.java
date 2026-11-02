@@ -50,10 +50,6 @@ public class Sale {
     @Column(name = "cancellation_cash_refund", nullable = false, precision = 12, scale = 2)
     private BigDecimal cancellationCashRefund = BigDecimal.ZERO;
 
-    // Argent effectivement rendu au client lors de l'annulation complète.
-    @Column(name = "cancellation_cash_refund", nullable = false, precision = 12, scale = 2)
-    private BigDecimal cancellationCashRefund = BigDecimal.ZERO;
-
     @OneToMany(mappedBy = "sale", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<SaleLine> lines = new ArrayList<>();
 
@@ -112,11 +108,6 @@ public class Sale {
 
     public String getCancellationReason() { return cancellationReason; }
     public void setCancellationReason(String cancellationReason) { this.cancellationReason = cancellationReason; }
-
-    public BigDecimal getCancellationCashRefund() { return cancellationCashRefund; }
-    public void setCancellationCashRefund(BigDecimal cancellationCashRefund) {
-        this.cancellationCashRefund = cancellationCashRefund != null ? cancellationCashRefund : BigDecimal.ZERO;
-    }
 
     public BigDecimal getCancellationCashRefund() { return cancellationCashRefund; }
     public void setCancellationCashRefund(BigDecimal cancellationCashRefund) {
