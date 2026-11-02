@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Category } from '../api/types';
+import { getCachedCategories, saveCategories } from '../database';
 import PrimaryButton from '../components/PrimaryButton';
 import { colors, radius, spacing } from '../theme';
 
@@ -22,8 +23,21 @@ export default function CategoriesScreen() {
 
   const load = useCallback(async () => {
     setLoadError(false);
-    try { setItems(await api<Category[]>('/api/categories')); }
-    catch (e) { setLoadError(true); setError(errorMessage(e, t)); }
+    setError('');
+    try {
+      const cached = await getCachedCategories();
+      setItems(cached);
+    } catch {
+      // Continue with the server request if the local cache cannot be read.
+    }
+    try {
+      const remote = await api<Category[]>('/api/categories');
+      await saveCategories(remote);
+      setItems(await getCachedCategories());
+    } catch (e) {
+      setLoadError(true);
+      setError(errorMessage(e, t));
+    }
   }, [t]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
@@ -36,7 +50,10 @@ export default function CategoriesScreen() {
       await api(editing ? `/api/categories/${editing}` : '/api/categories', {
         method: editing ? 'PUT' : 'POST', body: { name: clean },
       });
-      setName(''); setEditing(null); await load();
+      const remote = await api<Category[]>('/api/categories');
+      await saveCategories(remote);
+      setItems(await getCachedCategories());
+      setName(''); setEditing(null);
     } catch (e) { setError(errorMessage(e, t)); }
     finally { setBusy(false); }
   }
@@ -48,8 +65,12 @@ export default function CategoriesScreen() {
       [{ text: t('common.cancel'), style: 'cancel' }, {
         text: t('common.confirm'), style: 'destructive', onPress: async () => {
           setError('');
-          try { await api(`/api/categories/${item.id}`, { method: 'DELETE' }); await load(); }
-          catch (e) { setError(errorMessage(e, t)); }
+          try {
+            await api(`/api/categories/${item.id}`, { method: 'DELETE' });
+            const remote = await api<Category[]>('/api/categories');
+            await saveCategories(remote);
+            setItems(await getCachedCategories());
+          } catch (e) { setError(errorMessage(e, t)); }
         },
       }],
     );
