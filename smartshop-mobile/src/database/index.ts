@@ -297,7 +297,8 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
               ON categories(name COLLATE NOCASE);
             PRAGMA user_version = 8;
           `);
-        }      });
+        }
+      });
 
       database = db;
       return db;
@@ -1641,6 +1642,19 @@ export async function getPendingOutbox(limit = 500): Promise<PendingOutboxItem[]
      LIMIT ?`,
     limit,
   );
+}
+
+export async function getSaleCancellationSyncError(saleId: string): Promise<string | null> {
+  const db = await getDatabase();
+  await transactionTail;
+  const row = await db.getFirstAsync<{ last_error: string | null; status: string }>(
+    `SELECT last_error, status FROM outbox
+     WHERE entity_type = 'SALE_CANCEL'
+       AND json_extract(payload, '$.saleId') = ?
+     ORDER BY created_at DESC, rowid DESC LIMIT 1`,
+    saleId,
+  );
+  return row?.last_error ?? null;
 }
 
 export interface OutboxStatusSummary {
