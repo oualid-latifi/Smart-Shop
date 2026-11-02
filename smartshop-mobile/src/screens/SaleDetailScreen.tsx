@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
-import { cancelLocalSale, createLocalSaleRefund, getCachedSaleRefunds, getCachedSales, saveSaleRefunds } from '../database';
+import { cancelLocalSale, createLocalSaleRefund, getCachedSaleRefunds, getCachedSales, getSaleCancellationSyncError, saveSaleRefunds } from '../database';
 import { syncPendingOperations } from '../sync';
 import { errorMessage } from '../api/errors';
 import type { Sale, SaleRefund } from '../api/types';
@@ -30,6 +30,7 @@ export default function SaleDetailScreen({ route }: Props) {
   const [saving, setSaving] = useState(false);
   const [refundSaving, setRefundSaving] = useState(false);
   const [cancelSyncPending, setCancelSyncPending] = useState(false);
+  const [cancelSyncError, setCancelSyncError] = useState<string | null>(null);
   const [refundSyncPending, setRefundSyncPending] = useState(false);
 
   const cancelled = sale.status === 'CANCELLED';
@@ -72,9 +73,19 @@ export default function SaleDetailScreen({ route }: Props) {
         if (updated) setSale(updated);
         setReason('');
         setCancelSyncPending(true);
+        setCancelSyncError(null);
         void syncPendingOperations()
-          .then(summary => setCancelSyncPending(summary.pending > 0 || summary.failed > 0))
-          .catch(() => setCancelSyncPending(true));
+          .then(async summary => {
+            setCancelSyncPending(summary.pending > 0 || summary.failed > 0);
+            const syncError = await getSaleCancellationSyncError(sale.id);
+            if (syncError) setCancelSyncError(syncError);
+            else if (summary.failed > 0) setCancelSyncError('Le Backend a refusé une opération. Consulte les détails de synchronisation.');
+          })
+          .catch(async syncError => {
+            setCancelSyncPending(true);
+            const detail = await getSaleCancellationSyncError(sale.id);
+            setCancelSyncError(detail || errorMessage(syncError, t));
+          });
       } catch (e) { setError(errorMessage(e, t)); }
       finally { setSaving(false); }
     }, t('common.cancel'), t('common.confirm'));
@@ -136,6 +147,7 @@ export default function SaleDetailScreen({ route }: Props) {
         <Text style={styles.muted}>{formatDateTime(sale.saleDate)}</Text>
         {cancelled ? <Text style={styles.badgeOff}>{t('history.cancelled')}</Text> : null}
         {cancelSyncPending ? <Text style={styles.muted}>Annulation enregistrée sur cet appareil. Synchronisation avec le PC en attente.</Text> : null}
+        {cancelSyncError ? <Text style={styles.error}>Erreur de synchronisation : {cancelSyncError}</Text> : null}
         {refundSyncPending ? <Text style={styles.muted}>Retour enregistré sur cet appareil. Synchronisation avec le PC en attente.</Text> : null}
         <View style={styles.lines}>
           {sale.lines.map(line => (
