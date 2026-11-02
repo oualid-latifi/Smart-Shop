@@ -12,7 +12,7 @@ import { colors, radius, spacing } from '../theme';
 
 type AuthMode = 'login' | 'register';
 
-export default function AuthScreen() {
+export default function AuthScreen({ navigation }: any) {
   const { t } = useTranslation();
   const { login, register } = useAuth();
   const [mode, setMode] = useState<AuthMode>('login');
@@ -61,6 +61,15 @@ export default function AuthScreen() {
         <View style={styles.brandMark}><Ionicons name="storefront" size={30} color="#fff" /></View>
         <Text style={styles.brand}>{t('common.appName')}</Text>
         <Text style={styles.brandHint}>{t('auth.brandHint')}</Text>
+        <Pressable
+          style={styles.serverSettingsButton}
+          onPress={() => navigation.navigate('ServerSettings')}
+          accessibilityRole="button"
+          accessibilityLabel={t('server.title')}
+        >
+          <Ionicons name="settings-outline" size={17} color={colors.primary} />
+          <Text style={styles.serverSettingsText}>{t('server.title')}</Text>
+        </Pressable>
       </View>
 
       <View style={styles.card}>
@@ -113,6 +122,8 @@ const styles = StyleSheet.create({
   brandMark: { width: 66, height: 66, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
   brand: { fontSize: 29, fontWeight: '900', color: colors.primary, textAlign: 'center' },
   brandHint: { fontSize: 12, color: colors.muted, marginTop: 4 },
+  serverSettingsButton: { flexDirection: 'row', alignItems: 'center', gap: 7, marginTop: spacing.md, paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  serverSettingsText: { color: colors.primary, fontSize: 12, fontWeight: '800' },
   card: { backgroundColor: colors.card, borderRadius: 22, padding: spacing.lg, borderWidth: 1, borderColor: colors.border },
   title: { fontSize: 20, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   hint: { color: colors.muted, marginBottom: spacing.md },
