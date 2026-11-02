@@ -4,7 +4,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 8;
+const CURRENT_SCHEMA_VERSION = 9;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -114,6 +114,8 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       profit REAL NOT NULL DEFAULT 0,
       status TEXT NOT NULL DEFAULT 'VALIDATED',
       cancellation_reason TEXT,
+      cancelled_at TEXT,
+      cancellation_cash_refund REAL NOT NULL DEFAULT 0,
       sync_status TEXT NOT NULL DEFAULT 'SYNCED'
     );
 
@@ -284,6 +286,18 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
           // complete online refresh before trusting locally recalculated report totals.
           await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
           await db.execAsync('PRAGMA user_version = 7');
+        }
+
+        if (versionRow.user_version < 9) {
+          const saleColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(sales)');
+          if (!saleColumns.some((column) => column.name === 'cancelled_at')) {
+            await db.execAsync('ALTER TABLE sales ADD COLUMN cancelled_at TEXT');
+          }
+          if (!saleColumns.some((column) => column.name === 'cancellation_cash_refund')) {
+            await db.execAsync('ALTER TABLE sales ADD COLUMN cancellation_cash_refund REAL NOT NULL DEFAULT 0');
+          }
+          await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
+          await db.execAsync('PRAGMA user_version = 9');
         }
 
         if (versionRow.user_version < 8) {
@@ -1129,8 +1143,8 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
 
   await withSerializedTransaction(db, async () => {
     const sale = await db.getFirstAsync<{
-      id: string; customer_id: string | null; remaining: number; status: string;
-    }>('SELECT id, customer_id, remaining, status FROM sales WHERE id = ?', saleId);
+      id: string; customer_id: string | null; remaining: number; amount_paid: number; status: string;
+    }>('SELECT id, customer_id, remaining, amount_paid, status FROM sales WHERE id = ?', saleId);
     if (!sale) throw new Error('Vente introuvable dans la base locale.');
     if (sale.status === 'CANCELLED') throw new Error('Cette vente est déjà annulée.');
 
@@ -1168,6 +1182,12 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
       );
     }
 
+    const priorCashRefunds = Number((await db.getFirstAsync<{ value: number | null }>(
+      'SELECT COALESCE(SUM(cash_refunded), 0) AS value FROM sale_refunds WHERE sale_id = ?',
+      saleId,
+    ))?.value ?? 0);
+    const cancellationCashRefund = Math.max(0, Math.round((sale.amount_paid - priorCashRefunds) * 100) / 100);
+
     if (sale.customer_id && sale.remaining > 0) {
       await db.runAsync(
         'UPDATE customers SET balance = MAX(0, balance - ?), updated_at = ? WHERE id = ?',
@@ -1178,8 +1198,10 @@ export async function cancelLocalSale(saleId: string, reason: string): Promise<s
     }
 
     await db.runAsync(
-      "UPDATE sales SET status = 'CANCELLED', cancellation_reason = ?, sync_status = 'PENDING' WHERE id = ?",
+      "UPDATE sales SET status = 'CANCELLED', cancellation_reason = ?, cancelled_at = ?, cancellation_cash_refund = ?, sync_status = 'PENDING' WHERE id = ?",
       normalizedReason,
+      createdAt,
+      cancellationCashRefund,
       saleId,
     );
     const payload = { saleId, reason: normalizedReason };
@@ -1547,7 +1569,8 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
     scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'",from,to),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
-    scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive),
+    scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive) +
+      scalar("SELECT COALESCE(SUM(cancellation_cash_refund),0) value FROM sales WHERE status='CANCELLED' AND cancelled_at>=? AND cancelled_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
