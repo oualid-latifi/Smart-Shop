@@ -185,6 +185,14 @@ public class SaleService {
             stockMovementRepository.save(movement);
         }
 
+        // Rendre uniquement l'argent encaissé qui n'a pas déjà été remboursé
+        // lors d'un retour partiel. Les paiements historiques restent intacts.
+        BigDecimal previousCashRefunds = refundLineRepository.sumCashRefundedBySaleId(saleId);
+        if (previousCashRefunds == null) previousCashRefunds = BigDecimal.ZERO;
+        BigDecimal cashToRefund = sale.getAmountPaid().subtract(previousCashRefunds);
+        if (cashToRefund.signum() < 0) cashToRefund = BigDecimal.ZERO;
+
+        sale.setCancellationCashRefund(cashToRefund);
         sale.setStatus(SaleStatus.CANCELLED);
         sale.setCancelledAt(LocalDateTime.now());
         sale.setCancellationReason(reason);
