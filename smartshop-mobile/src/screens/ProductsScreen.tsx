@@ -76,8 +76,9 @@ export default function ProductsScreen({ navigation }: Props) {
     console.error('[SQLite CACHE ERROR]', e);
   }
 
-  // Afficher les produits locaux sans attendre Internet
+  // Afficher les produits et catégories locaux sans attendre Internet
   setLoading(false);
+  await loadCategories();
 
   const syncSummary = await syncPendingOperations().catch(() => ({
     synced: 0, pending: 1, failed: 0,
@@ -99,8 +100,6 @@ export default function ProductsScreen({ navigation }: Props) {
 
     console.log('[API] Produits récupérés:', data.length);
     console.log('[SQLite] Cache mis à jour');
-
-    await loadCategories();
   } catch (e) {
     console.error('[PRODUCTS LOAD ERROR]', e);
 
