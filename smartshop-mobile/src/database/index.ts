@@ -1,10 +1,10 @@
-import type { Customer, Expense, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
+import type { Category, Customer, Expense, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 7;
+const CURRENT_SCHEMA_VERSION = 8;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -285,7 +285,19 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
           await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
           await db.execAsync('PRAGMA user_version = 7');
         }
-      });
+
+        if (versionRow.user_version < 8) {
+          await db.execAsync(`
+            CREATE TABLE IF NOT EXISTS categories (
+              id TEXT PRIMARY KEY NOT NULL,
+              name TEXT NOT NULL COLLATE NOCASE,
+              sync_status TEXT NOT NULL DEFAULT 'SYNCED'
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name
+              ON categories(name COLLATE NOCASE);
+            PRAGMA user_version = 8;
+          `);
+        }      });
 
       database = db;
       return db;
@@ -388,6 +400,38 @@ export async function testProductCRUD(): Promise<string> {
 
   return `CRUD OK: ${product.name} | ${product.sale_price} DH | Stock: ${product.stock_quantity}`;
   });
+}
+
+// Cache local des catégories reçues du Backend. Les catégories locales en attente sont conservées.
+export async function saveCategories(categories: Category[]): Promise<void> {
+  const db = await getDatabase();
+  await withSerializedTransaction(db, async () => {
+    for (const category of categories) {
+      await db.runAsync(
+        `INSERT INTO categories (id, name, sync_status) VALUES (?, ?, 'SYNCED')
+         ON CONFLICT(id) DO UPDATE SET name = excluded.name
+         WHERE categories.sync_status = 'SYNCED'`,
+        category.id,
+        category.name,
+      );
+    }
+    const ids = categories.map(category => category.id);
+    if (ids.length > 0) {
+      const placeholders = ids.map(() => '?').join(',');
+      await db.runAsync(
+        `DELETE FROM categories WHERE sync_status = 'SYNCED' AND id NOT IN (${placeholders})`,
+        ...ids,
+      );
+    } else {
+      await db.runAsync("DELETE FROM categories WHERE sync_status = 'SYNCED'");
+    }
+  });
+}
+
+export async function getCachedCategories(): Promise<Category[]> {
+  const db = await getDatabase();
+  await transactionTail;
+  return db.getAllAsync<Category>('SELECT id, name FROM categories ORDER BY name COLLATE NOCASE ASC');
 }
 
 // تخزين المنتجات القادمة من Backend في SQLite
