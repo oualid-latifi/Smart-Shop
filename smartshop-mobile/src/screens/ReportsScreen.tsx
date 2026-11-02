@@ -1,6 +1,7 @@
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -41,6 +42,31 @@ export default function ReportsScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showingCachedReport, setShowingCachedReport] = useState(false);
   const [showingOfflineCalculated, setShowingOfflineCalculated] = useState(false);
+  const [detailTitle, setDetailTitle] = useState('');
+  const [detailBody, setDetailBody] = useState('');
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  async function openDetails(kind: string, title: string) {
+    setDetailTitle(title); setDetailBody(''); setDetailLoading(true);
+    try {
+      const [sales, expenses, purchases, payments, refunds] = await Promise.all([
+        api<Sale[]>('/api/sales'), api<Expense[]>('/api/expenses'), api<Purchase[]>('/api/purchases'),
+        api<PaymentHistory>('/api/reports/payment-history'), api<SaleRefund[]>('/api/reports/refund-history'),
+      ]);
+      const inRange = (date: string) => !!report && date.slice(0, 10) >= report.from.slice(0, 10) && date.slice(0, 10) <= report.to.slice(0, 10);
+      const rows: string[] = [];
+      const validSales = sales.filter(s => s.status === 'VALIDATED' && inRange(s.saleDate));
+      if (kind === 'revenue' || kind === 'grossProfit' || kind === 'netProfit') validSales.forEach(s => rows.push((s.customerName || 'Client comptant') + ' | ' + formatDate(s.saleDate) + ' | ' + formatMoney(kind === 'revenue' ? s.total : s.profit)));
+      if (kind === 'expenses' || kind === 'netProfit' || kind === 'netCashFlow') expenses.filter(e => inRange(e.expenseDate)).forEach(e => rows.push('Dépense ' + e.category + ' | ' + formatDate(e.expenseDate) + ' | -' + formatMoney(e.amount)));
+      if (kind === 'cashCollected' || kind === 'netCashFlow') payments.customerPayments.filter(p => inRange(p.paidAt)).forEach(p => rows.push('Paiement client | ' + formatDate(p.paidAt) + ' | +' + formatMoney(p.amount)));
+      if (kind === 'paidToSuppliers' || kind === 'netCashFlow') payments.purchasePayments.filter(p => inRange(p.paidAt)).forEach(p => rows.push('Paiement fournisseur | ' + formatDate(p.paidAt) + ' | -' + formatMoney(p.amount)));
+      if (kind === 'purchasesTotal') purchases.filter(p => inRange(p.purchaseDate)).forEach(p => rows.push((p.supplierName || 'Achat') + ' | ' + formatDate(p.purchaseDate) + ' | ' + formatMoney(p.total)));
+      if (kind === 'cashCollected' || kind === 'netCashFlow' || kind === 'revenue') refunds.filter(r => inRange(r.refundedAt)).forEach(r => rows.push('Remboursement | ' + formatDate(r.refundedAt) + ' | -' + formatMoney(kind === 'revenue' ? r.amount : r.cashRefunded)));
+      const formulas: Record<string, string> = { revenue: 'Ventes validées moins remboursements', grossProfit: 'Bénéfice des ventes validées', expenses: 'Somme des dépenses enregistrées', netProfit: 'Bénéfice brut moins dépenses', cashCollected: 'Paiements clients et ventes comptant moins remboursements en espèces', paidToSuppliers: 'Somme des paiements aux fournisseurs', purchasesTotal: 'Somme des achats enregistrés', netCashFlow: 'Encaissements moins paiements fournisseurs et dépenses' };
+      setDetailBody(formulas[kind] + '\n\n' + (rows.length ? rows.join('\n') : 'Aucune opération trouvée pour cette période.'));
+    } catch { setDetailBody('Impossible de charger les opérations. Vérifiez la connexion puis réessayez.'); }
+    finally { setDetailLoading(false); }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -168,28 +194,30 @@ export default function ReportsScreen({ navigation }: Props) {
             ) : null}
 
             <View style={styles.grid}>
-              <Kpi icon="cash-outline" label={t('reports.revenue')} value={formatMoney(report.revenue)} />
-              <Kpi icon="trending-up-outline" label={t('reports.grossProfit')} value={formatMoney(report.grossProfit)} />
-              <Kpi icon="receipt-outline" label={t('reports.expenses')} value={formatMoney(report.expenses)} tone="bad" />
+              <Kpi icon="cash-outline" label={t('reports.revenue')} value={formatMoney(report.revenue)} onPress={() => void openDetails('revenue', t('reports.revenue'))} />
+              <Kpi icon="trending-up-outline" label={t('reports.grossProfit')} value={formatMoney(report.grossProfit)} onPress={() => void openDetails('grossProfit', t('reports.grossProfit'))} />
+              <Kpi icon="receipt-outline" label={t('reports.expenses')} value={formatMoney(report.expenses)} tone="bad" onPress={() => void openDetails('expenses', t('reports.expenses'))} />
               <Kpi
                 icon="wallet-outline"
                 label={t('reports.netProfit')}
                 value={formatMoney(report.netProfit)}
                 tone={report.netProfit >= 0 ? 'good' : 'bad'}
                 strong
+                onPress={() => void openDetails('netProfit', t('reports.netProfit'))}
               />
             </View>
 
             <Text style={styles.section}>{t('reports.cash')}</Text>
             <View style={styles.grid}>
-              <Kpi icon="cash-outline" label={t('reports.cashCollected')} value={formatMoney(report.cashCollected)} />
-              <Kpi icon="business-outline" label={t('reports.paidToSuppliers')} value={formatMoney(report.paidToSuppliers)} />
-              <Kpi icon="bag-handle-outline" label={t('reports.purchasesTotal')} value={formatMoney(report.purchasesTotal)} />
+              <Kpi icon="cash-outline" label={t('reports.cashCollected')} value={formatMoney(report.cashCollected)} onPress={() => void openDetails('cashCollected', t('reports.cashCollected'))} />
+              <Kpi icon="business-outline" label={t('reports.paidToSuppliers')} value={formatMoney(report.paidToSuppliers)} onPress={() => void openDetails('paidToSuppliers', t('reports.paidToSuppliers'))} />
+              <Kpi icon="bag-handle-outline" label={t('reports.purchasesTotal')} value={formatMoney(report.purchasesTotal)} onPress={() => void openDetails('purchasesTotal', t('reports.purchasesTotal'))} />
               <Kpi
                 icon="swap-horizontal-outline"
                 label={t('reports.netCashFlow')}
                 value={formatMoney(report.netCashFlow)}
                 tone={report.netCashFlow >= 0 ? 'good' : 'bad'}
+                onPress={() => void openDetails('netCashFlow', t('reports.netCashFlow'))}
               />
             </View>
 
@@ -235,6 +263,12 @@ export default function ReportsScreen({ navigation }: Props) {
           </>
         ) : null}
       </ScrollView>
+      <Modal visible={!!detailTitle} transparent animationType="slide" onRequestClose={() => setDetailTitle('')}>
+        <View style={styles.modalBackdrop}><View style={styles.detailModal}>
+          <View style={styles.detailHeader}><Text style={styles.detailTitle}>{detailTitle}</Text><Pressable onPress={() => setDetailTitle('')}><Ionicons name="close" size={24} color={colors.text} /></Pressable></View>
+          {detailLoading ? <ActivityIndicator color={colors.primary} /> : <ScrollView><Text style={styles.detailBody}>{detailBody}</Text></ScrollView>}
+        </View></View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -253,15 +287,17 @@ function Kpi({
   value,
   tone,
   strong,
+  onPress,
 }: {
   icon?: React.ComponentProps<typeof Ionicons>['name'];
   label: string;
   value: string;
   tone?: 'good' | 'bad';
   strong?: boolean;
+  onPress?: () => void;
 }) {
   return (
-    <View style={[styles.kpi, strong && styles.kpiStrong]}>
+    <Pressable disabled={!onPress} onPress={onPress} style={[styles.kpi, strong && styles.kpiStrong]}>
       <View style={styles.kpiIcon}><Ionicons name={icon ?? 'analytics-outline'} size={17} color={tone === 'bad' ? colors.danger : tone === 'good' ? colors.success : colors.primary} /></View>
       <Text style={styles.kpiLabel}>{label}</Text>
       <Text
@@ -273,7 +309,8 @@ function Kpi({
       >
         {value}
       </Text>
-    </View>
+      {onPress ? <Text style={styles.tapHint}>Voir le détail ›</Text> : null}
+    </Pressable>
   );
 }
 
@@ -335,4 +372,10 @@ const styles = StyleSheet.create({
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
   muted: { color: colors.muted, fontSize: 13 },
   value: { fontWeight: '700', color: colors.text },
+  tapHint: { color: colors.primary, fontSize: 10, fontWeight: '700', marginTop: 7 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.58)', justifyContent: 'flex-end' },
+  detailModal: { maxHeight: '82%', backgroundColor: colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: spacing.lg, gap: spacing.md },
+  detailHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  detailTitle: { color: colors.text, fontSize: 18, fontWeight: '900', flex: 1 },
+  detailBody: { color: colors.text, fontSize: 13, lineHeight: 22 },
 });
