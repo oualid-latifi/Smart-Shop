@@ -22,6 +22,7 @@ class SaleServiceTest {
     @Mock private ProductRepository products;
     @Mock private StockMovementRepository movements;
     @Mock private SaleRefundLineRepository refundLines;
+    @Mock private SaleRefundRepository refunds;
 
     @Test
     void cancellationRestoresOnlyUnitsNotAlreadyReturned() throws Exception {
@@ -44,10 +45,11 @@ class SaleServiceTest {
 
         when(sales.findByIdForUpdate(saleId)).thenReturn(Optional.of(sale));
         when(refundLines.sumReturnedQuantityBySaleLineId(saleLineId)).thenReturn(1L);
+        when(refunds.sumCashRefundedBySaleId(saleId)).thenReturn(null);
         when(products.findByIdForUpdate(productId)).thenReturn(Optional.of(product));
 
         SaleService service = new SaleService(
-                sales, customers, payments, products, movements, refundLines);
+                sales, customers, payments, products, movements, refundLines, refunds);
 
         service.cancel(saleId, "Annulation après retour partiel");
 
