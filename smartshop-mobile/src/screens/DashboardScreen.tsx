@@ -12,9 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
-import { cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, getOutboxStatusSummary } from '../database';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, getOutboxStatusSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
 import { syncPendingOperations } from '../sync';
-import type { ReportSummary } from '../api/types';
+import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import { errorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
@@ -76,6 +76,32 @@ export default function DashboardScreen() {
       const data = await api<TodayReport>('/api/reports/today');
       setReport(data);
       void cacheReportSummary('today', data as ReportSummary).catch(() => undefined);
+
+      // Warm the local SQLite dataset while online so Dashboard can calculate
+      // its totals later without contacting the backend.
+      void Promise.all([
+        api<Sale[]>('/api/sales'),
+        api<Purchase[]>('/api/purchases'),
+        api<Expense[]>('/api/expenses'),
+        api<Product[]>('/api/products'),
+        api<Customer[]>('/api/customers'),
+        api<Supplier[]>('/api/suppliers'),
+        api<PaymentHistory>('/api/reports/payment-history'),
+        api<SaleRefund[]>('/api/reports/refund-history'),
+      ]).then(async ([sales, purchases, expenses, products, customers, suppliers, payments, refunds]) => {
+        await markReportDatasetSnapshotIncomplete();
+        await Promise.all([
+          saveSales(sales),
+          savePurchases(purchases),
+          saveExpenses(expenses),
+          saveProducts(products),
+          saveCustomers(customers),
+          saveSuppliers(suppliers),
+          cachePaymentHistory(payments),
+          saveSaleRefunds(refunds),
+        ]);
+        await markReportDatasetSnapshotComplete();
+      }).catch(() => undefined);
     } catch (e) {
       // Keep the dashboard usable without Wi-Fi: prefer a locally calculated
       // report from the complete synchronized snapshot, then the last API cache.
