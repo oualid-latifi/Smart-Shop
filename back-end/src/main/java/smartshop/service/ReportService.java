@@ -97,6 +97,7 @@ public class ReportService {
         long salesCount = saleRepository.countValidatedBetween(startTime, endTime);
         BigDecimal refunds = nz(saleRefundRepository.sumBetween(startTime, endTime));
         BigDecimal cashRefunds = nz(saleRefundRepository.sumCashRefundedBetween(startTime, endTime));
+        BigDecimal cancellationCashRefunds = nz(saleRepository.sumCancellationCashRefundBetween(startTime, endTime));
         BigDecimal returnedCost = nz(saleRefundLineRepository.sumReturnedCostBetween(startTime, endTime));
         BigDecimal revenue = nz(saleRepository.sumTotalBetween(startTime, endTime)).subtract(refunds);
         BigDecimal cost = nz(saleLineRepository.sumCostBetween(startTime, endTime)).subtract(returnedCost);
@@ -108,7 +109,7 @@ public class ReportService {
         // Les remboursements diminuent aussi les encaissements nets sur leur date réelle.
         BigDecimal cashCollected = nz(customerPaymentRepository.sumValidatedBetween(startTime, endTime))
                 .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)))
-                .subtract(cashRefunds);
+                .subtract(cashRefunds).subtract(cancellationCashRefunds);
         BigDecimal paidToSuppliers = nz(purchasePaymentRepository.sumBetween(startTime, endTime));
         BigDecimal purchasesTotal = nz(purchaseRepository.sumTotalBetween(startTime, endTime));
         BigDecimal netCashFlow = cashCollected.subtract(paidToSuppliers).subtract(expenses);
