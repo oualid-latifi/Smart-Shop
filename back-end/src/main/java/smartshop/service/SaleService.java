@@ -17,6 +17,7 @@ import smartshop.repository.CustomerRepository;
 import smartshop.repository.ProductRepository;
 import smartshop.repository.SaleRepository;
 import smartshop.repository.SaleRefundLineRepository;
+import smartshop.repository.SaleRefundRepository;
 import smartshop.repository.StockMovementRepository;
 
 import java.math.BigDecimal;
@@ -29,6 +30,7 @@ public class SaleService {
 
     private final SaleRepository saleRepository;
     private final SaleRefundLineRepository refundLineRepository;
+    private final SaleRefundRepository saleRefundRepository;
     private final CustomerRepository customerRepository;
     private final CustomerPaymentRepository paymentRepository;
     private final ProductRepository productRepository;
@@ -39,13 +41,15 @@ public class SaleService {
                        CustomerPaymentRepository paymentRepository,
                        ProductRepository productRepository,
                        StockMovementRepository stockMovementRepository,
-                       SaleRefundLineRepository refundLineRepository) {
+                       SaleRefundLineRepository refundLineRepository,
+                       SaleRefundRepository saleRefundRepository) {
         this.saleRepository = saleRepository;
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
         this.productRepository = productRepository;
         this.stockMovementRepository = stockMovementRepository;
         this.refundLineRepository = refundLineRepository;
+        this.saleRefundRepository = saleRefundRepository;
     }
 
     @Transactional
@@ -187,7 +191,7 @@ public class SaleService {
 
         // Rendre uniquement l'argent encaissé qui n'a pas déjà été remboursé
         // lors d'un retour partiel. Les paiements historiques restent intacts.
-        BigDecimal previousCashRefunds = refundLineRepository.sumCashRefundedBySaleId(saleId);
+        BigDecimal previousCashRefunds = saleRefundRepository.sumCashRefundedBySaleId(saleId);
         if (previousCashRefunds == null) previousCashRefunds = BigDecimal.ZERO;
         BigDecimal cashToRefund = sale.getAmountPaid().subtract(previousCashRefunds);
         if (cashToRefund.signum() < 0) cashToRefund = BigDecimal.ZERO;
