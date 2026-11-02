@@ -88,7 +88,6 @@ export default function ProductsScreen({ navigation }: Props) {
         </View>
         <Text style={styles.reference}>
           {item.reference}
-          {item.categoryName ? `  ·  ${item.categoryName}` : ''}
         </Text>
         {[item.brand, item.model, item.color, item.capacity].filter(Boolean).length > 0 ? (
           <Text style={styles.reference} numberOfLines={1}>{[item.brand, item.model, item.color, item.capacity].filter(Boolean).join(' · ')}</Text>
