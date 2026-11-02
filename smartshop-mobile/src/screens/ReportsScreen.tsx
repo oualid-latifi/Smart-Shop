@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportSummary, getOutboxStatusSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
+import { cachePaymentHistory, cacheReportSummary, getCachedReportSummary, getOfflineReportBreakdown, getOfflineReportSummary, getOutboxStatusSummary, markReportDatasetSnapshotComplete, markReportDatasetSnapshotIncomplete, saveCustomers, saveExpenses, saveProducts, savePurchases, saveSaleRefunds, saveSales, saveSuppliers } from '../database';
 import { syncPendingOperations } from '../sync';
 import type { Customer, Expense, PaymentHistory, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -42,22 +42,25 @@ export default function ReportsScreen({ navigation }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showingCachedReport, setShowingCachedReport] = useState(false);
   const [showingOfflineCalculated, setShowingOfflineCalculated] = useState(false);
+  const [breakdown, setBreakdown] = useState<Awaited<ReturnType<typeof getOfflineReportBreakdown>>>(null);
   const [detail, setDetail] = useState<{ title: string; formula: string; inputs: string[]; result: string; note?: string } | null>(null);
   const openMetricDetail = (key: string) => {
     if (!report) return;
+    const sourceMoney = (value: number | undefined) => value === undefined ? 'Détail local indisponible' : formatMoney(value);
     const values: Record<string, { title: string; formula: string; inputs: string[]; result: string; note?: string }> = {
-      revenue: { title: t('reports.revenue'), formula: 'Ventes validées − remboursements', inputs: ['Ventes brutes : détail des sources disponible avec le snapshot local', 'Remboursements : déduits du chiffre d’affaires'], result: formatMoney(report.revenue) },
+      revenue: { title: t('reports.revenue'), formula: 'Ventes validées − remboursements', inputs: ['Ventes brutes : ' + sourceMoney(breakdown?.grossSales), 'Remboursements : ' + sourceMoney(breakdown?.refunds)], result: formatMoney(report.revenue) },
+      cogs: { title: 'Coût des marchandises vendues', formula: 'Coût des lignes vendues − coût des articles retournés', inputs: ['Coût des ventes : ' + sourceMoney(breakdown?.saleCost), 'Coût des retours : ' + sourceMoney(breakdown?.returnedCost)], result: formatMoney(report.costOfGoodsSold) },
       gross: { title: t('reports.grossProfit'), formula: 'Chiffre d’affaires − coût des marchandises vendues', inputs: ['Chiffre d’affaires : ' + formatMoney(report.revenue), 'Coût des marchandises : ' + formatMoney(report.costOfGoodsSold)], result: formatMoney(report.grossProfit) },
-      expenses: { title: t('reports.expenses'), formula: 'Somme des dépenses enregistrées pendant la période', inputs: ['Dépenses : ' + formatMoney(report.expenses)], result: formatMoney(report.expenses) },
+      expenses: { title: t('reports.expenses'), formula: 'Somme des dépenses enregistrées pendant la période', inputs: ['Dépenses enregistrées : ' + sourceMoney(breakdown?.expenses)], result: formatMoney(report.expenses) },
       net: { title: t('reports.netProfit'), formula: 'Bénéfice brut − dépenses', inputs: ['Bénéfice brut : ' + formatMoney(report.grossProfit), 'Dépenses : ' + formatMoney(report.expenses)], result: formatMoney(report.netProfit) },
-      cash: { title: t('reports.cashCollected'), formula: 'Règlements clients + ventes comptant − remboursements cash', inputs: ['Encaissements calculés par le rapport : ' + formatMoney(report.cashCollected)], result: formatMoney(report.cashCollected) },
-      supplierPaid: { title: t('reports.paidToSuppliers'), formula: 'Somme des paiements fournisseurs pendant la période', inputs: ['Paiements réellement effectués : ' + formatMoney(report.paidToSuppliers)], result: formatMoney(report.paidToSuppliers), note: 'Ce montant est différent du total des achats.' },
-      purchases: { title: t('reports.purchasesTotal'), formula: 'Somme du total des achats enregistrés pendant la période', inputs: ['Achats enregistrés : ' + formatMoney(report.purchasesTotal)], result: formatMoney(report.purchasesTotal), note: 'Indépendant du montant déjà payé.' },
+      cash: { title: t('reports.cashCollected'), formula: 'Règlements clients + ventes comptant − remboursements cash', inputs: ['Règlements clients : ' + sourceMoney(breakdown?.customerLedger), 'Ventes sans client : ' + sourceMoney(breakdown?.walkInPaid), 'Remboursements cash : ' + sourceMoney(breakdown?.cashRefunds)], result: formatMoney(report.cashCollected) },
+      supplierPaid: { title: t('reports.paidToSuppliers'), formula: 'Somme des paiements fournisseurs pendant la période', inputs: ['Paiements réellement effectués : ' + sourceMoney(breakdown?.supplierLedger)], result: formatMoney(report.paidToSuppliers), note: 'Ce montant est différent du total des achats.' },
+      purchases: { title: t('reports.purchasesTotal'), formula: 'Somme du total des achats enregistrés pendant la période', inputs: ['Achats enregistrés : ' + sourceMoney(breakdown?.purchasesTotal)], result: formatMoney(report.purchasesTotal), note: 'Indépendant du montant déjà payé.' },
       flow: { title: t('reports.netCashFlow'), formula: 'Encaissements − paiements fournisseurs − dépenses', inputs: ['Encaissements : ' + formatMoney(report.cashCollected), 'Paiements fournisseurs : ' + formatMoney(report.paidToSuppliers), 'Dépenses : ' + formatMoney(report.expenses)], result: formatMoney(report.netCashFlow) },
-      customerDebt: { title: t('reports.customerDebt'), formula: 'Somme des restes à payer des ventes validées', inputs: ['Dette clients : ' + formatMoney(report.totalCustomerDebt)], result: formatMoney(report.totalCustomerDebt), note: 'Solde actuel global, pas seulement la période.' },
-      supplierDebt: { title: t('reports.supplierDebt'), formula: 'Somme des restes à payer des achats', inputs: ['Dette fournisseurs : ' + formatMoney(report.totalSupplierDebt)], result: formatMoney(report.totalSupplierDebt), note: 'Solde actuel global, pas seulement la période.' },
-      stock: { title: t('reports.stockValue'), formula: 'Somme (quantité en stock × coût moyen d’achat) des produits actifs', inputs: ['Valeur du stock : ' + formatMoney(report.stockValue)], result: formatMoney(report.stockValue), note: 'Valorisation au coût moyen d’achat, pas au prix de vente.' },
-      lowStock: { title: t('reports.lowStock'), formula: 'Nombre de produits actifs dont le stock ≤ seuil d’alerte', inputs: ['Produits sous le seuil : ' + String(report.lowStockCount)], result: String(report.lowStockCount), note: 'Compteur du stock actuel.' },
+      customerDebt: { title: t('reports.customerDebt'), formula: 'Somme des restes à payer des ventes validées', inputs: ['Dette clients : ' + sourceMoney(breakdown?.customerDebt)], result: formatMoney(report.totalCustomerDebt), note: 'Solde actuel global, pas seulement la période.' },
+      supplierDebt: { title: t('reports.supplierDebt'), formula: 'Somme des restes à payer des achats', inputs: ['Dette fournisseurs : ' + sourceMoney(breakdown?.supplierDebt)], result: formatMoney(report.totalSupplierDebt), note: 'Solde actuel global, pas seulement la période.' },
+      stock: { title: t('reports.stockValue'), formula: 'Somme (quantité en stock × coût moyen d’achat) des produits actifs', inputs: ['Valeur du stock : ' + sourceMoney(breakdown?.stockValue)], result: formatMoney(report.stockValue), note: 'Valorisation au coût moyen d’achat, pas au prix de vente.' },
+      lowStock: { title: t('reports.lowStock'), formula: 'Nombre de produits actifs dont le stock ≤ seuil d’alerte', inputs: ['Produits sous le seuil : ' + (breakdown ? String(breakdown.lowStockCount) : 'Détail local indisponible')], result: String(report.lowStockCount), note: 'Compteur du stock actuel.' },
     };
     setDetail(values[key] ?? null);
   };
@@ -81,6 +84,7 @@ export default function ReportsScreen({ navigation }: Props) {
         const localReport = await getOfflineReportSummary(period).catch(() => null);
         if (localReport) {
           setReport(localReport);
+          setBreakdown(await getOfflineReportBreakdown(period).catch(() => null));
           setShowingOfflineCalculated(true);
           setShowingCachedReport(false);
           setError(null);
@@ -90,6 +94,7 @@ export default function ReportsScreen({ navigation }: Props) {
 
       const data = await api<ReportSummary>(ENDPOINTS[period]);
       setReport(data);
+      setBreakdown(null);
       setShowingCachedReport(false);
       setShowingOfflineCalculated(false);
       void cacheReportSummary(period, data).catch(() => undefined);
@@ -104,11 +109,13 @@ export default function ReportsScreen({ navigation }: Props) {
         await markReportDatasetSnapshotIncomplete();
         await Promise.all([saveSales(sales),savePurchases(purchases),saveExpenses(expenses),saveProducts(products),saveCustomers(customers),saveSuppliers(suppliers),cachePaymentHistory(payments),saveSaleRefunds(refunds)]);
         await markReportDatasetSnapshotComplete();
+        setBreakdown(await getOfflineReportBreakdown(period).catch(() => null));
       }).catch(() => undefined);
     } catch (e) {
       const localReport = await getOfflineReportSummary(period).catch(() => null);
       if (localReport) {
         setReport(localReport);
+        setBreakdown(await getOfflineReportBreakdown(period).catch(() => null));
         setShowingOfflineCalculated(true);
         setShowingCachedReport(false);
         setError(null);
@@ -116,6 +123,7 @@ export default function ReportsScreen({ navigation }: Props) {
         const cached = await getCachedReportSummary(period);
         if (cached) {
           setReport(cached);
+          setBreakdown(await getOfflineReportBreakdown(period).catch(() => null));
           setShowingCachedReport(true);
           setShowingOfflineCalculated(false);
           setError(null);
@@ -189,6 +197,7 @@ export default function ReportsScreen({ navigation }: Props) {
 
             <View style={styles.grid}>
               <Kpi icon="cash-outline" label={t('reports.revenue')} value={formatMoney(report.revenue)} onPress={() => openMetricDetail('revenue')} />
+              <Kpi icon="calculator-outline" label="Coût des marchandises vendues" value={formatMoney(report.costOfGoodsSold)} onPress={() => openMetricDetail('cogs')} />
               <Kpi icon="trending-up-outline" label={t('reports.grossProfit')} value={formatMoney(report.grossProfit)} onPress={() => openMetricDetail('gross')} />
               <Kpi icon="receipt-outline" label={t('reports.expenses')} value={formatMoney(report.expenses)} tone="bad" onPress={() => openMetricDetail('expenses')} />
               <Kpi
