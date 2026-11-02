@@ -26,6 +26,9 @@ public interface SaleRefundRepository extends JpaRepository<SaleRefund, UUID> {
     @Query("select sum(r.cashRefunded) from SaleRefund r where r.sale.id = :saleId")
     BigDecimal sumCashRefundedBySaleId(@Param("saleId") UUID saleId);
 
+    @Query("select sum(r.cashRefunded) from SaleRefund r where r.sale.id = :saleId")
+    BigDecimal sumCashRefundedBySaleId(@Param("saleId") UUID saleId);
+
     @Query("select sum(r.cashRefunded) from SaleRefund r where r.refundedAt >= :start and r.refundedAt < :end")
     BigDecimal sumCashRefundedBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
 }
