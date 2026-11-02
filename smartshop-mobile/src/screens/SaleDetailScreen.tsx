@@ -62,6 +62,12 @@ export default function SaleDetailScreen({ route }: Props) {
 
   useEffect(() => { void loadRefunds(); }, [loadRefunds]);
 
+  useEffect(() => {
+    void getSaleCancellationSyncError(sale.id)
+      .then(setCancelSyncError)
+      .catch(() => setCancelSyncError(null));
+  }, [sale.id]);
+
   function askCancel() {
     if (!reason.trim()) { setError(t('history.invalidReason')); return; }
     confirmAction(t('history.cancelConfirm'), async () => {
