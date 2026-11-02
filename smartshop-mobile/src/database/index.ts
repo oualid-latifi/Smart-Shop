@@ -1519,6 +1519,57 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
   const paidToSuppliers = Math.round((supplierLedger+Number.EPSILON)*100)/100;
   return {from,to,salesCount,revenue,costOfGoodsSold,grossProfit,expenses,netProfit,cashCollected,paidToSuppliers,purchasesTotal,netCashFlow:Math.round((cashCollected-paidToSuppliers-expenses+Number.EPSILON)*100)/100,topProducts:topRows.map(row=>({productId:row.product_id,name:row.name,quantitySold:row.quantity,revenue:row.revenue})),totalCustomerDebt:customerDebt,totalSupplierDebt:supplierDebt,stockValue,lowStockCount};
 }
+/** Read-only source totals used to explain the existing offline report formulas. */
+export async function getOfflineReportBreakdown(period: 'today' | 'week' | 'month'): Promise<{
+  grossSales: number; refunds: number; saleCost: number; returnedCost: number;
+  expenses: number; customerLedger: number; walkInPaid: number; cashRefunds: number;
+  supplierLedger: number; purchasesTotal: number; customerDebt: number;
+  supplierDebt: number; stockValue: number; lowStockCount: number;
+} | null> {
+  const db = await getDatabase();
+  await transactionTail;
+  const snapshot = await db.getFirstAsync<{ value: string }>("SELECT value FROM local_metadata WHERE key = 'report_dataset_snapshot'");
+  if (snapshot?.value !== 'complete') return null;
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let start = new Date(end);
+  if (period === 'week') {
+    const day = (end.getDay() + 6) % 7;
+    start.setDate(end.getDate() - day);
+    end.setDate(start.getDate() + 6);
+  } else if (period === 'month') {
+    start = new Date(end.getFullYear(), end.getMonth(), 1);
+    end.setMonth(end.getMonth() + 1, 0);
+  }
+  const dateKey = (d: Date) => [d.getFullYear(), String(d.getMonth() + 1).padStart(2, '0'), String(d.getDate()).padStart(2, '0')].join('-');
+  const from = dateKey(start), to = dateKey(end);
+  const nextDay = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+  const startTime = from + 'T00:00:00', endExclusive = dateKey(nextDay) + 'T00:00:00';
+  const scalar = async (sql: string, ...params: (string | number)[]) =>
+    Number((await db.getFirstAsync<{ value: number | null }>(sql, ...params))?.value ?? 0);
+  const [
+    grossSales, refunds, saleCost, returnedCost, expenses, customerLedger,
+    walkInPaid, cashRefunds, supplierLedger, purchasesTotal, customerDebt,
+    supplierDebt, stockValue, lowStockCount,
+  ] = await Promise.all([
+    scalar("SELECT COALESCE(SUM(total),0) value FROM sales WHERE status='VALIDATED' AND sale_date>=? AND sale_date<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(line.quantity*line.unit_cost),0) value FROM sale_lines line JOIN sales sale ON sale.id=line.sale_id WHERE sale.status='VALIDATED' AND sale.sale_date>=? AND sale.sale_date<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(line.quantity*sale_line.unit_cost),0) value FROM sale_refund_lines line JOIN sale_refunds refund ON refund.id=line.refund_id JOIN sale_lines sale_line ON sale_line.id=line.sale_line_id WHERE refund.refunded_at>=? AND refund.refunded_at<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'", from, to),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?", startTime, endExclusive),
+    scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
+    scalar("SELECT COALESCE(SUM(remaining),0) value FROM purchases"),
+    scalar("SELECT COALESCE(SUM(stock_quantity*average_purchase_price),0) value FROM products WHERE active=1 AND stock_quantity>0"),
+    scalar("SELECT COUNT(*) value FROM products WHERE active=1 AND stock_quantity<=alert_threshold"),
+  ]);
+  return { grossSales, refunds, saleCost, returnedCost, expenses, customerLedger, walkInPaid, cashRefunds, supplierLedger, purchasesTotal, customerDebt, supplierDebt, stockValue, lowStockCount };
+}
+
 export async function cacheReportSummary(period: string, report: ReportSummary): Promise<void> {
   const db = await getDatabase();
   await withSerializedTransaction(db, async () => {
