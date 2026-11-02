@@ -1,6 +1,8 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
   getCachedProducts,
+  getCachedCategories,
+  saveCategories,
   saveProducts,
 } from '../database';
 import {
@@ -46,7 +48,14 @@ export default function ProductsScreen({ navigation }: Props) {
   const loadCategories = useCallback(async () => {
     setCategoriesError(false);
     try {
-      setCategories(await api<Category[]>('/api/categories'));
+      setCategories(await getCachedCategories());
+    } catch {
+      // The API request below may still succeed.
+    }
+    try {
+      const remote = await api<Category[]>('/api/categories');
+      await saveCategories(remote);
+      setCategories(await getCachedCategories());
     } catch {
       setCategoriesError(true);
     }
