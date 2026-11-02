@@ -10,6 +10,8 @@ export function errorMessage(error: unknown, t: TFunction): string {
       if (first) return first;
     }
     if (error.message) return error.message;
+    if (error.status >= 500) return `Erreur serveur (HTTP ${error.status}). Vérifie les logs du Backend.`;
+    if (error.status >= 400) return `Requête refusée par le Backend (HTTP ${error.status}). Vérifie les données envoyées.`;
   }
   return t('errors.unknown');
 }
