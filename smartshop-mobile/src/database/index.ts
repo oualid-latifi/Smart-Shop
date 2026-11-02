@@ -288,18 +288,6 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
           await db.execAsync('PRAGMA user_version = 7');
         }
 
-        if (versionRow.user_version < 9) {
-          const saleColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(sales)');
-          if (!saleColumns.some((column) => column.name === 'cancelled_at')) {
-            await db.execAsync('ALTER TABLE sales ADD COLUMN cancelled_at TEXT');
-          }
-          if (!saleColumns.some((column) => column.name === 'cancellation_cash_refund')) {
-            await db.execAsync('ALTER TABLE sales ADD COLUMN cancellation_cash_refund REAL NOT NULL DEFAULT 0');
-          }
-          await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
-          await db.execAsync('PRAGMA user_version = 9');
-        }
-
         if (versionRow.user_version < 8) {
           await db.execAsync(`
             CREATE TABLE IF NOT EXISTS categories (
@@ -312,6 +300,19 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
             PRAGMA user_version = 8;
           `);
         }
+
+        if (versionRow.user_version < 9) {
+          const saleColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(sales)');
+          if (!saleColumns.some((column) => column.name === 'cancelled_at')) {
+            await db.execAsync('ALTER TABLE sales ADD COLUMN cancelled_at TEXT');
+          }
+          if (!saleColumns.some((column) => column.name === 'cancellation_cash_refund')) {
+            await db.execAsync('ALTER TABLE sales ADD COLUMN cancellation_cash_refund REAL NOT NULL DEFAULT 0');
+          }
+          await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
+          await db.execAsync('PRAGMA user_version = 9');
+        }
+
       });
 
       database = db;
