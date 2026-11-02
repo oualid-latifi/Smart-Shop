@@ -1,4 +1,4 @@
-
+ 
 import React, { useEffect, useState } from 'react';
 import { AppState } from 'react-native';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
@@ -15,6 +15,7 @@ import { AuthProvider, useAuth } from './src/auth/AuthContext';
 import { initI18n } from './src/i18n';
 import AppTabs from './src/navigation/AppTabs';
 import AuthScreen from './src/screens/AuthScreen';
+import ServerSettingsScreen from './src/screens/ServerSettingsScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import { colors, isDark } from './src/theme';
 import { getDatabase } from './src/database';
@@ -69,7 +70,22 @@ function Root() {
   }
 
   if (status !== 'signedIn') {
-    return <AuthScreen />;
+    return (
+      <NavigationContainer theme={navTheme}>
+        <RootStack.Navigator>
+          <RootStack.Screen
+            name="Auth"
+            component={AuthScreen}
+            options={{ headerShown: false }}
+          />
+          <RootStack.Screen
+            name="ServerSettings"
+            component={ServerSettingsScreen}
+            options={{ title: 'Connexion au PC' }}
+          />
+        </RootStack.Navigator>
+      </NavigationContainer>
+    );
   }
 
   return (
