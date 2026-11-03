@@ -2,9 +2,7 @@ package smartshop.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import smartshop.entity.Category;
 import smartshop.entity.Product;
-import smartshop.repository.CategoryRepository;
 import smartshop.repository.ProductRepository;
 
 import java.util.List;
@@ -14,21 +12,16 @@ import java.util.UUID;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final CategoryRepository categoryRepository;
-
-    public ProductService(ProductRepository productRepository,
-                          CategoryRepository categoryRepository) {
+    public ProductService(ProductRepository productRepository) {
         this.productRepository = productRepository;
-        this.categoryRepository = categoryRepository;
     }
 
     @Transactional
-    public Product create(Product product, UUID categoryId) {
+    public Product create(Product product) {
         if (productRepository.existsByReference(product.getReference())) {
             throw new IllegalArgumentException(
                     "Un produit avec la référence " + product.getReference() + " existe déjà");
         }
-        product.setCategory(findCategory(categoryId));
         return productRepository.save(product);
     }
 
@@ -49,7 +42,7 @@ public class ProductService {
     }
 
     @Transactional
-    public Product update(UUID id, Product data, UUID categoryId) {
+    public Product update(UUID id, Product data) {
         Product product = findById(id);
 
         if (!product.getReference().equals(data.getReference())
@@ -68,7 +61,6 @@ public class ProductService {
         // Le prix de référence peut changer sans réévaluer le coût moyen du stock existant.
         product.setPurchasePrice(data.getPurchasePrice());
         product.setAlertThreshold(data.getAlertThreshold());
-        product.setCategory(findCategory(categoryId));
         // Le stock et le coût moyen pondéré restent inchangés lors d'une modification du catalogue.
         return productRepository.save(product);
     }
@@ -92,11 +84,4 @@ public class ProductService {
         return productRepository.findLowStock();
     }
 
-    private Category findCategory(UUID categoryId) {
-        if (categoryId == null) {
-            return null;
-        }
-        return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new IllegalArgumentException("Catégorie introuvable"));
-    }
 }

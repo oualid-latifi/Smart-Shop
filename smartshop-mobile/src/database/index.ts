@@ -1,10 +1,10 @@
-import type { Category, Customer, Expense, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
+import type { Customer, Expense, Product, Purchase, ReportSummary, Sale, SaleRefund, Supplier } from '../api/types';
 import { openDatabaseAsync, type SQLiteDatabase } from 'expo-sqlite';
 
 let database: SQLiteDatabase | null = null;
 let databasePromise: Promise<SQLiteDatabase> | null = null;
 
-const CURRENT_SCHEMA_VERSION = 9;
+const CURRENT_SCHEMA_VERSION = 10;
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (database) return database;
@@ -51,8 +51,6 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
       id TEXT PRIMARY KEY NOT NULL,
       reference TEXT NOT NULL,
       name TEXT NOT NULL,
-      category_id TEXT,
-      category_name TEXT,
       brand TEXT,
       model TEXT,
       color TEXT,
@@ -289,16 +287,7 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
         }
 
         if (versionRow.user_version < 8) {
-          await db.execAsync(`
-            CREATE TABLE IF NOT EXISTS categories (
-              id TEXT PRIMARY KEY NOT NULL,
-              name TEXT NOT NULL COLLATE NOCASE,
-              sync_status TEXT NOT NULL DEFAULT 'SYNCED'
-            );
-            CREATE UNIQUE INDEX IF NOT EXISTS idx_categories_name
-              ON categories(name COLLATE NOCASE);
-            PRAGMA user_version = 8;
-          `);
+          await db.execAsync('PRAGMA user_version = 8');
         }
 
         if (versionRow.user_version < 9) {
@@ -311,6 +300,18 @@ export async function getDatabase(): Promise<SQLiteDatabase> {
           }
           await db.runAsync("INSERT INTO local_metadata (key, value, updated_at) VALUES ('report_dataset_snapshot', 'incomplete', ?) ON CONFLICT(key) DO UPDATE SET value = 'incomplete', updated_at = excluded.updated_at", getLocalDateTimeString());
           await db.execAsync('PRAGMA user_version = 9');
+        }
+
+        if (versionRow.user_version < 10) {
+          const productColumns = await db.getAllAsync<{ name: string }>('PRAGMA table_info(products)');
+          if (productColumns.some((column) => column.name === 'category_id')) {
+            await db.execAsync('ALTER TABLE products DROP COLUMN category_id');
+          }
+          if (productColumns.some((column) => column.name === 'category_name')) {
+            await db.execAsync('ALTER TABLE products DROP COLUMN category_name');
+          }
+          await db.execAsync('DROP TABLE IF EXISTS categories');
+          await db.execAsync('PRAGMA user_version = 10');
         }
 
       });
@@ -418,38 +419,6 @@ export async function testProductCRUD(): Promise<string> {
   });
 }
 
-// Cache local des catégories reçues du Backend. Les catégories locales en attente sont conservées.
-export async function saveCategories(categories: Category[]): Promise<void> {
-  const db = await getDatabase();
-  await withSerializedTransaction(db, async () => {
-    for (const category of categories) {
-      await db.runAsync(
-        `INSERT INTO categories (id, name, sync_status) VALUES (?, ?, 'SYNCED')
-         ON CONFLICT(id) DO UPDATE SET name = excluded.name
-         WHERE categories.sync_status = 'SYNCED'`,
-        category.id,
-        category.name,
-      );
-    }
-    const ids = categories.map(category => category.id);
-    if (ids.length > 0) {
-      const placeholders = ids.map(() => '?').join(',');
-      await db.runAsync(
-        `DELETE FROM categories WHERE sync_status = 'SYNCED' AND id NOT IN (${placeholders})`,
-        ...ids,
-      );
-    } else {
-      await db.runAsync("DELETE FROM categories WHERE sync_status = 'SYNCED'");
-    }
-  });
-}
-
-export async function getCachedCategories(): Promise<Category[]> {
-  const db = await getDatabase();
-  await transactionTail;
-  return db.getAllAsync<Category>('SELECT id, name FROM categories ORDER BY name COLLATE NOCASE ASC');
-}
-
 // تخزين المنتجات القادمة من Backend في SQLite
 export async function saveProducts(products: Product[]): Promise<void> {
   const db = await getDatabase();
@@ -514,16 +483,14 @@ export async function saveProducts(products: Product[]): Promise<void> {
         latestPurchasePriceByProduct.get(product.id) ?? product.purchasePrice;
       await db.runAsync(
         `INSERT INTO products (
-          id, reference, name, category_id, category_name,
+          id, reference, name,
           brand, model, color, capacity, image_url,
           average_purchase_price, purchase_price, sale_price,
           stock_quantity, alert_threshold, active, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(id) DO UPDATE SET
           reference = excluded.reference,
           name = excluded.name,
-          category_id = excluded.category_id,
-          category_name = excluded.category_name,
           brand = excluded.brand,
           model = excluded.model,
           color = excluded.color,
@@ -539,8 +506,6 @@ export async function saveProducts(products: Product[]): Promise<void> {
         product.id,
         product.reference,
         product.name,
-        product.categoryId,
-        product.categoryName,
         product.brand,
         product.model,
         product.color,
@@ -572,8 +537,6 @@ export async function getCachedProducts(): Promise<Product[]> {
     id: row.id,
     reference: row.reference,
     name: row.name,
-    categoryId: row.category_id,
-    categoryName: row.category_name,
     brand: row.brand,
     model: row.model,
     color: row.color,

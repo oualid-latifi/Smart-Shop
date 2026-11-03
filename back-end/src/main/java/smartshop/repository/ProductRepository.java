@@ -18,8 +18,6 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Product p where p.id = :id")
     java.util.Optional<Product> findByIdForUpdate(@Param("id") UUID id);
-    boolean existsByCategoryId(UUID categoryId);
-
     List<Product> findByActiveTrue();
 
     @Query("select p from Product p where p.active = true and p.stockQuantity <= p.alertThreshold")

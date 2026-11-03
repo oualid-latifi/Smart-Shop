@@ -1,12 +1,10 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
-import type { Category } from '../api/types';
-import { getCachedCategories, saveCategories } from '../database';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
@@ -28,7 +26,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [model, setModel] = useState(product?.model ?? '');
   const [capacity, setCapacity] = useState(product?.capacity ?? '');
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
-  const [categoryId, setCategoryId] = useState<string | null>(product?.categoryId ?? null);
   const [salePrice, setSalePrice] = useState(product ? String(product.salePrice) : '');
   const [alertThreshold, setAlertThreshold] = useState(
     product ? String(product.alertThreshold) : '5',
@@ -38,30 +35,8 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   );
   const [initialStock, setInitialStock] = useState('');
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [categoriesError, setCategoriesError] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-
-  const loadCategories = useCallback(async () => {
-    setCategoriesError(false);
-    try {
-      setCategories(await getCachedCategories());
-    } catch {
-      // Continue with the API request.
-    }
-    try {
-      const remote = await api<Category[]>('/api/categories');
-      await saveCategories(remote);
-      setCategories(await getCachedCategories());
-    } catch {
-      setCategoriesError(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadCategories();
-  }, [loadCategories]);
 
   async function save() {
     const price = parseNumber(salePrice);
@@ -99,7 +74,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
           body: {
             reference: reference.trim(),
             name: name.trim(),
-            categoryId,
             brand: brand.trim() || null,
             model: model.trim() || null,
             capacity: capacity.trim() || null,
@@ -115,7 +89,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
           body: {
             reference: reference.trim(),
             name: name.trim(),
-            categoryId,
             brand: brand.trim() || null,
             model: model.trim() || null,
             capacity: capacity.trim() || null,
@@ -187,29 +160,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         </Pressable>
       </View>
 
-      <Text style={styles.label}>{t('products.category')}</Text>
-      {categoriesError ? (
-        <View style={styles.categoryError}>
-          <Text style={styles.errorText}>{t('common.loadError', { defaultValue: 'Impossible de charger les catégories.' })}</Text>
-          <PrimaryButton title={t('common.retry')} onPress={() => void loadCategories()} variant="outline" />
-        </View>
-      ) : null}
-      <View style={styles.chips}>
-        <Chip
-          label={t('products.noCategory')}
-          active={categoryId === null}
-          onPress={() => setCategoryId(null)}
-        />
-        {categories.map((c) => (
-          <Chip
-            key={c.id}
-            label={c.name}
-            active={categoryId === c.id}
-            onPress={() => setCategoryId(c.id)}
-          />
-        ))}
-      </View>
-
       <TextField
         label={`${t('products.salePrice')} (DH)`}
         value={salePrice}
@@ -268,34 +218,11 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   );
 }
 
-function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
-  return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
-      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   photoBlock: { marginBottom: spacing.md, gap: spacing.sm },
   productPhoto: { width: '100%', height: 180, borderRadius: radius, backgroundColor: colors.neutralBg },
   photoButton: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius, padding: spacing.md, alignItems: 'center' },
   photoButtonText: { color: colors.primary, fontWeight: '800' },
-  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  chip: {
-    paddingVertical: 6,
-    paddingHorizontal: spacing.md,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-  },
-  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
-  chipText: { color: colors.text, fontSize: 14 },
-  chipTextActive: { color: colors.onPrimary, fontWeight: '700' },
-  categoryError: { marginBottom: spacing.md, gap: spacing.xs },
-  errorText: { color: colors.danger, fontSize: 13 },
   error: {
     color: colors.danger,
     backgroundColor: colors.dangerBg,

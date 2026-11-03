@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 
-import CategoriesScreen from '../screens/CategoriesScreen';
 import ServerSettingsScreen from '../screens/ServerSettingsScreen';
 import PurchasesStack from './PurchasesStack';
 import ReportsStack from './ReportsStack';
@@ -34,11 +33,6 @@ function MoreHomeScreen({ navigation }: any) {
       subtitle: t('settings.serverSubtitle', { defaultValue: 'Configurer le serveur local et tester le Wi-Fi' }),
       icon: 'server-outline' as const,
       onPress: () => navigation.navigate('ServerSettings'),
-    },    {
-      title: t('products.category'),
-      subtitle: t('products.catalogSubtitle'),
-      icon: 'grid-outline' as const,
-      onPress: () => navigation.navigate('Categories'),
     },
   ];
 
@@ -78,7 +72,6 @@ export default function MoreStack() {
         options={{ headerShown: false }}
       />
 
-      <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Catégories' }} />
       <Stack.Screen name="ServerSettings" component={ServerSettingsScreen} options={{ title: 'Connexion au PC' }} />
 
       <Stack.Screen
