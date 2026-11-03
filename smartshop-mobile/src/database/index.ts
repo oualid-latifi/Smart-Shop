@@ -1838,7 +1838,7 @@ export interface LocalPurchaseInput {
   supplierId: string | null;
   amountPaid: number;
   note: string | null;
-  lines: Array<{ productId: string; quantity: number; unitPrice: number }>;
+  lines: Array<{ productId: string; quantity: number; unitPrice: number; salePrice: number }>;
 }
 
 export async function saveSuppliers(suppliers: Supplier[]): Promise<void> {
@@ -1896,7 +1896,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
     if (input.lines.length === 0) throw new Error('L’achat doit contenir au moins un produit.');
 
     let total = 0;
-    const lines: Array<{ productId: string; quantity: number; unitPrice: number }> = [];
+    const lines: Array<{ productId: string; quantity: number; unitPrice: number; salePrice: number }> = [];
 
     for (const requestedLine of input.lines) {
       if (!Number.isInteger(requestedLine.quantity) || requestedLine.quantity <= 0) {
@@ -1904,6 +1904,9 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       }
       if (!Number.isFinite(requestedLine.unitPrice) || requestedLine.unitPrice < 0) {
         throw new Error('Prix d’achat invalide.');
+      }
+      if (!Number.isFinite(requestedLine.salePrice) || requestedLine.salePrice < 0) {
+        throw new Error('Prix de vente invalide.');
       }
 
       const product = await db.getFirstAsync<{
@@ -1926,6 +1929,7 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
         productId: product.id,
         quantity: requestedLine.quantity,
         unitPrice: roundMoney(requestedLine.unitPrice),
+        salePrice: roundMoney(requestedLine.salePrice),
       });
     }
 
@@ -1988,11 +1992,12 @@ export async function createLocalPurchase(input: LocalPurchaseInput): Promise<st
       );
       await db.runAsync(
         `UPDATE products
-         SET stock_quantity = ?, average_purchase_price = ?, purchase_price = ?, updated_at = ?
+         SET stock_quantity = ?, average_purchase_price = ?, purchase_price = ?, sale_price = ?, updated_at = ?
          WHERE id = ?`,
         newQuantity,
         Math.round(newAverage * 100) / 100,
         line.unitPrice,
+        line.salePrice,
         createdAt,
         line.productId,
       );
