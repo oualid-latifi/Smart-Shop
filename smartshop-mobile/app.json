@@ -24,24 +24,25 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-  "expo-status-bar",
-  "expo-secure-store",
-  "expo-localization",
-  "expo-font",
-  "expo-sqlite",
-  [
-    "expo-build-properties",
-    {
-      "android": {
-        "usesCleartextTraffic": true
-      }
-    }
-  ]
-],
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-localization",
+      "expo-font",
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
     "extra": {
       "eas": {
-        "projectId": "f49a9334-3178-4aaf-b2eb-bcdd94741362"
+        "projectId": "9c03b424-4d0b-4861-b981-760b3f49fa75"
       }
-    }
+    },
+    "owner": "oualid-lt"
   }
 }

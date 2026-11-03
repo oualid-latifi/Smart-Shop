@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Smart Shop",
+    "slug": "smartshop-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {}
+    },
+    "android": {
+      "package": "com.oualidlt.smartshop",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-status-bar",
+      "expo-secure-store",
+      "expo-localization",
+      "expo-font",
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "9c03b424-4d0b-4861-b981-760b3f49fa75"
+      }
+    }
+  }
+}

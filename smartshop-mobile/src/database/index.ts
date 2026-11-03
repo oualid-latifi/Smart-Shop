@@ -1570,8 +1570,7 @@ export async function getOfflineReportSummary(period: 'today' | 'week' | 'month'
     scalar("SELECT COALESCE(SUM(amount),0) value FROM expenses WHERE expense_date>=? AND expense_date<=? AND sync_status<>'DELETE_PENDING'",from,to),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM customer_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount_paid),0) value FROM sales WHERE customer_id IS NULL AND status='VALIDATED' AND sale_date>=? AND sale_date<?",startTime,endExclusive),
-    scalar("SELECT COALESCE(SUM(cash_refunded),0) value FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?",startTime,endExclusive) +
-      scalar("SELECT COALESCE(SUM(cancellation_cash_refund),0) value FROM sales WHERE status='CANCELLED' AND cancelled_at>=? AND cancelled_at<?",startTime,endExclusive),
+    scalar("SELECT (SELECT COALESCE(SUM(cash_refunded),0) FROM sale_refunds WHERE refunded_at>=? AND refunded_at<?) + (SELECT COALESCE(SUM(cancellation_cash_refund),0) FROM sales WHERE status='CANCELLED' AND cancelled_at>=? AND cancelled_at<?) value",startTime,endExclusive,startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(amount),0) value FROM purchase_payments WHERE paid_at>=? AND paid_at<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(total),0) value FROM purchases WHERE purchase_date>=? AND purchase_date<?",startTime,endExclusive),
     scalar("SELECT COALESCE(SUM(remaining),0) value FROM sales WHERE status='VALIDATED'"),
