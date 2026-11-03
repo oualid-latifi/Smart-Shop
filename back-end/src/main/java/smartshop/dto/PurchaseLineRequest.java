@@ -10,6 +10,7 @@ import java.util.UUID;
 public record PurchaseLineRequest(
         @NotNull UUID productId,
         @NotNull @Min(1) Integer quantity,
-        @NotNull @DecimalMin("0.00") BigDecimal unitPrice
+        @NotNull @DecimalMin("0.00") BigDecimal unitPrice,
+        @DecimalMin("0.00") BigDecimal salePrice
 ) {
 }
