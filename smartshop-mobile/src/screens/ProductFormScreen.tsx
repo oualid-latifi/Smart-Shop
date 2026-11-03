@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
+import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
@@ -20,47 +19,21 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const product = route.params?.product;
   const editing = !!product;
 
-  const [reference, setReference] = useState(product?.reference ?? '');
   const [name, setName] = useState(product?.name ?? '');
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [model, setModel] = useState(product?.model ?? '');
-  const [capacity, setCapacity] = useState(product?.capacity ?? '');
-  const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
-  const [salePrice, setSalePrice] = useState(product ? String(product.salePrice) : '');
   const [alertThreshold, setAlertThreshold] = useState(
     product ? String(product.alertThreshold) : '5',
   );
-  const [purchasePrice, setPurchasePrice] = useState(
-    product ? String(product.purchasePrice) : '',
-  );
-  const [initialStock, setInitialStock] = useState('');
 
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   async function save() {
-    const price = parseNumber(salePrice);
-    if (!reference.trim() || !name.trim() || price === null || price < 0) {
-      setError(t('products.invalid'));
-      return;
-    }
-
     const threshold = parseNumber(alertThreshold);
-    if (alertThreshold.trim() !== '' && (threshold === null || threshold < 0 || !Number.isInteger(threshold))) {
-      setError(t('products.invalid'));
-      return;
-    }
-
-    // Optional values must not be silently discarded when the user entered invalid text.
-    const purchase = parseNumber(purchasePrice);
-    const stock = parseNumber(initialStock);
-    if ((editing && (purchase === null || purchase < 0)) ||
-        (!editing && purchasePrice.trim() !== '' && (purchase === null || purchase < 0))) {
-      setError(t('products.invalid'));
-      return;
-    }
-    if (!editing && initialStock.trim() !== '' &&
-        (stock === null || stock < 0 || !Number.isInteger(stock))) {
+    if (!name.trim() ||
+        (alertThreshold.trim() !== '' &&
+          (threshold === null || threshold < 0 || !Number.isInteger(threshold)))) {
       setError(t('products.invalid'));
       return;
     }
@@ -72,14 +45,15 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         await api(`/api/products/${product.id}`, {
           method: 'PUT',
           body: {
-            reference: reference.trim(),
+            reference: product.reference,
             name: name.trim(),
             brand: brand.trim() || null,
             model: model.trim() || null,
-            capacity: capacity.trim() || null,
-            imageUrl: imageUrl.trim() || null,
-            salePrice: price,
-            purchasePrice: purchase,
+            color: product.color,
+            capacity: product.capacity,
+            imageUrl: product.imageUrl,
+            salePrice: product.salePrice,
+            purchasePrice: product.purchasePrice,
             alertThreshold: Math.round(threshold ?? 5),
           },
         });
@@ -87,16 +61,10 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         await api('/api/products', {
           method: 'POST',
           body: {
-            reference: reference.trim(),
             name: name.trim(),
             brand: brand.trim() || null,
             model: model.trim() || null,
-            capacity: capacity.trim() || null,
-            imageUrl: imageUrl.trim() || null,
-            salePrice: price,
-            purchasePrice: purchase,
-            initialStock: stock === null ? null : Math.round(stock),
-            alertThreshold: threshold === null ? null : Math.round(threshold),
+            alertThreshold: Math.round(threshold ?? 5),
           },
         });
       }
@@ -129,43 +97,9 @@ export default function ProductFormScreen({ route, navigation }: Props) {
 
   return (
     <Screen>
-      <TextField label={t('products.reference')} value={reference} onChangeText={setReference} />
       <TextField label={t('products.name')} value={name} onChangeText={setName} />
       <TextField label={t('products.brand')} value={brand} onChangeText={setBrand} />
       <TextField label={t('products.model')} value={model} onChangeText={setModel} />
-      <TextField label={t('products.capacity')} value={capacity} onChangeText={setCapacity} />
-      <View style={styles.photoBlock}>
-        {imageUrl ? <Image source={{ uri: imageUrl }} style={styles.productPhoto} resizeMode="cover" /> : null}
-        <Pressable
-          style={styles.photoButton}
-          onPress={async () => {
-            const permission = await ImagePicker.requestCameraPermissionsAsync();
-            if (!permission.granted) {
-              Alert.alert(t('products.takePhoto'), t('products.photoHint'));
-              return;
-            }
-            const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ['images'],
-              allowsEditing: true,
-              aspect: [4, 3],
-              quality: 0.65,
-              base64: true,
-            });
-            if (!result.canceled && result.assets[0].base64) {
-              setImageUrl(`data:image/jpeg;base64,${result.assets[0].base64}`);
-            }
-          }}
-        >
-          <Text style={styles.photoButtonText}>{t('products.takePhoto')}</Text>
-        </Pressable>
-      </View>
-
-      <TextField
-        label={`${t('products.salePrice')} (DH)`}
-        value={salePrice}
-        onChangeText={setSalePrice}
-        keyboardType="decimal-pad"
-      />
       <TextField
         label={t('products.alertThreshold')}
         value={alertThreshold}
@@ -173,45 +107,18 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         keyboardType="number-pad"
       />
 
-      <TextField
-        label={`${t('products.purchasePrice')} (DH)`}
-        hint={editing ? t('products.purchasePriceHint') : t('products.optional')}
-        value={purchasePrice}
-        onChangeText={setPurchasePrice}
-        keyboardType="decimal-pad"
-      />
-      {!editing ? (
-        <TextField
-          label={t('products.initialStock')}
-          hint={t('products.optional')}
-          value={initialStock}
-          onChangeText={setInitialStock}
-          keyboardType="number-pad"
-        />
-      ) : null}
-
       {error ? <Text style={styles.error}>{error}</Text> : null}
-
       <PrimaryButton title={t('products.save')} onPress={save} loading={saving} />
 
       {editing && product ? (
         <View style={styles.spacer}>
-          <PrimaryButton
-            title={t('stock.open')}
-            onPress={() => navigation.navigate('Stock', { product })}
-            variant="outline"
-          />
+          <PrimaryButton title={t('stock.open')} onPress={() => navigation.navigate('Stock', { product })} variant="outline" />
         </View>
       ) : null}
 
       {editing && product?.active ? (
         <View style={styles.spacer}>
-          <PrimaryButton
-            title={t('products.deactivate')}
-            onPress={deactivate}
-            disabled={saving}
-            variant="outline"
-          />
+          <PrimaryButton title={t('products.deactivate')} onPress={deactivate} disabled={saving} variant="outline" />
         </View>
       ) : null}
     </Screen>
@@ -219,16 +126,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  photoBlock: { marginBottom: spacing.md, gap: spacing.sm },
-  productPhoto: { width: '100%', height: 180, borderRadius: radius, backgroundColor: colors.neutralBg },
-  photoButton: { borderWidth: 1, borderColor: colors.primary, borderRadius: radius, padding: spacing.md, alignItems: 'center' },
-  photoButtonText: { color: colors.primary, fontWeight: '800' },
-  error: {
-    color: colors.danger,
-    backgroundColor: colors.dangerBg,
-    padding: spacing.sm,
-    borderRadius: radius,
-    marginBottom: spacing.md,
-  },
+  error: { color: colors.danger, backgroundColor: colors.dangerBg, padding: spacing.sm, borderRadius: radius, marginBottom: spacing.md },
   spacer: { marginTop: spacing.md },
 });
