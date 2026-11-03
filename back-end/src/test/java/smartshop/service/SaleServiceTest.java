@@ -69,7 +69,7 @@ class SaleServiceTest {
         when(sales.findByIdForUpdate(saleId)).thenReturn(Optional.of(sale));
 
         SaleService service = new SaleService(
-                sales, customers, payments, products, movements, refundLines);
+                sales, customers, payments, products, movements, refundLines, refunds);
 
         service.cancel(saleId, "Retry");
 
