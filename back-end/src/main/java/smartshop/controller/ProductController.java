@@ -26,24 +26,14 @@ public class ProductController {
     @ResponseStatus(HttpStatus.CREATED)
     public ProductResponse create(@Valid @RequestBody ProductCreateRequest request) {
         Product product = new Product();
-        product.setReference(request.reference());
+        // Generate the internal reference automatically; the form only asks for catalogue details.
+        product.setReference("PRD-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         product.setName(request.name());
-        product.setSalePrice(request.salePrice());
-        if (request.purchasePrice() != null) {
-            product.setPurchasePrice(request.purchasePrice());
-            product.setAveragePurchasePrice(request.purchasePrice());
-        }
-        if (request.initialStock() != null) {
-            product.setStockQuantity(request.initialStock());
-        }
+        product.setBrand(request.brand());
+        product.setModel(request.model());
         if (request.alertThreshold() != null) {
             product.setAlertThreshold(request.alertThreshold());
         }
-        product.setBrand(request.brand());
-        product.setModel(request.model());
-        product.setColor(request.color());
-        product.setCapacity(request.capacity());
-        product.setImageUrl(request.imageUrl());
         return ProductResponse.from(productService.create(product));
     }
 
