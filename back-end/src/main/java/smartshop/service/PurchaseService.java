@@ -82,6 +82,10 @@ public class PurchaseService {
 
             // Le dernier prix réellement payé devient le prix de référence du prochain achat.
             product.setPurchasePrice(lineRequest.unitPrice());
+            // The sale price entered during this purchase becomes the product's current sale price.
+            if (lineRequest.salePrice() != null) {
+                product.setSalePrice(lineRequest.salePrice());
+            }
 
             total = total.add(lineRequest.unitPrice()
                     .multiply(BigDecimal.valueOf(lineRequest.quantity())));
