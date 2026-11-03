@@ -29,7 +29,8 @@ type Props = NativeStackScreenProps<PurchasesStackParamList, 'PurchaseForm'>;
 interface CartLine {
   product: Product;
   quantity: number;
-  unitPrice: string; // texte tapé par l'utilisateur
+  unitPrice: string; // prix d'achat saisi par l'utilisateur
+  salePrice: string; // prix de vente appliqué après cet achat
 }
 
 export default function PurchaseFormScreen({ navigation }: Props) {
@@ -120,7 +121,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
       }
       return [
         ...current,
-        { product, quantity: 1, unitPrice: String(product.purchasePrice || '') },
+        { product, quantity: 1, unitPrice: String(product.purchasePrice || ''), salePrice: String(product.salePrice || '') },
       ];
     });
     setSearch('');
@@ -142,10 +143,17 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     );
   }
 
+  function changeSalePrice(productId: string, value: string) {
+    setCart((current) =>
+      current.map((line) => (line.product.id === productId ? { ...line, salePrice: value } : line)),
+    );
+  }
+
   async function submit() {
     const invalidPrice = cart.some((line) => {
       const price = parseNumber(line.unitPrice);
-      return price === null || price < 0;
+      const salePrice = parseNumber(line.salePrice);
+      return price === null || price < 0 || salePrice === null || salePrice < 0;
     });
     if (cart.length === 0 || invalidPrice) {
       setError(t('purchases.invalid'));
@@ -168,6 +176,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
           productId: line.product.id,
           quantity: line.quantity,
           unitPrice: parseNumber(line.unitPrice) ?? 0,
+          salePrice: parseNumber(line.salePrice) ?? 0,
         })),
       });
       void syncPendingOperations().catch(() => undefined);
@@ -251,14 +260,15 @@ export default function PurchaseFormScreen({ navigation }: Props) {
                     <Text style={styles.qtyText}>+</Text>
                   </Pressable>
                 </View>
-                <View style={styles.priceBox}>
-                  <Text style={styles.muted}>{t('purchases.unitPrice')}</Text>
-                  <TextInput
-                    style={styles.priceInput}
-                    value={line.unitPrice}
-                    onChangeText={(value) => changePrice(line.product.id, value)}
-                    keyboardType="decimal-pad"
-                  />
+                <View style={styles.priceFields}>
+                  <View style={styles.priceBox}>
+                    <Text style={styles.muted}>{t('products.purchasePrice')} (DH)</Text>
+                    <TextInput style={styles.priceInput} value={line.unitPrice} onChangeText={(value) => changePrice(line.product.id, value)} keyboardType="decimal-pad" />
+                  </View>
+                  <View style={styles.priceBox}>
+                    <Text style={styles.muted}>{t('products.salePrice')} (DH)</Text>
+                    <TextInput style={styles.priceInput} value={line.salePrice} onChangeText={(value) => changeSalePrice(line.product.id, value)} keyboardType="decimal-pad" />
+                  </View>
                 </View>
               </View>
             </View>
@@ -395,7 +405,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     gap: spacing.sm,
   },
-  cartControls: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  cartControls: { gap: spacing.md },
+  priceFields: { flexDirection: 'row', gap: spacing.sm },
   name: { fontSize: 15, fontWeight: '700', color: colors.text },
   muted: { color: colors.muted, fontSize: 13 },
   qty: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
@@ -416,7 +427,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.text,
   },
-  priceBox: { width: 130 },
+  priceBox: { flex: 1, minWidth: 0 },
   priceInput: {
     borderWidth: 1,
     borderColor: colors.border,
