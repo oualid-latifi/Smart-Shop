@@ -13,6 +13,8 @@ public interface PurchasePaymentRepository extends JpaRepository<PurchasePayment
 
     java.util.List<PurchasePayment> findAllByOrderByPaidAtAsc();
 
+    boolean existsByPurchase_Id(UUID purchaseId);
+
     // Pour les rapports : argent versé aux fournisseurs
     @Query("select sum(p.amount) from PurchasePayment p where p.paidAt >= :start and p.paidAt < :end")
     BigDecimal sumBetween(@Param("start") LocalDateTime start, @Param("end") LocalDateTime end);
