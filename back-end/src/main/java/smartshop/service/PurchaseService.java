@@ -207,18 +207,18 @@ public class PurchaseService {
                 // L'ajout supplémentaire est intégré au coût moyen du stock.
                 BigDecimal oldValue = product.getAveragePurchasePrice()
                         .multiply(BigDecimal.valueOf(Math.max(product.getStockQuantity(), 0)));
-                BigDecimal addedValue = BigDecimal.ZERO;
+                BigDecimal addedUnitValue = BigDecimal.ZERO;
+                int requestedQty = newQuantities.getOrDefault(productId, 0);
                 for (PurchaseLineRequest line : request.lines()) {
                     if (line.productId().equals(productId)) {
-                        int previousQty = oldQuantities.getOrDefault(productId, 0);
-                        int remainingDelta = delta;
-                        int addQty = Math.min(line.quantity(), remainingDelta);
-                        if (addQty > 0) {
-                            addedValue = addedValue.add(line.unitPrice().multiply(BigDecimal.valueOf(addQty)));
-                            remainingDelta -= addQty;
-                        }
+                        addedUnitValue = addedUnitValue.add(line.unitPrice()
+                                .multiply(BigDecimal.valueOf(line.quantity())));
                     }
                 }
+                BigDecimal addedValue = requestedQty > 0
+                        ? addedUnitValue.multiply(BigDecimal.valueOf(delta))
+                                .divide(BigDecimal.valueOf(requestedQty), 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
                 if (correctedStock > 0) {
                     product.setAveragePurchasePrice(oldValue.add(addedValue)
                             .divide(BigDecimal.valueOf(correctedStock), 2, RoundingMode.HALF_UP));
