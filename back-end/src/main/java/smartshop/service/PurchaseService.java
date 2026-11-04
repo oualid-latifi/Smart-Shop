@@ -147,6 +147,156 @@ public class PurchaseService {
         return purchaseRepository.save(purchase);
     }
 
+    /**
+     * Modifie un achat sans toucher aux paiements déjà enregistrés.
+     * Le stock est corrigé uniquement avec la différence entre les anciennes et nouvelles quantités.
+     */
+    @Transactional
+    public Purchase update(UUID purchaseId, PurchaseRequest request) {
+        Purchase purchase = purchaseRepository.findByIdForUpdate(purchaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Achat introuvable"));
+
+        Supplier supplier = null;
+        if (request.supplierId() != null) {
+            supplier = supplierRepository.findById(request.supplierId())
+                    .orElseThrow(() -> new IllegalArgumentException("Fournisseur introuvable"));
+        }
+
+        BigDecimal newTotal = BigDecimal.ZERO;
+        java.util.Map<UUID, Integer> oldQuantities = new java.util.HashMap<>();
+        java.util.Map<UUID, Integer> newQuantities = new java.util.HashMap<>();
+        java.util.Map<UUID, Product> products = new java.util.HashMap<>();
+
+        for (PurchaseLine oldLine : purchase.getLines()) {
+            UUID productId = oldLine.getProduct().getId();
+            oldQuantities.merge(productId, oldLine.getQuantity(), Integer::sum);
+            products.put(productId, oldLine.getProduct());
+        }
+
+        for (PurchaseLineRequest lineRequest : request.lines()) {
+            Product product = productRepository.findByIdForUpdate(lineRequest.productId())
+                    .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
+            if (!product.getActive()) {
+                throw new IllegalArgumentException("Le produit " + product.getName() + " est désactivé");
+            }
+            products.put(product.getId(), product);
+            newQuantities.merge(product.getId(), lineRequest.quantity(), Integer::sum);
+            newTotal = newTotal.add(lineRequest.unitPrice()
+                    .multiply(BigDecimal.valueOf(lineRequest.quantity())));
+        }
+
+        if (newTotal.compareTo(purchase.getAmountPaid()) < 0) {
+            throw new IllegalArgumentException(
+                    "Le nouveau total ne peut pas être inférieur au montant déjà payé ("
+                            + purchase.getAmountPaid() + " DH)");
+        }
+
+        java.util.Set<UUID> productIds = new java.util.HashSet<>(oldQuantities.keySet());
+        productIds.addAll(newQuantities.keySet());
+        for (UUID productId : productIds) {
+            Product product = products.get(productId);
+            int oldQty = oldQuantities.getOrDefault(productId, 0);
+            int newQty = newQuantities.getOrDefault(productId, 0);
+            int delta = newQty - oldQty;
+            int correctedStock = product.getStockQuantity() + delta;
+            if (correctedStock < 0) {
+                throw new IllegalArgumentException("Stock insuffisant pour corriger l'achat du produit "
+                        + product.getName() + ". Stock actuel: " + product.getStockQuantity());
+            }
+            if (delta > 0) {
+                // L'ajout supplémentaire est intégré au coût moyen du stock.
+                BigDecimal oldValue = product.getAveragePurchasePrice()
+                        .multiply(BigDecimal.valueOf(Math.max(product.getStockQuantity(), 0)));
+                BigDecimal addedUnitValue = BigDecimal.ZERO;
+                int requestedQty = newQuantities.getOrDefault(productId, 0);
+                for (PurchaseLineRequest line : request.lines()) {
+                    if (line.productId().equals(productId)) {
+                        addedUnitValue = addedUnitValue.add(line.unitPrice()
+                                .multiply(BigDecimal.valueOf(line.quantity())));
+                    }
+                }
+                BigDecimal addedValue = requestedQty > 0
+                        ? addedUnitValue.multiply(BigDecimal.valueOf(delta))
+                                .divide(BigDecimal.valueOf(requestedQty), 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+                if (correctedStock > 0) {
+                    product.setAveragePurchasePrice(oldValue.add(addedValue)
+                            .divide(BigDecimal.valueOf(correctedStock), 2, RoundingMode.HALF_UP));
+                }
+            }
+            product.setStockQuantity(correctedStock);
+            productRepository.save(product);
+        }
+
+        purchase.getLines().clear();
+        for (PurchaseLineRequest lineRequest : request.lines()) {
+            Product product = products.get(lineRequest.productId());
+            PurchaseLine line = new PurchaseLine();
+            line.setProduct(product);
+            line.setQuantity(lineRequest.quantity());
+            line.setUnitPrice(lineRequest.unitPrice());
+            purchase.addLine(line);
+            product.setPurchasePrice(lineRequest.unitPrice());
+            if (lineRequest.salePrice() != null) product.setSalePrice(lineRequest.salePrice());
+            productRepository.save(product);
+        }
+
+        purchase.setSupplier(supplier);
+        purchase.setNote(request.note());
+        if (request.purchaseDate() != null) purchase.setPurchaseDate(request.purchaseDate());
+        purchase.setTotal(newTotal);
+
+        Purchase saved = purchaseRepository.save(purchase);
+        stockMovementRepository.deleteAllByReferenceIdAndType(
+                saved.getId(), StockMovementType.PURCHASE);
+        for (PurchaseLine line : saved.getLines()) {
+            StockMovement movement = new StockMovement();
+            movement.setProduct(line.getProduct());
+            movement.setType(StockMovementType.PURCHASE);
+            movement.setQuantity(line.getQuantity());
+            movement.setReferenceId(saved.getId());
+            stockMovementRepository.save(movement);
+        }
+        return saved;
+    }
+
+    /**
+     * Suppression sécurisée : un achat ayant déjà un paiement ne peut pas être supprimé,
+     * afin de préserver l'historique financier.
+     */
+    @Transactional
+    public void delete(UUID purchaseId) {
+        Purchase purchase = purchaseRepository.findByIdForUpdate(purchaseId)
+                .orElseThrow(() -> new IllegalArgumentException("Achat introuvable"));
+        if (purchase.getAmountPaid().signum() > 0
+                || paymentRepository.existsByPurchase_Id(purchaseId)) {
+            throw new IllegalArgumentException(
+                    "Impossible de supprimer cet achat : il possède déjà un paiement. Corrigez-le au lieu de le supprimer.");
+        }
+
+        java.util.Map<UUID, Integer> quantities = new java.util.HashMap<>();
+        java.util.Map<UUID, Product> products = new java.util.HashMap<>();
+        for (PurchaseLine line : purchase.getLines()) {
+            UUID productId = line.getProduct().getId();
+            quantities.merge(productId, line.getQuantity(), Integer::sum);
+            products.put(productId, line.getProduct());
+        }
+        for (java.util.Map.Entry<UUID, Integer> entry : quantities.entrySet()) {
+            Product product = products.get(entry.getKey());
+            int correctedStock = product.getStockQuantity() - entry.getValue();
+            if (correctedStock < 0) {
+                throw new IllegalArgumentException("Impossible de supprimer cet achat : une partie du stock a déjà été vendue pour "
+                        + product.getName());
+            }
+            product.setStockQuantity(correctedStock);
+            productRepository.save(product);
+        }
+
+        stockMovementRepository.deleteAllByReferenceIdAndType(
+                purchaseId, StockMovementType.PURCHASE);
+        purchaseRepository.delete(purchase);
+    }
+
     @Transactional(readOnly = true)
     public Purchase findById(UUID id) {
         return purchaseRepository.findById(id)

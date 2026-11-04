@@ -27,6 +27,18 @@ public class PurchaseController {
         return PurchaseResponse.from(purchaseService.create(request));
     }
 
+    @PutMapping("/{id}")
+    public PurchaseResponse update(@PathVariable UUID id,
+                                   @Valid @RequestBody PurchaseRequest request) {
+        return PurchaseResponse.from(purchaseService.update(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void delete(@PathVariable UUID id) {
+        purchaseService.delete(id);
+    }
+
     @GetMapping
     public List<PurchaseResponse> findAll() {
         return purchaseService.findAll().stream().map(PurchaseResponse::from).toList();

@@ -10,6 +10,10 @@ import java.util.UUID;
 
 public interface StockMovementRepository extends JpaRepository<StockMovement, UUID> {
 
+    List<StockMovement> findAllByReferenceIdAndType(UUID referenceId, smartshop.entity.StockMovementType type);
+
+    void deleteAllByReferenceIdAndType(UUID referenceId, smartshop.entity.StockMovementType type);
+
     // Tous les mouvements d'une période, les plus récents d'abord
     List<StockMovement> findByCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
             LocalDateTime start, LocalDateTime end, Pageable pageable);
