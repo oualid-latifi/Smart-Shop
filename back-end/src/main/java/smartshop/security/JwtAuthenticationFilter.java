@@ -39,6 +39,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
+    static List<SimpleGrantedAuthority> authorities(smartshop.entity.AppUser user) {
+        java.util.ArrayList<SimpleGrantedAuthority> list = new java.util.ArrayList<>();
+        list.add(new SimpleGrantedAuthority("ROLE_" + user.getRole().name()));
+        user.getRole().getPermissions().forEach(p -> list.add(new SimpleGrantedAuthority(p.name())));
+        return list;
+    }
+
     private void authenticate(String token) {
         jwtService.parse(token).ifPresent(claims -> {
             try {
@@ -46,11 +53,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Integer version = claims.get("ver", Integer.class);
 
                 userRepository.findById(userId)
-                        .filter(user -> version != null && version == user.getTokenVersion())
+                        .filter(user -> version != null && version == user.getTokenVersion() && user.isActive())
                         .ifPresent(user -> {
                             UsernamePasswordAuthenticationToken authentication =
                                     new UsernamePasswordAuthenticationToken(
-                                            user, null, List.of(new SimpleGrantedAuthority("ROLE_OWNER")));
+                                            user, null, authorities(user));
                             SecurityContextHolder.getContext().setAuthentication(authentication);
                         });
             } catch (IllegalArgumentException ignored) {

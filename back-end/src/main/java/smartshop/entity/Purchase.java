@@ -32,6 +32,18 @@ public class Purchase {
     @Column(length = 255)
     private String note;
 
+    // Marchandise renvoyée au fournisseur et argent qu'il nous a rendu (null pour les anciens achats = 0).
+    // Reste à payer = total - retourné + remboursé - payé
+    @Column(name = "returned_amount", precision = 12, scale = 2)
+    private BigDecimal returnedAmount;
+
+    @Column(name = "refund_received", precision = 12, scale = 2)
+    private BigDecimal refundReceived;
+
+    // Bon de commande d'origine (réception)
+    @Column(name = "purchase_order_id")
+    private UUID purchaseOrderId;
+
     @OneToMany(mappedBy = "purchase", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<PurchaseLine> lines = new ArrayList<>();
 
@@ -49,8 +61,17 @@ public class Purchase {
     }
 
     public BigDecimal getRemaining() {
-        return total.subtract(amountPaid);
+        return total.subtract(getReturnedAmount()).add(getRefundReceived()).subtract(amountPaid);
     }
+
+    public BigDecimal getReturnedAmount() { return returnedAmount != null ? returnedAmount : BigDecimal.ZERO; }
+    public void setReturnedAmount(BigDecimal returnedAmount) { this.returnedAmount = returnedAmount; }
+
+    public BigDecimal getRefundReceived() { return refundReceived != null ? refundReceived : BigDecimal.ZERO; }
+    public void setRefundReceived(BigDecimal refundReceived) { this.refundReceived = refundReceived; }
+
+    public UUID getPurchaseOrderId() { return purchaseOrderId; }
+    public void setPurchaseOrderId(UUID purchaseOrderId) { this.purchaseOrderId = purchaseOrderId; }
 
     public UUID getId() { return id; }
 

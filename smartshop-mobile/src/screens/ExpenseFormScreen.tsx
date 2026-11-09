@@ -50,7 +50,7 @@ export default function ExpenseFormScreen({ navigation }: Props) {
       <Text style={styles.label}>{t('expenses.category')}</Text>
       <View style={styles.chips}>
         {CATEGORIES.map((c) => (
-          <Pressable
+          <Pressable accessibilityRole="button"
             key={c}
             onPress={() => setCategory(c)}
             style={[styles.chip, category === c && styles.chipActive]}

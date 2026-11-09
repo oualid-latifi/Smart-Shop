@@ -6,6 +6,8 @@ public record AuthResponse(
         String token,
         Instant expiresAt,
         String name,
-        String email
+        String email,
+        smartshop.entity.Role role,
+        java.util.Set<smartshop.entity.Permission> permissions
 ) {
 }

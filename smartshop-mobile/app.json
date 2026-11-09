@@ -1,13 +1,15 @@
 {
   "expo": {
-    "name": "smartshop-mobile",
+    "name": "SmartShop",
     "slug": "smartshop-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.smartshop.mobile",
+      "buildNumber": "1"
     },
     "android": {
       "adaptiveIcon": {
@@ -16,7 +18,12 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.smartshop.mobile",
+      "versionCode": 1,
+      "blockedPermissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -29,9 +36,20 @@
       [
         "expo-image-picker",
         {
-          "cameraPermission": "SmartShop utilise la caméra pour photographier les produits."
+          "cameraPermission": "SmartShop utilise la caméra pour photographier les produits.",
+          "photosPermission": "SmartShop accède à vos photos pour illustrer les produits.",
+          "microphonePermission": false
+        }
+      ],
+      "expo-sharing",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "SmartShop utilise la caméra pour photographier les produits et scanner les codes-barres.",
+          "recordAudioAndroid": false
         }
       ]
-    ]
+    ],
+    "scheme": "smartshop"
   }
 }

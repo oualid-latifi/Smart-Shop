@@ -10,6 +10,7 @@ import java.util.UUID;
 public record SaleLineRequest(
         @NotNull UUID productId,
         @NotNull @Min(1) Integer quantity,
-        @DecimalMin("0.00") BigDecimal unitPrice   // facultatif : prix de vente du produit par défaut
+        @DecimalMin("0.00") BigDecimal unitPrice,  // facultatif : prix de vente du produit par défaut (prix du carton si packs)
+        Boolean packs                               // true = quantity est un nombre de cartons
 ) {
 }

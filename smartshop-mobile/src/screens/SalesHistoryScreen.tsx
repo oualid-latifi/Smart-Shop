@@ -55,7 +55,7 @@ export default function SalesHistoryScreen({ navigation }: Props) {
   function renderItem({ item }: { item: Sale }) {
     const cancelled = item.status === 'CANCELLED';
     return (
-      <Pressable
+      <Pressable accessibilityRole="button"
         onPress={() => navigation.navigate('SaleDetail', { sale: item })}
         style={({ pressed }) => [styles.card, cancelled && styles.cancelled, pressed && styles.pressed]}
       >

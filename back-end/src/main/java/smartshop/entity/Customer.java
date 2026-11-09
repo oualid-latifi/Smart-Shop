@@ -19,6 +19,13 @@ public class Customer {
     @Column(length = 30)
     private String phone;
 
+    @Column(length = 255)
+    private String address;
+
+    // ICE du client professionnel, imprimé sur ses factures
+    @Column(length = 20)
+    private String ice;
+
     // null = pas de limite de kridi
     @Column(name = "credit_limit", precision = 12, scale = 2)
     private BigDecimal creditLimit;
@@ -44,6 +51,12 @@ public class Customer {
 
     public String getPhone() { return phone; }
     public void setPhone(String phone) { this.phone = phone; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getIce() { return ice; }
+    public void setIce(String ice) { this.ice = ice; }
 
     public BigDecimal getCreditLimit() { return creditLimit; }
     public void setCreditLimit(BigDecimal creditLimit) { this.creditLimit = creditLimit; }

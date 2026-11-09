@@ -1,20 +1,12 @@
-# SmartShop : gestion de boutique (téléphones et accessoires)
+# SmartShop : back-end
 
-## Lancer le projet
-1. Installe Java 17 (ou plus) et PostgreSQL.
-2. Crée une base vide nommée `smartshop` dans PostgreSQL.
-3. Ouvre `src/main/resources/application.properties` et mets ton utilisateur et ton mot de passe PostgreSQL.
-4. Lance `SmartShopApplication` (IntelliJ), ou dans un terminal : `mvn spring-boot:run`
-5. Les tables sont créées automatiquement au premier lancement.
+La documentation complète (installation, configuration, tests, mise en production) se trouve dans le
+[README principal](../README.md).
 
-## Tester avec Postman
-Importe les fichiers du dossier `postman/` puis clique sur Run :
-- `1-produits-et-categories`
-- `2-fournisseurs-et-achats`
+En bref :
 
-## Les API
-- /api/categories, /api/products
-- /api/suppliers, /api/purchases
-- /api/customers, /api/sales
-- /api/expenses
-- /api/reports (today, this-week, this-month, summary)
+```bash
+cp .env.example .env      # remplir DB_PASSWORD et JWT_SECRET
+mvn spring-boot:run       # API sur http://localhost:8080, documentation sur /swagger-ui.html
+mvn verify                # tests
+```

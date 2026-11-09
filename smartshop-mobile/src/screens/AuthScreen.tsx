@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, TextInputInstance, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
@@ -23,6 +23,8 @@ export default function AuthScreen() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const emailRef = useRef<TextInputInstance>(null);
+  const passwordRef = useRef<TextInputInstance>(null);
 
   const checkAccount = useCallback(async () => {
     try {
@@ -91,22 +93,41 @@ export default function AuthScreen() {
           {!accountExists ? <Text style={styles.hint}>{t('auth.registerHint')}</Text> : null}
 
           {!accountExists ? (
-            <TextField label={t('auth.name')} value={name} onChangeText={setName} />
+            <TextField
+              label={t('auth.name')}
+              value={name}
+              onChangeText={setName}
+              autoComplete="name"
+              textContentType="name"
+              returnKeyType="next"
+              onSubmitEditing={() => emailRef.current?.focus()}
+              blurOnSubmit={false}
+            />
           ) : null}
           <TextField
+            ref={emailRef}
             label={t('auth.email')}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="email"
+            textContentType={accountExists ? 'username' : 'emailAddress'}
+            returnKeyType="next"
+            onSubmitEditing={() => passwordRef.current?.focus()}
+            blurOnSubmit={false}
           />
           <TextField
+            ref={passwordRef}
             label={t('auth.password')}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
+            autoComplete={accountExists ? 'current-password' : 'new-password'}
+            textContentType={accountExists ? 'password' : 'newPassword'}
+            returnKeyType="go"
             hint={!accountExists ? t('auth.passwordHint') : undefined}
             onSubmitEditing={submit}
           />
@@ -125,7 +146,7 @@ export default function AuthScreen() {
       {accountExists === null && error ? (
         <View style={styles.card}>
           <Text style={styles.error}>{error}</Text>
-          <PrimaryButton title="↻" onPress={checkAccount} variant="outline" />
+          <PrimaryButton icon="refresh" title={t('common.retry')} onPress={checkAccount} variant="outline" />
         </View>
       ) : null}
 

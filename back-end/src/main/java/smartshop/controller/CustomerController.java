@@ -1,15 +1,22 @@
 package smartshop.controller;
 
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import smartshop.dto.AgingResponse;
 import smartshop.dto.CustomerDebtResponse;
 import smartshop.dto.CustomerRequest;
 import smartshop.dto.CustomerResponse;
 import smartshop.dto.PaymentRequest;
 import smartshop.dto.SaleResponse;
+import smartshop.dto.StatementResponse;
 import smartshop.service.CustomerService;
+import smartshop.service.DocumentPdfService;
+import smartshop.service.StatementService;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -18,9 +25,34 @@ import java.util.UUID;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final StatementService statementService;
+    private final DocumentPdfService pdfService;
 
-    public CustomerController(CustomerService customerService) {
+    public CustomerController(CustomerService customerService, StatementService statementService, DocumentPdfService pdfService) {
         this.customerService = customerService;
+        this.statementService = statementService;
+        this.pdfService = pdfService;
+    }
+
+    // Ancienneté des créances : 0-30, 31-60, 61-90, plus de 90 jours
+    @GetMapping("/aging")
+    public List<AgingResponse> aging() {
+        return statementService.aging();
+    }
+
+    @GetMapping("/{id}/statement")
+    public StatementResponse statement(@PathVariable UUID id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return statementService.statement(id, from, to);
+    }
+
+    @GetMapping("/{id}/statement.pdf")
+    public ResponseEntity<byte[]> statementPdf(@PathVariable UUID id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        StatementResponse statement = statementService.statement(id, from, to);
+        return DocumentPdfService.inline("releve.pdf", pdfService.statement(statement));
     }
 
     @PostMapping
@@ -66,6 +98,6 @@ public class CustomerController {
     @PostMapping("/{id}/payments")
     public CustomerResponse pay(@PathVariable UUID id,
                                 @Valid @RequestBody PaymentRequest request) {
-        return customerService.pay(id, request.amount());
+        return customerService.pay(id, request);
     }
 }

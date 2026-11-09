@@ -4,6 +4,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import SaleDetailScreen from '../screens/SaleDetailScreen';
+import SaleReturnScreen from '../screens/SaleReturnScreen';
 import SaleScreen from '../screens/SaleScreen';
 import SalesHistoryScreen from '../screens/SalesHistoryScreen';
 import { colors } from '../theme';
@@ -22,7 +23,7 @@ export default function SalesStack() {
         options={({ navigation }) => ({
           title: t('tabs.sales'),
           headerRight: () => (
-            <Pressable onPress={() => navigation.navigate('SalesHistory')} hitSlop={10}>
+            <Pressable accessibilityRole="button" accessibilityLabel={t('history.title')} onPress={() => navigation.navigate('SalesHistory')} hitSlop={10}>
               <Ionicons name="time-outline" size={26} color={colors.text} />
             </Pressable>
           ),
@@ -37,6 +38,11 @@ export default function SalesStack() {
         name="SaleDetail"
         component={SaleDetailScreen}
         options={{ title: t('history.detailTitle') }}
+      />
+      <Stack.Screen
+        name="SaleReturn"
+        component={SaleReturnScreen}
+        options={{ title: t('returns.title') }}
       />
     </Stack.Navigator>
   );

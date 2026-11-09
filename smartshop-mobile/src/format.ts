@@ -1,6 +1,9 @@
+// 12345.5 -> "12 345,50 DH" (séparateur de milliers pour lire les montants d'un coup d'œil)
 export function formatMoney(value: number | null | undefined): string {
   const amount = Number(value ?? 0);
-  return `${amount.toFixed(2)} DH`;
+  const [whole, decimals] = Math.abs(amount).toFixed(2).split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  return `${amount < 0 ? '-' : ''}${grouped},${decimals} DH`;
 }
 
 // "12,5" ou "12.5" -> 12.5 ; texte vide ou invalide -> null

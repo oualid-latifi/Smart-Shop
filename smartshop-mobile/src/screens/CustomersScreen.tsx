@@ -72,7 +72,7 @@ export default function CustomersScreen({ navigation }: Props) {
   function renderItem({ item }: { item: Customer }) {
     const inDebt = item.balance > 0;
     return (
-      <Pressable
+      <Pressable accessibilityRole="button"
         onPress={() => navigation.navigate('CustomerDetail', { customer: item })}
         style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       >
@@ -141,7 +141,7 @@ export default function CustomersScreen({ navigation }: Props) {
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -201,6 +201,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   name: { fontSize: 14, fontWeight: '700', color: colors.text },
   muted: { color: colors.muted, fontSize: 13 },
+  inactive: { color: colors.danger, fontSize: 12, fontWeight: '700', marginTop: 2 },
   customerAvatar: { width: 38, height: 38, borderRadius: 13, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   balanceWrap: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   balance: { fontSize: 15, fontWeight: '700' },

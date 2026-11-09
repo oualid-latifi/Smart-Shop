@@ -27,6 +27,10 @@ export default function PrimaryButton({
     <Pressable
       onPress={onPress}
       disabled={inactive}
+      accessibilityRole="button"
+      accessibilityLabel={title}
+      accessibilityState={{ disabled: inactive, busy: loading }}
+      hitSlop={4}
       style={({ pressed }) => [
         styles.button,
         outline ? styles.outline : styles.filled,

@@ -12,6 +12,7 @@ import smartshop.repository.PurchasePaymentRepository;
 import smartshop.repository.PurchaseRepository;
 import smartshop.repository.SaleLineRepository;
 import smartshop.repository.SaleRepository;
+import smartshop.repository.SaleReturnRepository;
 
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
@@ -32,6 +33,8 @@ public class ReportService {
     private final PurchasePaymentRepository purchasePaymentRepository;
     private final ExpenseRepository expenseRepository;
     private final ProductRepository productRepository;
+    private final SaleReturnRepository saleReturnRepository;
+    private final smartshop.repository.WarehouseStockRepository warehouseStockRepository;
 
     public ReportService(SaleRepository saleRepository,
                          SaleLineRepository saleLineRepository,
@@ -39,7 +42,9 @@ public class ReportService {
                          PurchaseRepository purchaseRepository,
                          PurchasePaymentRepository purchasePaymentRepository,
                          ExpenseRepository expenseRepository,
-                         ProductRepository productRepository) {
+                         ProductRepository productRepository,
+                         SaleReturnRepository saleReturnRepository,
+                         smartshop.repository.WarehouseStockRepository warehouseStockRepository) {
         this.saleRepository = saleRepository;
         this.saleLineRepository = saleLineRepository;
         this.customerPaymentRepository = customerPaymentRepository;
@@ -47,6 +52,8 @@ public class ReportService {
         this.purchasePaymentRepository = purchasePaymentRepository;
         this.expenseRepository = expenseRepository;
         this.productRepository = productRepository;
+        this.saleReturnRepository = saleReturnRepository;
+        this.warehouseStockRepository = warehouseStockRepository;
     }
 
     /** Sans dates : du début du mois jusqu'à aujourd'hui. */
@@ -64,14 +71,16 @@ public class ReportService {
 
         long salesCount = saleRepository.countValidatedBetween(startTime, endTime);
         BigDecimal revenue = nz(saleRepository.sumTotalBetween(startTime, endTime));
-        BigDecimal cost = nz(saleLineRepository.sumCostBetween(startTime, endTime));
+        BigDecimal cost = nz(saleLineRepository.sumCostBetween(startTime, endTime))
+                .subtract(nz(saleReturnRepository.sumReturnedCostBetween(startTime, endTime)));
         BigDecimal grossProfit = revenue.subtract(cost);
 
         BigDecimal expenses = nz(expenseRepository.sumBetween(start, end));
         BigDecimal netProfit = grossProfit.subtract(expenses);
 
         BigDecimal cashCollected = nz(customerPaymentRepository.sumValidatedBetween(startTime, endTime))
-                .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)));
+                .add(nz(saleRepository.sumWalkInPaidBetween(startTime, endTime)))
+                .subtract(nz(saleReturnRepository.sumRefundsBetween(startTime, endTime)));
         BigDecimal paidToSuppliers = nz(purchasePaymentRepository.sumBetween(startTime, endTime));
         BigDecimal purchasesTotal = nz(purchaseRepository.sumTotalBetween(startTime, endTime));
         BigDecimal netCashFlow = cashCollected.subtract(paidToSuppliers).subtract(expenses);
@@ -90,7 +99,8 @@ public class ReportService {
                 topProducts,
                 nz(saleRepository.sumAllDebt()),
                 nz(purchaseRepository.sumAllDebt()),
-                nz(productRepository.sumStockValue()),
+                // Boutique + dépôts de stockage (la quarantaine n'est pas comptée)
+                nz(productRepository.sumStockValue()).add(nz(warehouseStockRepository.sumStorageValue())),
                 productRepository.countLowStock());
     }
 

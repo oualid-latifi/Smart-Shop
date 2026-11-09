@@ -7,7 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import { confirmAction } from '../confirm';
+import { openWhatsApp, shareDocument } from '../documents';
 import type { Customer, Sale } from '../api/types';
+import DocumentActions from '../components/DocumentActions';
+import PaymentMethodPicker, { EMPTY_PAYMENT, paymentBody, paymentError, type PaymentValue } from '../components/PaymentMethodPicker';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
@@ -21,6 +24,8 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const [customer, setCustomer] = useState<Customer>(route.params.customer);
   const [amount, setAmount] = useState('');
+  const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
+  const [shopName, setShopName] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -49,6 +54,10 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
     void loadHistory();
   }, [loadHistory]));
 
+  React.useEffect(() => {
+    api<{ shopName: string | null }>('/api/settings').then((s) => setShopName(s.shopName ?? '')).catch(() => undefined);
+  }, []);
+
   function deactivate() {
     confirmAction(
       t('customers.deactivateConfirm'),
@@ -74,6 +83,11 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
       setError(t('customers.invalid'));
       return;
     }
+    const problem = paymentError(payment, t);
+    if (problem) {
+      setError(problem);
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -81,10 +95,11 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
     try {
       const updated = await api<Customer>(`/api/customers/${customer.id}/payments`, {
         method: 'POST',
-        body: { amount: value },
+        body: { amount: value, ...paymentBody(payment) },
       });
       setCustomer(updated);
       setAmount('');
+      setPayment(EMPTY_PAYMENT);
       setSuccess(true);
       await loadHistory();
     } catch (e) {
@@ -126,6 +141,19 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
         )}
       </View>
 
+      <View style={styles.block}>
+        <Text style={styles.section}>{t('statement.title')}</Text>
+        <DocumentActions
+          onError={(e) => setError(errorMessage(e, t))}
+          actions={[
+            { key: 'st', label: t('statement.share'), icon: 'document-text-outline',
+              onPress: () => shareDocument(`/api/customers/${customer.id}/statement.pdf`, `releve-${customer.name.replace(/\s+/g, '-')}.pdf`, t('docs.shareTitle')) },
+            ...(inDebt ? [{ key: 'wa', label: t('statement.reminder'), icon: 'logo-whatsapp' as const,
+              onPress: () => openWhatsApp(t('statement.reminderMessage', { name: customer.name, shop: shopName || 'SmartShop', amount: formatMoney(customer.balance) }), customer.phone) }] : []),
+          ]}
+        />
+      </View>
+
       {customer.phone ? (
         <View style={styles.block}>
           <PrimaryButton
@@ -145,6 +173,7 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
             onChangeText={setAmount}
             keyboardType="decimal-pad"
           />
+          <PaymentMethodPicker value={payment} onChange={setPayment} />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <PrimaryButton title={t('customers.pay')} onPress={pay} loading={saving} />
         </View>

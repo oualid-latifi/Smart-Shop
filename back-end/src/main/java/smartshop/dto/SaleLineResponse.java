@@ -10,7 +10,11 @@ public record SaleLineResponse(
         String productName,
         Integer quantity,
         BigDecimal unitPrice,
-        BigDecimal unitCost
+        BigDecimal unitCost,
+        int returnedQuantity,
+        Integer packCount,
+        BigDecimal packPrice,
+        BigDecimal lineTotal
 ) {
 
     public static SaleLineResponse from(SaleLine l) {
@@ -19,6 +23,10 @@ public record SaleLineResponse(
                 l.getProduct().getName(),
                 l.getQuantity(),
                 l.getUnitPrice(),
-                l.getUnitCost());
+                smartshop.security.CurrentUser.canSeeMargins() ? l.getUnitCost() : null,
+                l.getSale().getReturnedQuantity(l.getProduct().getId()),
+                l.getPackCount(),
+                l.getPackPrice(),
+                l.getLineTotal());
     }
 }

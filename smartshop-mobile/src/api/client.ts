@@ -26,7 +26,7 @@ interface RequestOptions {
 }
 
 // Adresse du serveur : celle choisie dans les Réglages, sinon celle de config.ts
-async function getBaseUrl(): Promise<string> {
+export async function getBaseUrl(): Promise<string> {
   const custom = await storage.get(API_URL_KEY);
   const base = custom && custom.trim() ? custom.trim() : API_URL;
   return base.replace(/\/+$/, '');
@@ -82,9 +82,11 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     if (response.status === 401 && auth && logoutOn401 && onUnauthorized) {
       onUnauthorized();
     }
-    const message: string = typeof data?.message === 'string' ? data.message : '';
-    // Les erreurs de validation arrivent sous la forme { champ: message }
-    const fieldErrors = data && !data.message ? (data as Record<string, string>) : undefined;
+    // Le serveur répond au format "Problem Details" (RFC 9457) : detail/message + errors par champ
+    const message: string =
+      typeof data?.message === 'string' ? data.message : typeof data?.detail === 'string' ? data.detail : '';
+    const fieldErrors =
+      data?.errors && typeof data.errors === 'object' ? (data.errors as Record<string, string>) : undefined;
     throw new ApiError(response.status, message, fieldErrors);
   }
 

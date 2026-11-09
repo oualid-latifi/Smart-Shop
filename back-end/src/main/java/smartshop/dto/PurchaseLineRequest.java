@@ -10,6 +10,7 @@ import java.util.UUID;
 public record PurchaseLineRequest(
         @NotNull UUID productId,
         @NotNull @Min(1) Integer quantity,
-        @NotNull @DecimalMin("0.00") BigDecimal unitPrice
+        @NotNull @DecimalMin("0.00") BigDecimal unitPrice,   // prix d'une unité, ou d'un carton si packs
+        Boolean packs                                       // true = quantity est un nombre de cartons
 ) {
 }
