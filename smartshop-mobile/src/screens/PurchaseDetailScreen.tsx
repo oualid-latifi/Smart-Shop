@@ -7,6 +7,7 @@ import { errorMessage } from '../api/errors';
 import type { Purchase } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
+import SupplierReturnForm from '../components/SupplierReturnForm';
 import TextField from '../components/TextField';
 import { formatDate, formatMoney, parseNumber } from '../format';
 import type { PurchasesStackParamList } from '../navigation/types';
@@ -98,6 +99,9 @@ export default function PurchaseDetailScreen({ route }: Props) {
       ) : null}
 
       {success ? <Text style={styles.success}>{t('purchases.paySuccess')}</Text> : null}
+      <View style={{ marginTop: spacing.lg }}>
+        <SupplierReturnForm purchase={purchase} onDone={setPurchase} />
+      </View>
     </Screen>
   );
 }

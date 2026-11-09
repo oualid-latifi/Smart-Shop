@@ -9,6 +9,8 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import type { Permission } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { colors, radius, spacing } from '../theme';
 
 type Props = {
@@ -21,24 +23,26 @@ export default function MoreScreen({ navigation }: Props) {
   const { i18n, t } = useTranslation();
   const isAr = (i18n.language || '').startsWith('ar');
 
-  const items = [
-    {
-      title: isAr ? 'المشتريات' : 'Achats',
-      subtitle: isAr
-        ? 'تدبير المشتريات والموردين'
-        : 'Gérer les achats et les fournisseurs',
-      icon: 'bag-handle-outline' as const,
-      screen: 'Purchases',
-    },
-    {
-      title: isAr ? 'التقارير والمصاريف' : 'Rapports et dépenses',
-      subtitle: isAr
-        ? 'ملخص النشاط والمصاريف'
-        : 'Consulter les rapports et les dépenses',
-      icon: 'bar-chart-outline' as const,
-      screen: 'Reports',
-    },
+  const { can } = useAuth();
+
+  // Chaque entrée n'apparaît que si le compte a au moins un des droits indiqués
+  const all: { title: string; subtitle: string; icon: React.ComponentProps<typeof Ionicons>['name']; screen: string; anyOf: Permission[] }[] = [
+    { title: t('quotes.title'), subtitle: t('quotes.subtitle'), icon: 'document-text-outline', screen: 'Quotes', anyOf: ['SALES'] },
+    { title: t('targets.title'), subtitle: t('targets.subtitle'), icon: 'trophy-outline', screen: 'Targets', anyOf: ['SALES', 'USERS'] },
+    { title: t('aging.title'), subtitle: t('aging.subtitle'), icon: 'hourglass-outline', screen: 'Aging', anyOf: ['PAYMENTS'] },
+    { title: t('checks.title'), subtitle: t('checks.subtitle'), icon: 'document-outline', screen: 'Checks', anyOf: ['PAYMENTS'] },
+    { title: t('cash.title'), subtitle: t('cash.subtitle'), icon: 'cash-outline', screen: 'Cash', anyOf: ['CASH'] },
+    { title: isAr ? 'المشتريات' : 'Achats', subtitle: isAr ? 'تدبير المشتريات والموردين' : 'Gérer les achats et les fournisseurs', icon: 'bag-handle-outline', screen: 'Purchases', anyOf: ['PURCHASES'] },
+    { title: t('orders.title'), subtitle: t('orders.subtitle'), icon: 'clipboard-outline', screen: 'PurchaseOrders', anyOf: ['PURCHASES', 'STOCK'] },
+    { title: t('inventory.title'), subtitle: t('inventory.subtitle'), icon: 'list-outline', screen: 'Inventories', anyOf: ['STOCK'] },
+    { title: t('warehouses.title'), subtitle: t('warehouses.subtitle'), icon: 'business-outline', screen: 'Warehouses', anyOf: ['STOCK'] },
+    { title: isAr ? 'التقارير والمصاريف' : 'Rapports et dépenses', subtitle: isAr ? 'ملخص النشاط والمصاريف' : 'Consulter les rapports et les dépenses', icon: 'bar-chart-outline', screen: 'Reports', anyOf: ['REPORTS'] },
+    { title: t('users.title'), subtitle: t('users.subtitle'), icon: 'people-circle-outline', screen: 'Users', anyOf: ['USERS'] },
+    { title: t('activity.title'), subtitle: t('activity.subtitle'), icon: 'pulse-outline', screen: 'Activity', anyOf: ['USERS'] },
+    { title: t('import.title'), subtitle: t('import.subtitle'), icon: 'cloud-upload-outline', screen: 'Import', anyOf: ['SETTINGS'] },
+    { title: t('shop.title'), subtitle: t('shop.subtitle'), icon: 'storefront-outline', screen: 'ShopSettings', anyOf: ['SETTINGS'] },
   ];
+  const items = all.filter((item) => item.anyOf.some(can));
 
   return (
     <ScrollView

@@ -14,6 +14,8 @@ public record PurchaseResponse(
         LocalDateTime purchaseDate,
         BigDecimal total,
         BigDecimal amountPaid,
+        BigDecimal returnedAmount,
+        BigDecimal refundReceived,
         BigDecimal remaining,
         String note,
         List<PurchaseLineResponse> lines
@@ -27,6 +29,8 @@ public record PurchaseResponse(
                 p.getPurchaseDate(),
                 p.getTotal(),
                 p.getAmountPaid(),
+                p.getReturnedAmount(),
+                p.getRefundReceived(),
                 p.getRemaining(),
                 p.getNote(),
                 p.getLines().stream().map(PurchaseLineResponse::from).toList());

@@ -80,7 +80,7 @@ export default function ExpensesScreen({ navigation }: Props) {
           <Text style={styles.muted}>{formatDate(item.expenseDate)}</Text>
         </View>
         <Text style={styles.amount}>{formatMoney(item.amount)}</Text>
-        <Pressable onPress={() => remove(item)} hitSlop={10} style={styles.delete}>
+        <Pressable accessibilityRole="button" onPress={() => remove(item)} hitSlop={10} style={styles.delete}>
           <Text style={styles.deleteText}>✕</Text>
         </Pressable>
       </View>

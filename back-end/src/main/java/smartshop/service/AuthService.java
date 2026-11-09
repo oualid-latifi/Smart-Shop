@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -12,6 +13,7 @@ import smartshop.entity.AppUser;
 import smartshop.exception.InvalidCredentialsException;
 import smartshop.repository.AppUserRepository;
 import smartshop.security.JwtService;
+import smartshop.security.LoginAttemptService;
 
 import java.util.UUID;
 
@@ -21,13 +23,16 @@ public class AuthService {
     private final AppUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final LoginAttemptService loginAttemptService;
 
     public AuthService(AppUserRepository userRepository,
                        PasswordEncoder passwordEncoder,
-                       JwtService jwtService) {
+                       JwtService jwtService,
+                       LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @Transactional(readOnly = true)
@@ -45,15 +50,24 @@ public class AuthService {
         user.setName(request.name().trim());
         user.setEmail(normalize(request.email()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setRole(smartshop.entity.Role.OWNER);
         return toResponse(userRepository.save(user));
     }
 
     @Transactional(readOnly = true)
     public AuthResponse login(LoginRequest request) {
+        String email = normalize(request.email());
+        loginAttemptService.checkAllowed(email);
+
         // Même message d'erreur si l'email n'existe pas ou si le mot de passe est faux
-        AppUser user = userRepository.findByEmail(normalize(request.email()))
-                .filter(u -> passwordEncoder.matches(request.password(), u.getPasswordHash()))
-                .orElseThrow(InvalidCredentialsException::new);
+        AppUser user = userRepository.findByEmail(email)
+                .filter(u -> u.isActive() && passwordEncoder.matches(request.password(), u.getPasswordHash()))
+                .orElse(null);
+        if (user == null) {
+            loginAttemptService.onFailure(email);
+            throw new InvalidCredentialsException();
+        }
+        loginAttemptService.onSuccess(email);
         return toResponse(user);
     }
 
@@ -81,7 +95,7 @@ public class AuthService {
 
     private AppUser getUser(UUID id) {
         return userRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Compte introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
     }
 
     private String normalize(String email) {
@@ -90,6 +104,7 @@ public class AuthService {
 
     private AuthResponse toResponse(AppUser user) {
         JwtService.IssuedToken issued = jwtService.issue(user);
-        return new AuthResponse(issued.token(), issued.expiresAt(), user.getName(), user.getEmail());
+        return new AuthResponse(issued.token(), issued.expiresAt(), user.getName(), user.getEmail(),
+                user.getRole(), user.getRole().getPermissions());
     }
 }

@@ -25,7 +25,7 @@ export default function LanguageSwitcher() {
         {LANGUAGES.map(({ code, label }) => {
           const active = i18n.language === code;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={code}
               onPress={() => select(code)}
               style={[styles.chip, active && styles.chipActive]}

@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Product } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
@@ -26,6 +27,7 @@ import { colors, radius, spacing } from '../theme';
 type Props = NativeStackScreenProps<ProductsStackParamList, 'ProductsList'>;
 
 export default function ProductsScreen({ navigation }: Props) {
+  const { can } = useAuth();
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
@@ -67,7 +69,7 @@ export default function ProductsScreen({ navigation }: Props) {
 
   function renderItem({ item }: { item: Product }) {
     return (
-      <Pressable
+      <Pressable accessibilityRole="button"
         onPress={() => navigation.navigate('ProductForm', { product: item })}
         style={({ pressed }) => [
           styles.card,
@@ -110,7 +112,7 @@ export default function ProductsScreen({ navigation }: Props) {
           <View style={styles.headingIcon}><Ionicons name="cube" size={22} color={colors.primary} /></View>
           <View style={styles.headingCopy}><Text style={styles.pageTitle}>{t('tabs.products')}</Text><Text style={styles.pageSubtitle}>{t('products.catalogSubtitle')}</Text></View>
         </View>
-        <PrimaryButton icon="add-circle-outline" title={t('products.add')} onPress={() => navigation.navigate('ProductForm')} />
+        {can('PRODUCTS_WRITE') ? <PrimaryButton icon="add-circle-outline" title={t('products.add')} onPress={() => navigation.navigate('ProductForm')} /> : null}
         <View style={styles.searchWrap}><Ionicons name="search-outline" size={18} color={colors.muted} /><TextInput
           style={styles.search}
           value={search}

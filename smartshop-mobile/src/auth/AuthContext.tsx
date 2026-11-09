@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setUnauthorizedHandler } from '../api/client';
-import type { AuthResponse, MeResponse } from '../api/types';
+import type { AuthResponse, MeResponse, Permission, Role } from '../api/types';
 import { storage, TOKEN_KEY } from '../storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
@@ -8,6 +8,8 @@ type Status = 'loading' | 'signedOut' | 'signedIn';
 interface User {
   name: string;
   email: string;
+  role: Role;
+  permissions: Permission[];
 }
 
 interface AuthContextValue {
@@ -16,6 +18,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
+  /** Le compte connecté a-t-il ce droit ? */
+  can: (permission: Permission) => boolean;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -32,7 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const startSession = useCallback(async (response: AuthResponse) => {
     await storage.set(TOKEN_KEY, response.token);
-    setUser({ name: response.name, email: response.email });
+    setUser({ name: response.name, email: response.email, role: response.role, permissions: response.permissions });
     setStatus('signedIn');
   }, []);
 
@@ -57,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await api<MeResponse>('/api/auth/me');
         if (!cancelled) {
-          setUser({ name: me.name, email: me.email });
+          setUser({ name: me.name, email: me.email, role: me.role, permissions: me.permissions });
           setStatus('signedIn');
         }
       } catch (error) {
@@ -99,9 +103,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [startSession],
   );
 
+  const can = useCallback((permission: Permission) => !!user?.permissions.includes(permission), [user]);
+
   const value = useMemo(
-    () => ({ status, user, login, register, logout }),
-    [status, user, login, register, logout],
+    () => ({ status, user, login, register, logout, can }),
+    [status, user, login, register, logout, can],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

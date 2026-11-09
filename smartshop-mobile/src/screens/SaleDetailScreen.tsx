@@ -5,24 +5,63 @@ import { useTranslation } from 'react-i18next';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Sale } from '../api/types';
+import DocumentActions from '../components/DocumentActions';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
+import { useAuth } from '../auth/AuthContext';
 import { confirmAction } from '../confirm';
+import { openWhatsApp, shareDocument } from '../documents';
 import { formatDateTime, formatMoney } from '../format';
 import type { SalesStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
 
 type Props = NativeStackScreenProps<SalesStackParamList, 'SaleDetail'>;
 
-export default function SaleDetailScreen({ route }: Props) {
+export default function SaleDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
+  const { can } = useAuth();
   const [sale, setSale] = useState<Sale>(route.params.sale);
+  // Après un retour, l'écran de retour renvoie la vente mise à jour
+  React.useEffect(() => setSale(route.params.sale), [route.params.sale]);
+  const canReturn = sale.status !== 'CANCELLED' && sale.lines.some((l) => l.quantity > l.returnedQuantity);
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const cancelled = sale.status === 'CANCELLED';
+
+  // La facture et le BL reçoivent leur numéro au premier téléchargement : on recharge la vente ensuite
+  async function refreshSale() {
+    setSale(await api<Sale>(`/api/sales/${sale.id}`));
+  }
+
+  const documentActions = [
+    { key: 't80', label: t('docs.ticket80'), icon: 'receipt-outline' as const,
+      onPress: () => shareDocument(`/api/sales/${sale.id}/ticket.pdf?width=80`, `${sale.number}.pdf`, t('docs.shareTitle')) },
+    { key: 't58', label: t('docs.ticket58'), icon: 'receipt-outline' as const,
+      onPress: () => shareDocument(`/api/sales/${sale.id}/ticket.pdf?width=58`, `${sale.number}-58.pdf`, t('docs.shareTitle')) },
+    { key: 'inv', label: sale.invoiceNumber ?? t('docs.invoice'), icon: 'document-text-outline' as const,
+      onPress: async () => {
+        await shareDocument(`/api/sales/${sale.id}/invoice.pdf`, `facture-${sale.number}.pdf`, t('docs.shareTitle'));
+        await refreshSale();
+      } },
+    { key: 'bl', label: sale.deliveryNumber ?? t('docs.deliveryNote'), icon: 'cube-outline' as const,
+      onPress: async () => {
+        await shareDocument(`/api/sales/${sale.id}/delivery-note.pdf`, `bl-${sale.number}.pdf`, t('docs.shareTitle'));
+        await refreshSale();
+      } },
+    { key: 'wa', label: t('docs.whatsapp'), icon: 'logo-whatsapp' as const,
+      onPress: () => openWhatsApp(
+        t('docs.saleMessage', {
+          name: sale.customerName ?? '',
+          number: sale.number,
+          total: formatMoney(sale.total),
+          rest: sale.remaining > 0 ? t('docs.restPart', { rest: formatMoney(sale.remaining) }) : '',
+        }),
+        sale.customerPhone,
+      ) },
+  ];
 
   function askCancel() {
     if (!reason.trim()) {
@@ -54,6 +93,7 @@ export default function SaleDetailScreen({ route }: Props) {
   return (
     <Screen>
       <View style={styles.card}>
+        <Text style={styles.number}>{sale.number}</Text>
         <Text style={styles.name}>{sale.customerName ?? t('sales.walkIn')}</Text>
         <Text style={styles.muted}>{formatDateTime(sale.saleDate)}</Text>
         {cancelled ? <Text style={styles.badgeOff}>{t('history.cancelled')}</Text> : null}
@@ -61,7 +101,10 @@ export default function SaleDetailScreen({ route }: Props) {
         <View style={styles.lines}>
           {sale.lines.map((line, index) => (
             <View key={`${line.productId}-${index}`} style={styles.lineRow}>
-              <Text style={styles.lineName}>{line.productName}</Text>
+              <Text style={styles.lineName}>
+                {line.productName}
+                {line.returnedQuantity > 0 ? <Text style={styles.returned}>{`  (${line.returnedQuantity} ${t('returns.returned')})`}</Text> : null}
+              </Text>
               <Text style={styles.lineValue}>
                 {line.quantity} × {formatMoney(line.unitPrice)}
               </Text>
@@ -71,13 +114,17 @@ export default function SaleDetailScreen({ route }: Props) {
 
         <Row label={t('history.discount')} value={formatMoney(sale.discount)} />
         <Row label={t('sales.total')} value={formatMoney(sale.total)} strong />
+        {sale.returnedAmount > 0 ? <Row label={t('returns.credit')} value={`- ${formatMoney(sale.returnedAmount)}`} /> : null}
+        {sale.refundedAmount > 0 ? <Row label={t('returns.refund')} value={formatMoney(sale.refundedAmount)} /> : null}
+        <Row label={t('payments.method')} value={t(`payments.${sale.paymentMethod}`)} />
         <Row label={t('history.paid')} value={formatMoney(sale.amountPaid)} />
         <Row
           label={t('history.kridi')}
           value={formatMoney(sale.remaining)}
           danger={sale.remaining > 0 && !cancelled}
         />
-        {!cancelled ? <Row label={t('history.profit')} value={formatMoney(sale.profit)} /> : null}
+        {!cancelled && sale.profit !== null ? <Row label={t('history.profit')} value={formatMoney(sale.profit)} /> : null}
+        {sale.sellerName ? <Row label={t('roles.SELLER')} value={sale.sellerName} /> : null}
 
         {cancelled && sale.cancellationReason ? (
           <Text style={styles.reason}>
@@ -87,6 +134,31 @@ export default function SaleDetailScreen({ route }: Props) {
       </View>
 
       {!cancelled ? (
+        <View style={styles.block}>
+          <Text style={styles.section}>{t('docs.title')}</Text>
+          <DocumentActions actions={documentActions} onError={(e) => setError(errorMessage(e, t) || t('docs.failed'))} />
+        </View>
+      ) : null}
+
+      {canReturn ? (
+        <View style={styles.block}>
+          <PrimaryButton icon="return-down-back-outline" title={t('returns.open')} variant="outline" onPress={() => navigation.navigate('SaleReturn', { sale })} />
+        </View>
+      ) : null}
+
+      {sale.returns.length > 0 ? (
+        <View style={styles.block}>
+          <Text style={styles.section}>{t('returns.history')}</Text>
+          {sale.returns.map((r) => (
+            <View key={r.id} style={styles.returnRow}>
+              <Text style={styles.muted}>{formatDateTime(r.returnedAt)}{r.reason ? ` · ${r.reason}` : ''}</Text>
+              <Text style={styles.value}>- {formatMoney(r.creditAmount)}{r.refundAmount > 0 ? ` (${t('returns.refund')} ${formatMoney(r.refundAmount)})` : ''}</Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+
+      {!cancelled && sale.returns.length === 0 && can('SALES_CANCEL') ? (
         <View style={styles.block}>
           <Text style={styles.section}>{t('history.cancelTitle')}</Text>
           <TextField label={t('history.reason')} value={reason} onChangeText={setReason} />
@@ -130,6 +202,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     padding: spacing.lg,
   },
+  number: { fontSize: 12, fontWeight: '800', color: colors.primary, letterSpacing: 0.5, marginBottom: 2 },
   name: { fontSize: 20, fontWeight: '700', color: colors.text },
   muted: { color: colors.muted, fontSize: 13 },
   badgeOff: {
@@ -160,6 +233,8 @@ const styles = StyleSheet.create({
   strong: { fontSize: 18, fontWeight: '800', color: colors.primary },
   danger: { color: colors.danger },
   reason: { marginTop: spacing.md, color: colors.muted, fontStyle: 'italic' },
+  returned: { color: colors.danger, fontSize: 12 },
+  returnRow: { paddingVertical: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, gap: 2 },
   block: { marginTop: spacing.lg },
   section: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
   error: {

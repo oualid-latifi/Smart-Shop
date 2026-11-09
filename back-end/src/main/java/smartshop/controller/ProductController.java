@@ -28,7 +28,11 @@ public class ProductController {
         Product product = new Product();
         product.setReference(request.reference());
         product.setName(request.name());
+        product.setBarcode(request.barcode() == null || request.barcode().isBlank() ? null : request.barcode().trim());
         product.setSalePrice(request.salePrice());
+        product.setVatRate(request.vatRate());
+        product.setUnitsPerPack(request.unitsPerPack());
+        product.setPackPrice(request.packPrice());
         if (request.purchasePrice() != null) {
             product.setAveragePurchasePrice(request.purchasePrice());
         }
@@ -51,6 +55,12 @@ public class ProductController {
         return productService.findAllActive().stream().map(ProductResponse::from).toList();
     }
 
+    // Recherche par code-barres (scanner de l'application)
+    @GetMapping("/barcode/{code}")
+    public ProductResponse findByBarcode(@PathVariable String code) {
+        return ProductResponse.from(productService.findByBarcode(code));
+    }
+
     @GetMapping("/low-stock")
     public List<ProductResponse> findLowStock() {
         return productService.findLowStock().stream().map(ProductResponse::from).toList();
@@ -67,7 +77,11 @@ public class ProductController {
         Product data = new Product();
         data.setReference(request.reference());
         data.setName(request.name());
+        data.setBarcode(request.barcode() == null || request.barcode().isBlank() ? null : request.barcode().trim());
         data.setSalePrice(request.salePrice());
+        data.setVatRate(request.vatRate());
+        data.setUnitsPerPack(request.unitsPerPack());
+        data.setPackPrice(request.packPrice());
         data.setAlertThreshold(request.alertThreshold());
         data.setBrand(request.brand());
         data.setModel(request.model());

@@ -43,6 +43,12 @@ public class PurchaseController {
         return PurchaseResponse.from(purchaseService.findById(id));
     }
 
+    @PostMapping("/{id}/returns")
+    @ResponseStatus(HttpStatus.CREATED)
+    public PurchaseResponse createReturn(@PathVariable UUID id, @Valid @RequestBody smartshop.dto.PurchaseReturnRequest request) {
+        return PurchaseResponse.from(purchaseService.createReturn(id, request));
+    }
+
     @PostMapping("/{id}/payments")
     public PurchaseResponse addPayment(@PathVariable UUID id,
                                        @Valid @RequestBody PaymentRequest request) {

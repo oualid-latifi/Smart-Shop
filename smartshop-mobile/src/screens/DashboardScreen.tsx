@@ -12,6 +12,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
+import type { TargetProgress } from '../api/types';
+import { ProgressBar } from './TargetsScreen';
 import { errorMessage } from '../api/errors';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
@@ -42,7 +44,9 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export default function DashboardScreen() {
   const { t, i18n } = useTranslation();
-  const { user } = useAuth();
+  const { user, can } = useAuth();
+  const canReports = can('REPORTS');
+  const [myTarget, setMyTarget] = useState<TargetProgress | null>(null);
   const navigation = useNavigation<any>();
 
   const isAr = !!i18n.language && i18n.language.startsWith('ar');
@@ -55,13 +59,18 @@ export default function DashboardScreen() {
     setError(null);
 
     try {
-      setReport(await api<TodayReport>('/api/reports/today'));
+      if (canReports) {
+        setReport(await api<TodayReport>('/api/reports/today'));
+      } else {
+        const targets = await api<TargetProgress[]>('/api/targets');
+        setMyTarget(targets.find((x) => x.name === user?.name) ?? null);
+      }
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, canReports, user?.name]);
 
   useFocusEffect(
     useCallback(() => {
@@ -97,7 +106,7 @@ export default function DashboardScreen() {
       </View>
 
       {/* New sale */}
-      <Pressable
+      <Pressable accessibilityRole="button"
         style={({ pressed }) => [
           styles.saleHero,
           pressed && styles.pressed,
@@ -144,6 +153,15 @@ export default function DashboardScreen() {
           </Text>
         </View>
       </View>
+
+      {!canReports && myTarget ? (
+        <View style={styles.targetCard}>
+          <Text style={styles.targetTitle}>{t('targets.mine')}</Text>
+          <Text style={styles.targetValue}>{formatMoney(myTarget.achieved)}{myTarget.target !== null ? ` / ${formatMoney(myTarget.target)}` : ''}</Text>
+          <ProgressBar percent={myTarget.percent} />
+          <Text style={styles.targetHint}>{t('targets.sales', { n: myTarget.salesCount })}</Text>
+        </View>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator
@@ -237,7 +255,7 @@ export default function DashboardScreen() {
               {t('reports.topProducts')}
             </Text>
 
-            <Pressable
+            <Pressable accessibilityRole="button"
               onPress={() =>
                 navigation.navigate('More', {
                   screen: 'Reports',
@@ -246,7 +264,6 @@ export default function DashboardScreen() {
                   },
                 })
               }
-              accessibilityRole="button"
             >
               <Text style={styles.seeAll}>
                 {isAr ? 'التقارير' : 'Voir rapports'}
@@ -361,7 +378,7 @@ function Row({
   onPress?: () => void;
 }) {
   return (
-    <Pressable
+    <Pressable accessibilityRole="button"
       style={styles.row}
       onPress={onPress}
       disabled={!onPress}
@@ -393,6 +410,10 @@ function Row({
 }
 
 const styles = StyleSheet.create({
+  targetCard: { backgroundColor: colors.card, borderRadius: radius, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.xs, marginBottom: spacing.md },
+  targetTitle: { color: colors.muted, fontWeight: '700' },
+  targetValue: { color: colors.text, fontWeight: '900', fontSize: 20 },
+  targetHint: { color: colors.muted, fontSize: 12 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

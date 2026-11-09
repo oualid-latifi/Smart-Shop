@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -48,7 +49,7 @@ public class StockService {
         List<StockMovement> movements;
         if (productId != null) {
             if (!productRepository.existsById(productId)) {
-                throw new IllegalArgumentException("Produit introuvable");
+                throw new ResourceNotFoundException("Produit introuvable");
             }
             movements = stockMovementRepository
                     .findByProductIdAndCreatedAtGreaterThanEqualAndCreatedAtLessThanOrderByCreatedAtDesc(
@@ -67,7 +68,7 @@ public class StockService {
     @Transactional
     public Product adjust(UUID productId, int countedQuantity, String note) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Produit introuvable"));
 
         int difference = countedQuantity - product.getStockQuantity();
         if (difference == 0) {

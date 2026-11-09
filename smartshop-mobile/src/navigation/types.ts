@@ -1,9 +1,10 @@
-import type { Customer, Product, Purchase, Sale } from '../api/types';
+import type { Customer, Product, Purchase, PurchaseOrder, Quote, Sale } from '../api/types';
 
 export type SalesStackParamList = {
   SaleNew: undefined;
   SalesHistory: undefined;
   SaleDetail: { sale: Sale };
+  SaleReturn: { sale: Sale };
 };
 
 export type ProductsStackParamList = {
@@ -23,6 +24,33 @@ export type PurchasesStackParamList = {
   PurchaseForm: undefined;
   PurchaseDetail: { purchase: Purchase };
   SupplierForm: undefined;
+};
+
+export type MoreStackParamList = {
+  MoreHome: undefined;
+  Purchases: undefined;
+  Quotes: undefined;
+  Checks: undefined;
+  Aging: undefined;
+  ShopSettings: undefined;
+  Reports: undefined;
+  Inventories: undefined;
+  InventoryDetail: { id: string };
+  PurchaseOrders: undefined;
+  PurchaseOrderForm: undefined;
+  PurchaseOrderDetail: { order: PurchaseOrder };
+  Warehouses: undefined;
+  Users: undefined;
+  Activity: undefined;
+  Cash: undefined;
+  Targets: undefined;
+  Import: undefined;
+};
+
+export type QuotesStackParamList = {
+  QuotesList: undefined;
+  QuoteForm: undefined;
+  QuoteDetail: { quote: Quote };
 };
 
 export type ReportsStackParamList = {

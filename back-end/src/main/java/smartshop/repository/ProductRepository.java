@@ -10,6 +10,10 @@ import java.util.UUID;
 
 public interface ProductRepository extends JpaRepository<Product, UUID> {
 
+    java.util.Optional<Product> findByBarcode(String barcode);
+
+    java.util.Optional<Product> findByReference(String reference);
+
     boolean existsByReference(String reference);
 
     List<Product> findByActiveTrue();

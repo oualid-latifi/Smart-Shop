@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import DashboardScreen from '../screens/DashboardScreen';
+import type { Permission } from '../api/types';
+import { useAuth } from '../auth/AuthContext';
 import { colors } from '../theme';
 import CustomersStack from './CustomersStack';
 import ProductsStack from './ProductsStack';
@@ -21,13 +23,14 @@ interface TabDef {
   labelAr: string;
   icon: IconName;
   iconActive: IconName;
+  anyOf?: Permission[]; // onglet visible seulement avec un de ces droits
 }
 
 // Icônes distinctes et immédiatement reconnaissables pour chaque espace.
 const TABS: TabDef[] = [
   { name: 'Home', component: DashboardScreen, labelKey: 'tabs.home', labelFr: 'Accueil', labelAr: 'الرئيسية', icon: 'home-outline', iconActive: 'home' },
-  { name: 'Sales', component: SalesStack, labelKey: 'tabs.sales', labelFr: 'Vente', labelAr: 'البيع', icon: 'cart-outline', iconActive: 'cart' },
-  { name: 'Customers', component: CustomersStack, labelKey: 'tabs.customers', labelFr: 'Clients', labelAr: 'الزبناء', icon: 'people-outline', iconActive: 'people' },
+  { name: 'Sales', component: SalesStack, labelKey: 'tabs.sales', labelFr: 'Vente', labelAr: 'البيع', icon: 'cart-outline', iconActive: 'cart', anyOf: ['SALES'] },
+  { name: 'Customers', component: CustomersStack, labelKey: 'tabs.customers', labelFr: 'Clients', labelAr: 'الزبناء', icon: 'people-outline', iconActive: 'people', anyOf: ['CUSTOMERS', 'PAYMENTS'] },
   { name: 'Products', component: ProductsStack, labelKey: 'tabs.products', labelFr: 'Produits', labelAr: 'المنتجات', icon: 'cube-outline', iconActive: 'cube' },
   { name: 'More', component: MoreStack, labelKey: 'tabs.more', labelFr: 'Plus', labelAr: 'المزيد', icon: 'menu-outline', iconActive: 'menu' },
 ];
@@ -35,6 +38,8 @@ const TABS: TabDef[] = [
 export default function AppTabs() {
   const { t, i18n } = useTranslation();
   const insets = useSafeAreaInsets();
+  const { can } = useAuth();
+  const tabs = TABS.filter((tab) => !tab.anyOf || tab.anyOf.some(can));
   const isAr = !!i18n.language && i18n.language.startsWith('ar');
 
   return (
@@ -63,7 +68,7 @@ export default function AppTabs() {
         },
       }}
     >
-      {TABS.map((tab) => (
+      {tabs.map((tab) => (
         <Tab.Screen
           key={tab.name}
           name={tab.name}

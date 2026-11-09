@@ -19,6 +19,10 @@ public class Product {
     @Column(nullable = false, length = 150)
     private String name;
 
+    // Code-barres EAN/UPC imprimé sur l'emballage (facultatif, unique)
+    @Column(length = 64, unique = true)
+    private String barcode;
+
     @Column(length = 80)
     private String brand;
 
@@ -39,6 +43,18 @@ public class Product {
 
     @Column(name = "sale_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal salePrice = BigDecimal.ZERO;
+
+    // Conditionnement : nombre d'unités dans un carton (null = vendu uniquement à l'unité)
+    @Column(name = "units_per_pack")
+    private Integer unitsPerPack;
+
+    // Prix de vente du carton (null = unités × prix unitaire)
+    @Column(name = "pack_price", precision = 12, scale = 2)
+    private BigDecimal packPrice;
+
+    // Taux de TVA en % (null = taux par défaut de la boutique)
+    @Column(name = "vat_rate", precision = 5, scale = 2)
+    private BigDecimal vatRate;
 
     @Column(name = "stock_quantity", nullable = false)
     private Integer stockQuantity = 0;
@@ -68,6 +84,9 @@ public class Product {
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
 
+    public String getBarcode() { return barcode; }
+    public void setBarcode(String barcode) { this.barcode = barcode; }
+
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
 
@@ -88,6 +107,21 @@ public class Product {
 
     public BigDecimal getSalePrice() { return salePrice; }
     public void setSalePrice(BigDecimal salePrice) { this.salePrice = salePrice; }
+
+    public Integer getUnitsPerPack() { return unitsPerPack; }
+    public void setUnitsPerPack(Integer unitsPerPack) { this.unitsPerPack = unitsPerPack; }
+
+    public BigDecimal getPackPrice() { return packPrice; }
+    public void setPackPrice(BigDecimal packPrice) { this.packPrice = packPrice; }
+
+    /** Prix effectif du carton. */
+    public BigDecimal getEffectivePackPrice() {
+        if (unitsPerPack == null) return null;
+        return packPrice != null ? packPrice : salePrice.multiply(BigDecimal.valueOf(unitsPerPack));
+    }
+
+    public BigDecimal getVatRate() { return vatRate; }
+    public void setVatRate(BigDecimal vatRate) { this.vatRate = vatRate; }
 
     public Integer getStockQuantity() { return stockQuantity; }
     public void setStockQuantity(Integer stockQuantity) { this.stockQuantity = stockQuantity; }

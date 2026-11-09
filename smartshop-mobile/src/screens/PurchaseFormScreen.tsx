@@ -176,7 +176,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
               <Text style={styles.muted}>{t('purchases.noProducts')}</Text>
             ) : (
               matches.map((p) => (
-                <Pressable key={p.id} style={styles.resultRow} onPress={() => addProduct(p)}>
+                <Pressable accessibilityRole="button" key={p.id} style={styles.resultRow} onPress={() => addProduct(p)}>
                   <View style={styles.flex}>
                     <Text style={styles.name}>{p.name}</Text>
                     <Text style={styles.muted}>
@@ -198,14 +198,14 @@ export default function PurchaseFormScreen({ navigation }: Props) {
               <Text style={styles.name}>{line.product.name}</Text>
               <View style={styles.cartControls}>
                 <View style={styles.qty}>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     style={styles.qtyButton}
                     onPress={() => changeQuantity(line.product.id, -1)}
                   >
                     <Text style={styles.qtyText}>−</Text>
                   </Pressable>
                   <Text style={styles.qtyValue}>{line.quantity}</Text>
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     style={styles.qtyButton}
                     onPress={() => changeQuantity(line.product.id, 1)}
                   >
@@ -287,7 +287,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );

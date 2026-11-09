@@ -1,12 +1,15 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.CustomerDebtResponse;
 import smartshop.dto.CustomerRequest;
 import smartshop.dto.CustomerResponse;
 import smartshop.dto.SaleResponse;
+import smartshop.dto.PaymentRequest;
 import smartshop.entity.Customer;
+import smartshop.entity.PaymentMethod;
 import smartshop.entity.CustomerPayment;
 import smartshop.entity.Sale;
 import smartshop.repository.CustomerPaymentRepository;
@@ -37,6 +40,8 @@ public class CustomerService {
         Customer customer = new Customer();
         customer.setName(request.name());
         customer.setPhone(request.phone());
+        customer.setAddress(request.address() == null || request.address().isBlank() ? null : request.address().trim());
+        customer.setIce(request.ice() == null || request.ice().isBlank() ? null : request.ice().trim());
         customer.setCreditLimit(request.creditLimit());
         Customer saved = customerRepository.save(customer);
         return CustomerResponse.from(saved, BigDecimal.ZERO);
@@ -47,6 +52,8 @@ public class CustomerService {
         Customer customer = getCustomer(id);
         customer.setName(request.name());
         customer.setPhone(request.phone());
+        customer.setAddress(request.address() == null || request.address().isBlank() ? null : request.address().trim());
+        customer.setIce(request.ice() == null || request.ice().isBlank() ? null : request.ice().trim());
         customer.setCreditLimit(request.creditLimit());
         Customer saved = customerRepository.save(customer);
         return CustomerResponse.from(saved, balanceOf(id));
@@ -92,7 +99,13 @@ public class CustomerService {
      * Le montant est appliqué d'abord à sa plus ancienne dette.
      */
     @Transactional
-    public CustomerResponse pay(UUID customerId, BigDecimal amount) {
+    public CustomerResponse pay(UUID customerId, PaymentRequest request) {
+        BigDecimal amount = request.amount();
+        PaymentMethod method = request.method() != null ? request.method() : PaymentMethod.CASH;
+        if (method == PaymentMethod.CHECK && request.check() == null) {
+            throw new IllegalArgumentException("Indique le numéro et l'échéance du chèque");
+        }
+        UUID operationId = UUID.randomUUID();
         Customer customer = getCustomer(customerId);
         List<Sale> unpaidSales = saleRepository.findUnpaidByCustomer(customerId);
 
@@ -116,11 +129,7 @@ public class CustomerService {
             sale.setAmountPaid(sale.getAmountPaid().add(part));
             saleRepository.save(sale);
 
-            CustomerPayment payment = new CustomerPayment();
-            payment.setCustomer(customer);
-            payment.setSale(sale);
-            payment.setAmount(part);
-            paymentRepository.save(payment);
+            paymentRepository.save(SaleService.newPayment(customer, sale, part, method, request.check(), operationId));
 
             left = left.subtract(part);
         }
@@ -135,6 +144,6 @@ public class CustomerService {
 
     private Customer getCustomer(UUID id) {
         return customerRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Client introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Client introuvable"));
     }
 }

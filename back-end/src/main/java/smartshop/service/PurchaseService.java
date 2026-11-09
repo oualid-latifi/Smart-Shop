@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.PurchaseLineRequest;
@@ -30,17 +31,20 @@ public class PurchaseService {
     private final SupplierRepository supplierRepository;
     private final ProductRepository productRepository;
     private final StockMovementRepository stockMovementRepository;
+    private final smartshop.repository.PurchaseReturnRepository purchaseReturnRepository;
 
     public PurchaseService(PurchaseRepository purchaseRepository,
                            PurchasePaymentRepository paymentRepository,
                            SupplierRepository supplierRepository,
                            ProductRepository productRepository,
-                           StockMovementRepository stockMovementRepository) {
+                           StockMovementRepository stockMovementRepository,
+                           smartshop.repository.PurchaseReturnRepository purchaseReturnRepository) {
         this.purchaseRepository = purchaseRepository;
         this.paymentRepository = paymentRepository;
         this.supplierRepository = supplierRepository;
         this.productRepository = productRepository;
         this.stockMovementRepository = stockMovementRepository;
+        this.purchaseReturnRepository = purchaseReturnRepository;
     }
 
     @Transactional
@@ -48,7 +52,7 @@ public class PurchaseService {
         Supplier supplier = null;
         if (request.supplierId() != null) {
             supplier = supplierRepository.findById(request.supplierId())
-                    .orElseThrow(() -> new IllegalArgumentException("Fournisseur introuvable"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Fournisseur introuvable"));
         }
 
         Purchase purchase = new Purchase();
@@ -59,22 +63,31 @@ public class PurchaseService {
 
         for (PurchaseLineRequest lineRequest : request.lines()) {
             Product product = productRepository.findById(lineRequest.productId())
-                    .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
+                    .orElseThrow(() -> new ResourceNotFoundException("Produit introuvable"));
             if (!product.getActive()) {
                 throw new IllegalArgumentException(
                         "Le produit " + product.getName() + " est désactivé");
             }
 
+            boolean byPack = Boolean.TRUE.equals(lineRequest.packs());
+            if (byPack && product.getUnitsPerPack() == null) {
+                throw new IllegalArgumentException("Le produit " + product.getName() + " n'a pas de conditionnement en carton");
+            }
+            int units = byPack ? lineRequest.quantity() * product.getUnitsPerPack() : lineRequest.quantity();
+            BigDecimal unitCost = byPack
+                    ? lineRequest.unitPrice().divide(BigDecimal.valueOf(product.getUnitsPerPack()), 2, RoundingMode.HALF_UP)
+                    : lineRequest.unitPrice();
+
             PurchaseLine line = new PurchaseLine();
             line.setProduct(product);
-            line.setQuantity(lineRequest.quantity());
-            line.setUnitPrice(lineRequest.unitPrice());
+            line.setQuantity(units);
+            line.setUnitPrice(unitCost);
             purchase.addLine(line);
 
             total = total.add(lineRequest.unitPrice()
                     .multiply(BigDecimal.valueOf(lineRequest.quantity())));
 
-            addToStock(product, lineRequest.quantity(), lineRequest.unitPrice());
+            addToStock(product, units, unitCost);
         }
 
         BigDecimal paid = request.amountPaid() != null ? request.amountPaid() : BigDecimal.ZERO;
@@ -105,6 +118,54 @@ public class PurchaseService {
         return saved;
     }
 
+    /**
+     * Renvoie des articles au fournisseur : le stock sort, la dette baisse ;
+     * si l'achat était déjà payé, la différence est un remboursement du fournisseur.
+     */
+    @Transactional
+    public Purchase createReturn(UUID purchaseId, smartshop.dto.PurchaseReturnRequest request) {
+        Purchase purchase = findById(purchaseId);
+        BigDecimal credit = BigDecimal.ZERO;
+        for (smartshop.dto.PurchaseReturnRequest.Line lineRequest : request.lines()) {
+            PurchaseLine bought = purchase.getLines().stream()
+                    .filter(l -> l.getProduct().getId().equals(lineRequest.productId()))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalArgumentException("Ce produit ne fait pas partie de l'achat"));
+            int boughtQuantity = purchase.getLines().stream()
+                    .filter(l -> l.getProduct().getId().equals(lineRequest.productId()))
+                    .mapToInt(PurchaseLine::getQuantity).sum();
+            int alreadyReturned = purchaseReturnRepository.sumReturnedQuantity(purchaseId, lineRequest.productId());
+            if (lineRequest.quantity() > boughtQuantity - alreadyReturned) {
+                throw new IllegalArgumentException("Quantité retournée trop grande pour " + bought.getProduct().getName()
+                        + " (encore retournable : " + (boughtQuantity - alreadyReturned) + ")");
+            }
+            Product product = bought.getProduct();
+            product.setStockQuantity(product.getStockQuantity() - lineRequest.quantity());
+            productRepository.save(product);
+
+            smartshop.entity.PurchaseReturn ret = new smartshop.entity.PurchaseReturn();
+            ret.setPurchase(purchase);
+            ret.setProduct(product);
+            ret.setQuantity(lineRequest.quantity());
+            ret.setUnitPrice(bought.getUnitPrice());
+            ret.setReason(request.reason() != null && !request.reason().isBlank() ? request.reason().trim() : null);
+            purchaseReturnRepository.save(ret);
+            credit = credit.add(ret.getAmount());
+
+            StockMovement movement = new StockMovement();
+            movement.setProduct(product);
+            movement.setType(StockMovementType.PURCHASE_RETURN);
+            movement.setQuantity(-lineRequest.quantity());
+            movement.setReferenceId(purchase.getId());
+            movement.setNote(ret.getReason());
+            stockMovementRepository.save(movement);
+        }
+        BigDecimal refund = credit.subtract(purchase.getRemaining().max(BigDecimal.ZERO)).max(BigDecimal.ZERO);
+        purchase.setReturnedAmount(purchase.getReturnedAmount().add(credit));
+        purchase.setRefundReceived(purchase.getRefundReceived().add(refund));
+        return purchaseRepository.save(purchase);
+    }
+
     @Transactional
     public Purchase addPayment(UUID purchaseId, BigDecimal amount) {
         Purchase purchase = findById(purchaseId);
@@ -122,7 +183,7 @@ public class PurchaseService {
     @Transactional(readOnly = true)
     public Purchase findById(UUID id) {
         return purchaseRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Achat introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Achat introuvable"));
     }
 
     @Transactional(readOnly = true)

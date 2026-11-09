@@ -20,8 +20,8 @@
   - Les dates sont facultatives; sans dates, le rapport couvre le mois en cours jusqu'à aujourd'hui.
 
 ## Choix conservés
-- Barcode / Scanner supprimé.
-- Owner uniquement.
+- ~~Barcode / Scanner supprimé.~~ Remplacé : scanner de code-barres réintroduit (expo-camera), voir README.
+- ~~Owner uniquement.~~ Remplacé : comptes employés avec rôles (vendeur, caissier, magasinier, comptable).
 - Paiement de vente avec prise en charge du crédit conservée.
 - Aucun module de garantie ajouté.
 

@@ -13,6 +13,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -49,12 +50,48 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/status", "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        // Comptes, journal, objectifs, paramètres
+                        .requestMatchers("/api/users/**", "/api/activity/**").hasAuthority("USERS")
+                        .requestMatchers(HttpMethod.PUT, "/api/targets/**").hasAuthority("USERS")
+                        .requestMatchers(HttpMethod.PUT, "/api/settings").hasAuthority("SETTINGS")
+                        .requestMatchers("/api/import/**").hasAuthority("SETTINGS")
+                        .requestMatchers("/api/cash/**").hasAuthority("CASH")
+                        // Ventes et devis
+                        .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("SALES_CANCEL")
+                        .requestMatchers("/api/sales/**", "/api/quotes/**").hasAnyAuthority("SALES", "PAYMENTS", "REPORTS")
+                        // Clients et encaissements
+                        .requestMatchers("/api/customers/*/payments", "/api/checks/**", "/api/customers/aging").hasAuthority("PAYMENTS")
+                        .requestMatchers("/api/customers/**").hasAnyAuthority("CUSTOMERS", "PAYMENTS")
+                        // Produits et stock
+                        .requestMatchers(HttpMethod.GET, "/api/products/**").authenticated()
+                        .requestMatchers("/api/products/**").hasAuthority("PRODUCTS_WRITE")
+                        .requestMatchers(HttpMethod.POST, "/api/purchase-orders/*/receive").hasAnyAuthority("STOCK", "PURCHASES")
+                        .requestMatchers("/api/stock/**", "/api/inventories/**", "/api/warehouses/**").hasAuthority("STOCK")
+                        .requestMatchers("/api/purchases/**", "/api/purchase-orders/**", "/api/suppliers/**").hasAnyAuthority("PURCHASES", "STOCK")
+                        // Rapports et dépenses
+                        .requestMatchers("/api/reports/**", "/api/expenses/**").hasAuthority("REPORTS")
                         .anyRequest().authenticated())
+                // En plus des en-têtes par défaut de Spring Security (X-Frame-Options, nosniff, HSTS en HTTPS…)
+                .headers(h -> h
+                        .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER)))
                 .exceptionHandling(e -> e.authenticationEntryPoint((request, response, ex) -> {
+                    // Même format que GlobalExceptionHandler (RFC 9457)
+                    String detail = "Non connecté : token manquant, invalide ou expiré";
                     response.setStatus(401);
-                    response.setContentType("application/json;charset=UTF-8");
-                    response.getWriter().write("{\"message\":\"Non connecté : token manquant, invalide ou expiré\"}");
-                }))
+                    response.setContentType("application/problem+json;charset=UTF-8");
+                    response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Unauthorized\",\"status\":401,"
+                            + "\"detail\":\"" + detail + "\",\"message\":\"" + detail + "\"}");
+                })
+                        .accessDeniedHandler((request, response, ex) -> {
+                            String detail = "Ton compte n'a pas accès à cette fonction";
+                            response.setStatus(403);
+                            response.setContentType("application/problem+json;charset=UTF-8");
+                            response.getWriter().write("{\"type\":\"about:blank\",\"title\":\"Forbidden\",\"status\":403,"
+                                    + "\"detail\":\"" + detail + "\",\"message\":\"" + detail + "\"}");
+                        }))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

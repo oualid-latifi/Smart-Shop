@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.entity.Product;
@@ -23,6 +24,9 @@ public class ProductService {
             throw new IllegalArgumentException(
                     "Un produit avec la référence " + product.getReference() + " existe déjà");
         }
+        if (product.getBarcode() != null && productRepository.findByBarcode(product.getBarcode()).isPresent()) {
+            throw new IllegalArgumentException("Ce code-barres est déjà utilisé par un autre produit");
+        }
         return productRepository.save(product);
     }
 
@@ -34,7 +38,7 @@ public class ProductService {
     @Transactional(readOnly = true)
     public Product findById(UUID id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Produit introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Produit introuvable"));
     }
 
     @Transactional
@@ -48,12 +52,20 @@ public class ProductService {
         }
         product.setReference(data.getReference());
         product.setName(data.getName());
+        if (data.getBarcode() != null && !data.getBarcode().equals(product.getBarcode())
+                && productRepository.findByBarcode(data.getBarcode()).isPresent()) {
+            throw new IllegalArgumentException("Ce code-barres est déjà utilisé par un autre produit");
+        }
+        product.setBarcode(data.getBarcode());
         product.setBrand(data.getBrand());
         product.setModel(data.getModel());
         product.setColor(data.getColor());
         product.setCapacity(data.getCapacity());
         product.setImageUrl(data.getImageUrl());
         product.setSalePrice(data.getSalePrice());
+        product.setVatRate(data.getVatRate());
+        product.setUnitsPerPack(data.getUnitsPerPack());
+        product.setPackPrice(data.getPackPrice());
         product.setAlertThreshold(data.getAlertThreshold());
         // Le stock et le prix d'achat moyen ne se modifient PAS ici :
         // ils changent uniquement via les achats, les ventes et les ajustements.
@@ -65,6 +77,12 @@ public class ProductService {
         Product product = findById(id);
         product.setActive(false);
         productRepository.save(product);
+    }
+
+    @Transactional(readOnly = true)
+    public Product findByBarcode(String barcode) {
+        return productRepository.findByBarcode(barcode.trim())
+                .orElseThrow(() -> new ResourceNotFoundException("Aucun produit avec ce code-barres"));
     }
 
     @Transactional(readOnly = true)

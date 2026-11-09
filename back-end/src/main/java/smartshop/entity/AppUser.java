@@ -27,6 +27,15 @@ public class AppUser {
     @Column(name = "token_version", nullable = false)
     private int tokenVersion = 0;
 
+    // Null pour le compte créé avant les rôles = propriétaire
+    @Enumerated(EnumType.STRING)
+    @Column(length = 15)
+    private Role role;
+
+    // Null = actif (comptes créés avant cette colonne)
+    @Column
+    private Boolean active;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -48,6 +57,12 @@ public class AppUser {
 
     public String getPasswordHash() { return passwordHash; }
     public void setPasswordHash(String passwordHash) { this.passwordHash = passwordHash; }
+
+    public Role getRole() { return role != null ? role : Role.OWNER; }
+    public void setRole(Role role) { this.role = role; }
+
+    public boolean isActive() { return active == null || active; }
+    public void setActive(boolean active) { this.active = active; }
 
     public int getTokenVersion() { return tokenVersion; }
     public void setTokenVersion(int tokenVersion) { this.tokenVersion = tokenVersion; }

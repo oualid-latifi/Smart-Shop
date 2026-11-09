@@ -59,7 +59,7 @@ export default function PurchasesScreen({ navigation }: Props) {
   function renderItem({ item }: { item: Purchase }) {
     const due = item.remaining > 0;
     return (
-      <Pressable
+      <Pressable accessibilityRole="button"
         onPress={() => navigation.navigate('PurchaseDetail', { purchase: item })}
         style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       >
@@ -95,11 +95,11 @@ export default function PurchasesScreen({ navigation }: Props) {
         </View>
 
         <View style={styles.actions}>
-          <Pressable style={({ pressed }) => [styles.actionPrimary, pressed && styles.pressed]} onPress={() => navigation.navigate('PurchaseForm')}>
+          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.actionPrimary, pressed && styles.pressed]} onPress={() => navigation.navigate('PurchaseForm')}>
             <Ionicons name="add-circle-outline" size={19} color="#fff" />
             <Text style={styles.actionPrimaryText}>{t('purchases.add')}</Text>
           </Pressable>
-          <Pressable style={({ pressed }) => [styles.actionSecondary, pressed && styles.pressed]} onPress={() => navigation.navigate('SupplierForm')}>
+          <Pressable accessibilityRole="button" style={({ pressed }) => [styles.actionSecondary, pressed && styles.pressed]} onPress={() => navigation.navigate('SupplierForm')}>
             <Ionicons name="person-add-outline" size={18} color={colors.primary} />
             <Text style={styles.actionSecondaryText}>{t('purchases.addSupplier')}</Text>
           </Pressable>
@@ -143,7 +143,7 @@ export default function PurchasesScreen({ navigation }: Props) {
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
   return (
-    <Pressable onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
+    <Pressable accessibilityRole="button" onPress={onPress} style={[styles.chip, active && styles.chipActive]}>
       <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
     </Pressable>
   );

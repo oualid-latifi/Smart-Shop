@@ -2,30 +2,44 @@ export interface AccountStatus {
   accountExists: boolean;
 }
 
+export type Role = 'OWNER' | 'SELLER' | 'CASHIER' | 'STOCKKEEPER' | 'ACCOUNTANT';
+export type Permission = 'SALES' | 'SALES_CANCEL' | 'CUSTOMERS' | 'PAYMENTS' | 'PRODUCTS_WRITE' | 'STOCK' | 'PURCHASES' | 'REPORTS' | 'MARGINS' | 'CASH' | 'SETTINGS' | 'USERS';
+
 export interface AuthResponse {
   token: string;
   expiresAt: string;
   name: string;
   email: string;
+  role: Role;
+  permissions: Permission[];
 }
 
 export interface MeResponse {
   id: string;
   name: string;
   email: string;
+  role: Role;
+  active: boolean;
+  permissions: Permission[];
 }
+
+export type AppUser = MeResponse;
 
 export interface Product {
   id: string;
   reference: string;
   name: string;
+  barcode: string | null;
   brand: string | null;
   model: string | null;
   color: string | null;
   capacity: string | null;
   imageUrl: string | null;
-  averagePurchasePrice: number;
+  averagePurchasePrice: number | null; // masqué sans le droit MARGINS
   salePrice: number;
+  vatRate: number | null;
+  unitsPerPack: number | null;
+  packPrice: number | null;
   stockQuantity: number;
   alertThreshold: number;
   lowStock: boolean;
@@ -36,6 +50,8 @@ export interface Customer {
   id: string;
   name: string;
   phone: string | null;
+  address: string | null;
+  ice: string | null;
   creditLimit: number | null;
   balance: number;
   active: boolean;
@@ -61,6 +77,8 @@ export interface Purchase {
   purchaseDate: string;
   total: number;
   amountPaid: number;
+  returnedAmount: number;
+  refundReceived: number;
   remaining: number;
   note: string | null;
   lines: PurchaseLine[];
@@ -110,25 +128,40 @@ export interface SaleLine {
   productName: string;
   quantity: number;
   unitPrice: number;
-  unitCost: number;
+  unitCost: number | null;
+  returnedQuantity: number;
+  packCount: number | null;
+  packPrice: number | null;
+  lineTotal: number;
 }
 
 export interface Sale {
   id: string;
+  number: string;
+  invoiceNumber: string | null;
+  deliveryNumber: string | null;
   customerId: string | null;
   customerName: string | null;
+  customerPhone: string | null;
+  sellerName: string | null;
   saleDate: string;
   discount: number;
+  discountPercent: number | null;
   total: number;
+  returnedAmount: number;
+  refundedAmount: number;
+  netTotal: number;
+  paymentMethod: PaymentMethod;
   amountPaid: number;
   remaining: number;
-  profit: number;
+  profit: number | null;
   status: SaleStatus;
   cancellationReason: string | null;
   lines: SaleLine[];
+  returns: { id: string; returnedAt: string; creditAmount: number; refundAmount: number; reason: string | null }[];
 }
 
-export type StockMovementType = 'PURCHASE' | 'SALE' | 'SALE_CANCELLATION' | 'ADJUSTMENT';
+export type StockMovementType = 'PURCHASE' | 'SALE' | 'SALE_CANCELLATION' | 'ADJUSTMENT' | 'SALE_RETURN' | 'PURCHASE_RETURN' | 'TRANSFER_OUT' | 'TRANSFER_IN';
 
 export interface StockMovement {
   id: string;
@@ -139,4 +172,202 @@ export interface StockMovement {
   referenceId: string | null;
   createdAt: string;
   note: string | null;
+}
+export interface ShopSettings {
+  shopName: string | null;
+  address: string | null;
+  city: string | null;
+  phone: string | null;
+  email: string | null;
+  ice: string | null;
+  fiscalId: string | null;
+  tradeRegister: string | null;
+  patente: string | null;
+  defaultVatRate: number;
+  quoteValidityDays: number;
+  documentFooter: string | null;
+  ticketFooter: string | null;
+}
+
+export type QuoteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';
+
+export interface QuoteLine {
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+}
+
+export interface Quote {
+  id: string;
+  number: string;
+  customerId: string | null;
+  customerName: string | null;
+  customerPhone: string | null;
+  createdAt: string;
+  validUntil: string;
+  discount: number;
+  discountPercent: number | null;
+  total: number;
+  status: QuoteStatus;
+  note: string | null;
+  saleId: string | null;
+  lines: QuoteLine[];
+}
+
+export type PaymentMethod = 'CASH' | 'CHECK' | 'TRANSFER' | 'CARD';
+export type CheckStatus = 'PENDING' | 'CASHED' | 'BOUNCED';
+
+export interface Check {
+  operationId: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string | null;
+  number: string;
+  bank: string | null;
+  dueDate: string;
+  amount: number;
+  status: CheckStatus;
+  receivedAt: string;
+  daysUntilDue: number;
+}
+
+export type StatementEntryType = 'SALE' | 'PAYMENT' | 'CHECK_BOUNCED' | 'RETURN' | 'REFUND';
+
+export interface Statement {
+  customerId: string;
+  customerName: string;
+  from: string | null;
+  to: string;
+  openingBalance: number;
+  totalDebit: number;
+  totalCredit: number;
+  closingBalance: number;
+  entries: { date: string; type: StatementEntryType; reference: string; label: string; debit: number; credit: number; balance: number }[];
+}
+
+export interface Aging {
+  customerId: string;
+  name: string;
+  phone: string | null;
+  total: number;
+  days0to30: number;
+  days31to60: number;
+  days61to90: number;
+  over90: number;
+  oldestDays: number;
+}
+
+export interface InventoryLine {
+  productId: string;
+  productName: string;
+  reference: string;
+  expectedQuantity: number;
+  countedQuantity: number | null;
+  difference: number | null;
+  differenceValue: number;
+}
+
+export interface Inventory {
+  id: string;
+  number: string;
+  openedAt: string;
+  closedAt: string | null;
+  status: 'OPEN' | 'CLOSED' | 'CANCELLED';
+  note: string | null;
+  productCount: number;
+  countedCount: number;
+  discrepancyCount: number;
+  shortageValue: number;
+  surplusValue: number;
+  lines: InventoryLine[];
+}
+
+export type PurchaseOrderStatus = 'ORDERED' | 'PARTIALLY_RECEIVED' | 'RECEIVED' | 'CANCELLED';
+
+export interface PurchaseOrder {
+  id: string;
+  number: string;
+  supplierId: string;
+  supplierName: string;
+  supplierPhone: string | null;
+  createdAt: string;
+  expectedDate: string | null;
+  status: PurchaseOrderStatus;
+  note: string | null;
+  total: number;
+  lines: { productId: string; productName: string; quantity: number; receivedQuantity: number; unitPrice: number }[];
+}
+
+export type WarehouseType = 'STORAGE' | 'QUARANTINE';
+
+export interface Warehouse {
+  id: string;
+  name: string;
+  type: WarehouseType;
+  active: boolean;
+  productCount: number;
+  totalUnits: number;
+  value: number;
+}
+
+export interface WarehouseStockLine {
+  productId: string;
+  productName: string;
+  reference: string;
+  quantity: number;
+  value: number;
+}
+
+export interface ProductLocations {
+  productId: string;
+  productName: string;
+  shopQuantity: number;
+  warehouses: { warehouseId: string; name: string; type: WarehouseType; quantity: number }[];
+}
+
+export interface Activity {
+  id: string;
+  userId: string;
+  userName: string;
+  action: string;
+  path: string;
+  targetId: string | null;
+  at: string;
+}
+
+export interface CashBalance {
+  userId: string;
+  name: string;
+  role: Role;
+  collected: number;
+  handedIn: number;
+  balance: number;
+}
+
+export interface CashHandin {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  amount: number;
+  receivedBy: string | null;
+  note: string | null;
+  at: string;
+}
+
+export interface TargetProgress {
+  userId: string;
+  name: string;
+  month: string;
+  target: number | null;
+  achieved: number;
+  salesCount: number;
+  percent: number | null;
+}
+
+export interface ImportResult {
+  created: number;
+  updated: number;
+  errors: { line: number; message: string }[];
 }

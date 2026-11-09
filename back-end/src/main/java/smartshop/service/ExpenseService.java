@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.exception.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.ExpenseRequest;
@@ -45,7 +46,7 @@ public class ExpenseService {
     @Transactional(readOnly = true)
     public Expense findById(UUID id) {
         return expenseRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Dépense introuvable"));
+                .orElseThrow(() -> new ResourceNotFoundException("Dépense introuvable"));
     }
 
     /** Liste les dépenses d'une période. Sans dates, renvoie toutes les dépenses. */
