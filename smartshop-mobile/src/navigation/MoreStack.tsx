@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import MoreScreen from '../screens/MoreScreen';
 import AgingScreen from '../screens/AgingScreen';
+import CustomersStack from './CustomersStack';
 import InventoryDetailScreen from '../screens/InventoryDetailScreen';
 import InventoryScreen from '../screens/InventoryScreen';
 import PurchaseOrderDetailScreen from '../screens/PurchaseOrderDetailScreen';
@@ -48,6 +49,7 @@ export default function MoreStack() {
         options={{ headerShown: false }}
       />
 
+      <Stack.Screen name="Customers" component={CustomersStack} options={{ headerShown: false }} />
       <Stack.Screen name="PurchaseOrders" component={PurchaseOrdersScreen} options={{ title: t('orders.title') }} />
       <Stack.Screen name="PurchaseOrderForm" component={PurchaseOrderFormScreen} options={{ title: t('orders.new') }} />
       <Stack.Screen name="PurchaseOrderDetail" component={PurchaseOrderDetailScreen} options={({ route }) => ({ title: route.params.order.number })} />

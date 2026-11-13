@@ -8,6 +8,7 @@ import { errorMessage } from '../api/errors';
 import type { AppUser, Role } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
+import { Avatar } from '../components/ui';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
 import { colors, radius, spacing } from '../theme';
@@ -107,7 +108,7 @@ export default function UsersScreen() {
         return (
           <View key={u.id} style={[styles.card, !u.active && styles.inactive]}>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: editing === u.id }} onPress={() => startEdit(u)} style={styles.head}>
-              <View style={styles.avatar}><Text style={styles.avatarText}>{u.name.slice(0, 1).toUpperCase()}</Text></View>
+              <Avatar name={u.name} size={42} />
               <View style={styles.flex}>
                 <Text style={styles.name}>{u.name}{self ? ` (${t('users.you')})` : ''}</Text>
                 <Text style={styles.muted}>{u.email}</Text>

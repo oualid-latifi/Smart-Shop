@@ -28,6 +28,12 @@ public class ReportController {
         return reportService.summary(from, to);
     }
 
+    // Exemple : GET /api/reports/daily?days=7 (graphique des ventes)
+    @GetMapping("/daily")
+    public java.util.List<ReportService.DailyPoint> daily(@RequestParam(defaultValue = "7") int days) {
+        return reportService.daily(days);
+    }
+
     @GetMapping("/today")
     public ReportSummaryResponse today() {
         return reportService.today();

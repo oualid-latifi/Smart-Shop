@@ -14,6 +14,8 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     List<Sale> findAllByOrderBySaleDateDesc();
 
+    List<Sale> findAllByOrderBySaleDateDesc(org.springframework.data.domain.Pageable pageable);
+
     List<Sale> findByCustomer_IdOrderBySaleDateDesc(UUID customerId);
 
     // Dette totale d'un client (ventes annulées exclues). Peut renvoyer null s'il n'a aucune vente.

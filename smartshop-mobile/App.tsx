@@ -85,7 +85,7 @@ export default function App() {
     <SafeAreaProvider>
       <AuthProvider>
         <Root />
-        <StatusBar style="auto" />
+        <StatusBar style="light" />
       </AuthProvider>
     </SafeAreaProvider>
   );

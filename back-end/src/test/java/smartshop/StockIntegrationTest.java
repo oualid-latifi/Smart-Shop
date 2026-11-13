@@ -56,6 +56,11 @@ class StockIntegrationTest {
         assertThat(sale.get("lines").get(0).get("packCount").asInt()).isEqualTo(2);
         assertThat(stock(waterId)).isEqualTo(120 - 24 - 5);
 
+        JsonNode daily = call(get("/api/reports/daily?days=7"), null, 200);
+        assertThat(daily).hasSize(7);
+        assertThat(daily.get(6).get("revenue").decimalValue()).isEqualByComparingTo("75.00");
+        assertThat(call(get("/api/sales?limit=1"), null, 200)).hasSize(1);
+
         byte[] pdf = mvc.perform(auth(get("/api/sales/" + sale.get("id").asText() + "/ticket.pdf")))
                 .andReturn().getResponse().getContentAsByteArray();
         assertThat(new String(pdf, 0, 5)).isEqualTo("%PDF-");

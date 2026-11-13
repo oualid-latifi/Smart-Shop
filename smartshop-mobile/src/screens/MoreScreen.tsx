@@ -11,6 +11,10 @@ import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import type { Permission } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import { IconTile, type Tone } from '../components/ui';
+
+// Couleurs alternées des icônes du menu
+const TILE_TONES: Tone[] = ['primary', 'success', 'warning', 'violet', 'danger'];
 import { colors, radius, spacing } from '../theme';
 
 type Props = {
@@ -27,6 +31,7 @@ export default function MoreScreen({ navigation }: Props) {
 
   // Chaque entrée n'apparaît que si le compte a au moins un des droits indiqués
   const all: { title: string; subtitle: string; icon: React.ComponentProps<typeof Ionicons>['name']; screen: string; anyOf: Permission[] }[] = [
+    { title: t('tabs.customers'), subtitle: isAr ? 'الزبناء والديون' : 'Fiches clients et crédit', icon: 'people-outline', screen: 'Customers', anyOf: ['CUSTOMERS', 'PAYMENTS'] },
     { title: t('quotes.title'), subtitle: t('quotes.subtitle'), icon: 'document-text-outline', screen: 'Quotes', anyOf: ['SALES'] },
     { title: t('targets.title'), subtitle: t('targets.subtitle'), icon: 'trophy-outline', screen: 'Targets', anyOf: ['SALES', 'USERS'] },
     { title: t('aging.title'), subtitle: t('aging.subtitle'), icon: 'hourglass-outline', screen: 'Aging', anyOf: ['PAYMENTS'] },
@@ -59,7 +64,7 @@ export default function MoreScreen({ navigation }: Props) {
           : 'Autres fonctionnalités de gestion'}
       </Text>
 
-      {items.map((item) => (
+      {items.map((item, index) => (
         <Pressable
           key={item.screen}
           onPress={() => navigation.navigate(item.screen)}
@@ -69,13 +74,7 @@ export default function MoreScreen({ navigation }: Props) {
           ]}
           accessibilityRole="button"
         >
-          <View style={styles.iconWrap}>
-            <Ionicons
-              name={item.icon}
-              size={23}
-              color={colors.primary}
-            />
-          </View>
+          <IconTile name={item.icon} tone={TILE_TONES[index % TILE_TONES.length]} size={44} />
 
           <View style={styles.copy}>
             <Text style={styles.title}>

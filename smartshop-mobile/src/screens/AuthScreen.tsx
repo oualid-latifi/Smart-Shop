@@ -10,7 +10,8 @@ import LanguageSwitcher from '../components/LanguageSwitcher';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
-import { colors, radius, spacing } from '../theme';
+import { LinearGradient } from 'expo-linear-gradient';
+import { colors, heroGradient, radius, spacing } from '../theme';
 
 // Un seul écran : "créer le compte" la toute première fois, "se connecter" ensuite
 export default function AuthScreen() {
@@ -76,7 +77,7 @@ export default function AuthScreen() {
   return (
     <Screen>
       <View style={styles.brandBlock}>
-        <View style={styles.brandMark}><Ionicons name="storefront" size={30} color="#fff" /></View>
+        <LinearGradient colors={heroGradient} style={styles.brandMark}><Ionicons name="bag-handle" size={34} color="#fff" /></LinearGradient>
         <Text style={styles.brand}>{t('common.appName')}</Text>
         <Text style={styles.brandHint}>{t('auth.brandHint')}</Text>
       </View>
@@ -159,8 +160,8 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   brandBlock: { alignItems: 'center', marginBottom: spacing.lg },
-  brandMark: { width: 66, height: 66, borderRadius: 22, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
-  brand: { fontSize: 29, fontWeight: '900', color: colors.primary, textAlign: 'center' },
+  brandMark: { width: 76, height: 76, borderRadius: 24, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
+  brand: { fontSize: 30, fontWeight: '900', color: colors.text, textAlign: 'center' },
   brandHint: { fontSize: 12, color: colors.muted, marginTop: 4 },
   loader: { marginVertical: spacing.lg },
   card: {

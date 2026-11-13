@@ -20,6 +20,7 @@ import { errorMessage } from '../api/errors';
 import type { Product } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
+import { Badge, ProductThumb } from '../components/ui';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
@@ -68,39 +69,23 @@ export default function ProductsScreen({ navigation }: Props) {
   }, [products, search]);
 
   function renderItem({ item }: { item: Product }) {
+    const tone = !item.active ? 'neutral' : item.stockQuantity <= 0 ? 'danger' : item.lowStock ? 'warning' : 'success';
     return (
-      <Pressable accessibilityRole="button"
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`${item.name}, ${formatMoney(item.salePrice)}, ${t('products.stock')} ${item.stockQuantity}`}
         onPress={() => navigation.navigate('ProductForm', { product: item })}
-        style={({ pressed }) => [
-          styles.card,
-          !item.active && styles.cardInactive,
-          pressed && styles.pressed,
-        ]}
+        style={({ pressed }) => [styles.row, !item.active && styles.cardInactive, pressed && styles.pressed]}
       >
-        <View style={styles.cardHeader}>
-          {item.imageUrl ? (
-            <Image source={{ uri: item.imageUrl }} style={styles.productImage} resizeMode="cover" />
-          ) : (
-            <View style={styles.productMark}><Ionicons name="hardware-chip-outline" size={19} color={colors.primary} /></View>
-          )}
-          <Text style={styles.name} numberOfLines={2}>
-            {item.name}
-          </Text>
+        <ProductThumb uri={item.imageUrl} size={54} />
+        <View style={styles.rowInfo}>
+          <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.price}>{formatMoney(item.salePrice)}</Text>
-        </View>
-        <Text style={styles.reference}>
-          {item.reference}
-        </Text>
-        {[item.brand, item.model, item.color, item.capacity].filter(Boolean).length > 0 ? (
-          <Text style={styles.reference} numberOfLines={1}>{[item.brand, item.model, item.color, item.capacity].filter(Boolean).join(' · ')}</Text>
-        ) : null}
-        <View style={styles.footer}>
-          <Text style={styles.stock}>
-            {t('products.stock')} : {item.stockQuantity}
+          <Text style={styles.reference} numberOfLines={1}>
+            {[item.reference, item.capacity, item.color].filter(Boolean).join(' · ')}
           </Text>
-          {item.lowStock ? <Text style={styles.badgeLow}>{t('products.lowStock')}</Text> : null}
-          {!item.active ? <Text style={styles.badgeOff}>{t('products.inactive')}</Text> : null}
         </View>
+        <Badge label={!item.active ? t('products.inactive') : `${t('products.stock')}: ${item.stockQuantity}`} tone={tone} />
       </Pressable>
     );
   }
@@ -108,19 +93,27 @@ export default function ProductsScreen({ navigation }: Props) {
   return (
     <SafeAreaView style={styles.safe} edges={['left', 'right']}>
       <View style={styles.top}>
-        <View style={styles.pageHeading}>
-          <View style={styles.headingIcon}><Ionicons name="cube" size={22} color={colors.primary} /></View>
-          <View style={styles.headingCopy}><Text style={styles.pageTitle}>{t('tabs.products')}</Text><Text style={styles.pageSubtitle}>{t('products.catalogSubtitle')}</Text></View>
+        <View style={styles.searchRow}>
+          <View style={styles.searchWrap}>
+            <Ionicons name="search-outline" size={18} color={colors.muted} />
+            <TextInput
+              style={styles.search}
+              value={search}
+              onChangeText={setSearch}
+              placeholder={t('products.search')}
+              placeholderTextColor={colors.muted}
+              accessibilityLabel={t('products.search')}
+              autoCorrect={false}
+            />
+          </View>
+          {can('PRODUCTS_WRITE') ? (
+            <Pressable accessibilityRole="button" onPress={() => navigation.navigate('ProductForm')} style={styles.addButton}>
+              <Ionicons name="add" size={18} color={colors.onPrimary} />
+              <Text style={styles.addText}>{t('common.add')}</Text>
+            </Pressable>
+          ) : null}
         </View>
-        {can('PRODUCTS_WRITE') ? <PrimaryButton icon="add-circle-outline" title={t('products.add')} onPress={() => navigation.navigate('ProductForm')} /> : null}
-        <View style={styles.searchWrap}><Ionicons name="search-outline" size={18} color={colors.muted} /><TextInput
-          style={styles.search}
-          value={search}
-          onChangeText={setSearch}
-          placeholder={t('products.search')}
-          placeholderTextColor={colors.muted}
-          autoCorrect={false}
-        /></View>
+        <Text style={styles.count}>{filtered.length} {t('sales.productsAvailable')}</Text>
       </View>
 
       {loading ? (
@@ -136,7 +129,7 @@ export default function ProductsScreen({ navigation }: Props) {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListEmptyComponent={
             <Text style={styles.empty}>
               {products.length === 0 ? t('products.empty') : t('products.noResult')}
@@ -150,11 +143,17 @@ export default function ProductsScreen({ navigation }: Props) {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  top: { padding: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
+  top: { padding: spacing.md, paddingBottom: 0, gap: spacing.sm },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  addButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, borderRadius: 14, backgroundColor: colors.primary },
+  addText: { color: colors.onPrimary, fontWeight: '800' },
+  count: { color: colors.muted, fontSize: 12 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, backgroundColor: colors.card, borderRadius: radius, borderWidth: 1, borderColor: colors.border, padding: spacing.sm + 4 },
+  rowInfo: { flex: 1, gap: 2 },
   pageHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
   headingIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' },
   headingCopy: { flex: 1 }, pageTitle: { fontSize: 21, fontWeight: '900', color: colors.text }, pageSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
-  searchWrap: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: spacing.md },
+  searchWrap: { flex: 1, minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 9, borderWidth: 1, borderColor: colors.border, borderRadius: 14, backgroundColor: colors.card, paddingHorizontal: spacing.md },
   search: { flex: 1,
     paddingVertical: 10,
     fontSize: 16,

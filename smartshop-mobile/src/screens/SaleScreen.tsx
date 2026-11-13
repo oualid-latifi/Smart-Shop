@@ -22,6 +22,7 @@ import type { Customer, Product, Sale } from '../api/types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import PaymentMethodPicker, { EMPTY_PAYMENT, paymentBody, paymentError, type PaymentValue } from '../components/PaymentMethodPicker';
 import PrimaryButton from '../components/PrimaryButton';
+import { Badge, ProductThumb } from '../components/ui';
 import TextField from '../components/TextField';
 import { confirmAction } from '../confirm';
 import { formatMoney, parseNumber } from '../format';
@@ -66,6 +67,7 @@ export default function SaleScreen({ navigation }: Props) {
 
   const [search, setSearch] = useState('');
   const [scanning, setScanning] = useState(false);
+  const [brand, setBrand] = useState<string | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState('');
   const [paid, setPaid] = useState('');
@@ -106,14 +108,19 @@ export default function SaleScreen({ navigation }: Props) {
     }, [load]),
   );
 
+  const brands = useMemo(
+    () => [...new Set(products.map((p) => p.brand?.trim()).filter((b): b is string => !!b))].sort((a, b) => a.localeCompare(b)),
+    [products],
+  );
+
   const matches = useMemo(() => {
     const query = search.trim().toLowerCase();
-    if (!query) return products;
     return products.filter((p) =>
-      [p.name, p.reference, p.brand ?? '', p.model ?? '', p.barcode ?? '']
-        .some((value) => value.toLowerCase().includes(query)),
+      (!brand || p.brand?.trim() === brand)
+      && (!query || [p.name, p.reference, p.brand ?? '', p.model ?? '', p.barcode ?? '']
+        .some((value) => value.toLowerCase().includes(query))),
     );
-  }, [products, search]);
+  }, [products, search, brand]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase();
@@ -334,13 +341,22 @@ export default function SaleScreen({ navigation }: Props) {
         </View>
         <BarcodeScanner visible={scanning} onClose={() => setScanning(false)} onScanned={(code) => void onScanned(code)} />
 
-        <View style={styles.catalogHeading}>
-          <View style={styles.flex}>
-            <Text style={styles.sectionTitle}>{search.trim() ? t('sales.searchResults') : t('sales.catalog')}</Text>
-            <Text style={styles.muted}>{matches.length} {t('sales.productsAvailable')}</Text>
-          </View>
-          <Ionicons name="grid-outline" size={21} color={colors.primary} />
-        </View>
+        {brands.length > 0 ? (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.brands} style={styles.brandBar}>
+            {[null, ...brands].map((b) => (
+              <Pressable
+                key={b ?? 'all'}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: brand === b }}
+                onPress={() => setBrand(b)}
+                style={[styles.brandChip, brand === b && styles.brandChipActive]}
+              >
+                <Text style={[styles.brandText, brand === b && styles.brandTextActive]}>{b ?? t('sales.all')}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        ) : null}
+        <Text style={styles.catalogCount}>{matches.length} {t('sales.productsAvailable')}</Text>
         {matches.length === 0 ? (
           <View style={styles.emptyCatalog}><Ionicons name="cube-outline" size={28} color={colors.muted} /><Text style={styles.muted}>{t('sales.noProducts')}</Text></View>
         ) : (
@@ -359,13 +375,20 @@ export default function SaleScreen({ navigation }: Props) {
                   onPress={() => addProduct(p)}
                   disabled={unavailable}
                 >
-                  {inCart > 0 ? <View style={styles.inCartBadge}><Text style={styles.inCartText}>{inCart}</Text></View> : null}
-                  {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={styles.productImage} resizeMode="cover" /> : <View style={styles.productIcon}><Ionicons name="phone-portrait-outline" size={23} color={colors.primary} /></View>}
-                  <Text style={styles.productName} numberOfLines={2}>{p.name}</Text>
-                  <Text style={styles.productMeta} numberOfLines={1}>{[p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
+                  <View style={styles.productImageWrap}>
+                    {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={styles.productImage} resizeMode="cover" /> : <Ionicons name="phone-portrait-outline" size={40} color={colors.muted} />}
+                    {inCart > 0 ? <View style={styles.inCartBadge}><Text style={styles.inCartText}>{inCart}</Text></View> : null}
+                  </View>
+                  <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
+                  <Text style={styles.productMeta} numberOfLines={1}>{p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
                   <Text style={styles.productPrice}>{formatMoney(p.salePrice)}</Text>
-                  <View style={styles.stockBadge}><View style={[styles.stockDot, p.stockQuantity <= p.alertThreshold && styles.stockDotLow]} /><Text style={styles.stockText}>{unavailable ? t('sales.outOfStock') : `${t('products.stock')}: ${p.stockQuantity}`}</Text></View>
-                  <View style={[styles.addProduct, unavailable && styles.addProductDisabled]}><Ionicons name="add" size={17} color={colors.onPrimary} /><Text style={styles.addProductText}>{t('sales.addToCart')}</Text></View>
+                  <View style={styles.productFooter}>
+                    <Badge
+                      label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: p.stockQuantity })}
+                      tone={unavailable ? 'danger' : p.stockQuantity <= p.alertThreshold ? 'warning' : 'success'}
+                    />
+                    <View style={[styles.addRound, unavailable && styles.addProductDisabled]}><Ionicons name="add" size={20} color={colors.onPrimary} /></View>
+                  </View>
                 </Pressable>
               );
             })}
@@ -391,6 +414,7 @@ export default function SaleScreen({ navigation }: Props) {
         ) : (
           cart.map((line) => (
             <View key={line.product.id} style={styles.cartRow}>
+              <ProductThumb uri={line.product.imageUrl} size={48} />
               <View style={styles.flex}>
                 <Text style={styles.name} numberOfLines={2}>{line.product.name}</Text>
                 {line.product.unitsPerPack ? (
@@ -625,7 +649,7 @@ const styles = StyleSheet.create({
   center: { textAlign: 'center' },
   customerSearch: { marginBottom: spacing.sm },
   productInCart: { borderColor: colors.primary, borderWidth: 2 },
-  inCartBadge: { position: 'absolute', top: 8, right: 8, minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', zIndex: 1 },
+  inCartBadge: { position: 'absolute', top: 6, right: 6, minWidth: 24, height: 24, borderRadius: 12, paddingHorizontal: 6, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   inCartText: { color: colors.onPrimary, fontSize: 12, fontWeight: '800' },
   addProductDisabled: { backgroundColor: colors.muted },
   cartHeading: { flexDirection: 'row', alignItems: 'center' },
@@ -645,12 +669,22 @@ const styles = StyleSheet.create({
   searchWrap: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, borderRadius: radius + 3, paddingHorizontal: spacing.md, marginBottom: spacing.md },
   search: { flex: 1, paddingVertical: 13, fontSize: 15, color: colors.text },
   catalogHeading: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.sm, marginBottom: spacing.sm },
+  brandBar: { flexGrow: 0, marginBottom: spacing.sm },
+  brands: { gap: spacing.sm },
+  brandChip: { minHeight: 36, paddingHorizontal: spacing.md, borderRadius: 999, justifyContent: 'center', backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border },
+  brandChipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  brandText: { color: colors.muted, fontWeight: '700', fontSize: 13 },
+  brandTextActive: { color: colors.onPrimary },
+  catalogCount: { color: colors.muted, fontSize: 12, marginBottom: spacing.sm },
+  productImageWrap: { aspectRatio: 1.15, borderRadius: radius - 4, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: spacing.sm },
+  productFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs, marginTop: spacing.sm },
+  addRound: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  productCard: { width: '48%', flexGrow: 1, minWidth: 145, backgroundColor: colors.card, borderRadius: radius + 2, borderWidth: 1, borderColor: colors.border, padding: spacing.md, marginBottom: 2 },
+  productCard: { width: '48%', flexGrow: 1, minWidth: 145, backgroundColor: colors.card, borderRadius: radius + 2, borderWidth: 1, borderColor: colors.border, padding: spacing.sm + 2, marginBottom: 2 },
   productPressed: { opacity: 0.78, transform: [{ scale: 0.985 }] },
   productUnavailable: { opacity: 0.48 },
   productIcon: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm },
-  productImage: { width: 42, height: 42, borderRadius: 13, backgroundColor: colors.neutralBg, marginBottom: spacing.sm },
+  productImage: { width: '100%', height: '100%' },
   productName: { color: colors.text, fontSize: 14, fontWeight: '700', minHeight: 36 },
   productMeta: { color: colors.muted, fontSize: 11, marginTop: 3 },
   productPrice: { color: colors.primary, fontSize: 16, fontWeight: '800', marginTop: spacing.sm },

@@ -344,6 +344,11 @@ public class SaleService {
         return saleRepository.findAllByOrderBySaleDateDesc();
     }
 
+    @Transactional(readOnly = true)
+    public List<Sale> findRecent(int limit) {
+        return saleRepository.findAllByOrderBySaleDateDesc(org.springframework.data.domain.PageRequest.of(0, Math.min(Math.max(limit, 1), 200)));
+    }
+
     private void checkCreditLimit(Customer customer, BigDecimal newCredit) {
         BigDecimal limit = customer.getCreditLimit();
         if (limit == null) {

@@ -28,6 +28,7 @@ export type PurchasesStackParamList = {
 
 export type MoreStackParamList = {
   MoreHome: undefined;
+  Customers: undefined;
   Purchases: undefined;
   Quotes: undefined;
   Checks: undefined;

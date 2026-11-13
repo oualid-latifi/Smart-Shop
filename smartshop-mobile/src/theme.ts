@@ -1,49 +1,33 @@
-import { Appearance, Platform } from 'react-native';
+// Identité visuelle SmartShop : bleu nuit + bleu électrique, cartes arrondies.
+// L'application est toujours affichée en thème sombre (comme la maquette de référence).
 
-const light = {
-  primary: '#0f766e',
-  primaryDark: '#115e59',
+const palette = {
+  primary: '#2f6bff',
+  primaryDark: '#1d4fd8',
+  primarySoft: '#16295a', // fond des pastilles et icônes bleues
   onPrimary: '#ffffff',
-  background: '#f8fafc',
-  card: '#ffffff',
-  text: '#0f172a',
-  muted: '#64748b',
-  border: '#dbe3ee',
-  danger: '#b91c1c',
-  dangerBg: '#fee2e2',
-  success: '#15803d',
-  successBg: '#d1fae5',
-  neutralBg: '#e5e7eb',
+  background: '#0a1224',
+  card: '#111c33',
+  cardAlt: '#17233f', // cartes en relief (champs, vignettes produit)
+  text: '#eef3ff',
+  muted: '#8c9cbd',
+  border: '#1f2c4a',
+  danger: '#ff5b6b',
+  dangerBg: '#3a1622',
+  success: '#2fd07a',
+  successBg: '#0f2e22',
+  warning: '#f5a524',
+  warningBg: '#3a2b0e',
+  violet: '#8b7bff',
+  violetBg: '#241f4d',
+  neutralBg: '#1a2744',
 };
 
-const dark = {
-  primary: '#2dd4bf',
-  primaryDark: '#14b8a6',
-  onPrimary: '#06201d',
-  background: '#0b1220',
-  card: '#111c2e',
-  text: '#e2e8f0',
-  muted: '#94a3b8',
-  border: '#233047',
-  danger: '#f87171',
-  dangerBg: '#3b1518',
-  success: '#4ade80',
-  successBg: '#0f2e1c',
-  neutralBg: '#1e293b',
-};
+export const isDark = true;
+export const colors = palette;
 
-// Le thème suit le réglage du téléphone (ou du navigateur) au moment où l'app s'ouvre
-function detectDark(): boolean {
-  if (Platform.OS === 'web') {
-    return typeof window !== 'undefined' && !!window.matchMedia
-      ? window.matchMedia('(prefers-color-scheme: dark)').matches
-      : false;
-  }
-  return Appearance.getColorScheme() === 'dark';
-}
-
-export const isDark = detectDark();
-export const colors = isDark ? dark : light;
+// Dégradé de la carte "Ventes du jour" et des boutons mis en avant
+export const heroGradient = ['#3b7bff', '#1d4fd8'] as const;
 
 export const spacing = {
   xs: 4,
@@ -53,4 +37,19 @@ export const spacing = {
   xl: 32,
 };
 
-export const radius = 14;
+export const radius = 16;
+
+/** Couleur stable dérivée d'un nom (avatars des clients et des employés). */
+export function avatarColor(name: string): { fg: string; bg: string } {
+  const tones = [
+    { fg: '#6ea0ff', bg: '#16295a' },
+    { fg: '#2fd07a', bg: '#0f2e22' },
+    { fg: '#f5a524', bg: '#3a2b0e' },
+    { fg: '#8b7bff', bg: '#241f4d' },
+    { fg: '#ff7aa8', bg: '#3a1630' },
+    { fg: '#3cc8e0', bg: '#0f2c36' },
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) | 0;
+  return tones[Math.abs(hash) % tones.length];
+}
