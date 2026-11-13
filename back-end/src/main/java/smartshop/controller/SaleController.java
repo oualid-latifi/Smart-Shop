@@ -33,8 +33,9 @@ public class SaleController {
     }
 
     @GetMapping
-    public List<SaleResponse> findAll() {
-        return saleService.findAll().stream().map(SaleResponse::from).toList();
+    public List<SaleResponse> findAll(@RequestParam(required = false) Integer limit) {
+        List<smartshop.entity.Sale> sales = limit != null ? saleService.findRecent(limit) : saleService.findAll();
+        return sales.stream().map(SaleResponse::from).toList();
     }
 
     @GetMapping("/{id}")

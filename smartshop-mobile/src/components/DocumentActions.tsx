@@ -2,12 +2,23 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, radius, spacing } from '../theme';
+import { toneColors, type Tone } from './ui';
+
+// Couleur du rond selon le type de document (WhatsApp vert, PDF rouge…)
+const ICON_TONES: Record<string, Tone> = {
+  'logo-whatsapp': 'success',
+  'document-text-outline': 'danger',
+  'receipt-outline': 'primary',
+  'cube-outline': 'warning',
+  'download-outline': 'violet',
+};
 
 export interface DocumentAction {
   key: string;
   label: string;
   icon: React.ComponentProps<typeof Ionicons>['name'];
   onPress: () => Promise<void>;
+  tone?: Tone;
 }
 
 /**
@@ -40,11 +51,13 @@ export default function DocumentActions({ actions, onError }: { actions: Documen
           onPress={() => void run(action)}
           style={({ pressed }) => [styles.tile, pressed && styles.pressed, !!busy && busy !== action.key && styles.dimmed]}
         >
-          {busy === action.key ? (
-            <ActivityIndicator color={colors.primary} />
-          ) : (
-            <Ionicons name={action.icon} size={22} color={colors.primary} />
-          )}
+          <View style={[styles.circle, { backgroundColor: toneColors(action.tone ?? ICON_TONES[action.icon] ?? 'primary').bg }]}>
+            {busy === action.key ? (
+              <ActivityIndicator color={toneColors(action.tone ?? ICON_TONES[action.icon] ?? 'primary').fg} />
+            ) : (
+              <Ionicons name={action.icon} size={22} color={toneColors(action.tone ?? ICON_TONES[action.icon] ?? 'primary').fg} />
+            )}
+          </View>
           <Text style={styles.label} numberOfLines={2}>{action.label}</Text>
         </Pressable>
       ))}
@@ -57,7 +70,7 @@ const styles = StyleSheet.create({
   tile: {
     flexGrow: 1,
     flexBasis: '30%',
-    minHeight: 76,
+    minHeight: 96,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
@@ -67,6 +80,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
     backgroundColor: colors.card,
   },
+  circle: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center' },
   pressed: { opacity: 0.7 },
   dimmed: { opacity: 0.5 },
   label: { color: colors.text, fontSize: 12, fontWeight: '700', textAlign: 'center' },

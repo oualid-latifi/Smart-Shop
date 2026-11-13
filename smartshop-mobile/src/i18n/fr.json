@@ -10,7 +10,8 @@
     "unsavedTitle": "Modifications non enregistrées",
     "unsavedMessage": "Quitter sans enregistrer ? Les modifications seront perdues.",
     "keepEditing": "Continuer",
-    "discard": "Quitter"
+    "discard": "Quitter",
+    "add": "Ajouter"
   },
   "language": {
     "restartNotice": "Ferme complètement l'application puis rouvre-la pour appliquer le sens d'écriture."
@@ -135,7 +136,8 @@
     "printSale": "Imprimer / partager",
     "newSale": "Nouvelle vente",
     "unit": "Unité",
-    "pack": "Carton ×{{n}}"
+    "pack": "Carton ×{{n}}",
+    "inStock": "En stock : {{n}}"
   },
   "history": {
     "title": "Historique des ventes",

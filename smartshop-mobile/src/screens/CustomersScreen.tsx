@@ -18,6 +18,9 @@ import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Customer } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
+import { Avatar, Badge } from '../components/ui';
+import { useAuth } from '../auth/AuthContext';
+import type { Aging } from '../api/types';
 import { formatMoney } from '../format';
 import type { CustomersStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
@@ -26,7 +29,10 @@ type Props = NativeStackScreenProps<CustomersStackParamList, 'CustomersList'>;
 
 export default function CustomersScreen({ navigation }: Props) {
   const { t } = useTranslation();
+  const { can } = useAuth();
   const [customers, setCustomers] = useState<Customer[]>([]);
+  // Ancienneté de la plus vieille dette de chaque client (pastille 30+ / 60+ / 90+)
+  const [oldestDays, setOldestDays] = useState<Record<string, number>>({});
   const [search, setSearch] = useState('');
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -38,10 +44,14 @@ export default function CustomersScreen({ navigation }: Props) {
       setError(null);
       const data = await api<Customer[]>('/api/customers');
       setCustomers(data);
+      if (can('PAYMENTS')) {
+        const aging = await api<Aging[]>('/api/customers/aging').catch(() => [] as Aging[]);
+        setOldestDays(Object.fromEntries(aging.map((a) => [a.customerId, a.oldestDays])));
+      }
     } catch (e) {
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [t, can]);
 
   useFocusEffect(
     useCallback(() => {
@@ -76,13 +86,23 @@ export default function CustomersScreen({ navigation }: Props) {
         onPress={() => navigation.navigate('CustomerDetail', { customer: item })}
         style={({ pressed }) => [styles.card, pressed && styles.pressed]}
       >
-        <View style={styles.customerAvatar}><Ionicons name="person-outline" size={19} color={colors.primary} /></View>
+        <Avatar name={item.name} size={44} />
         <View style={styles.flex}>
           <Text style={styles.name}>{item.name}</Text>
-          {item.phone ? <Text style={styles.muted}>{item.phone}</Text> : null}
+          <Text style={[styles.muted, inDebt && styles.debtLine]}>{t('customers.balance')} : {formatMoney(Math.max(0, item.balance))}</Text>
           {!item.active ? <Text style={styles.inactive}>{t('customers.inactive')}</Text> : null}
         </View>
-        <View style={styles.balanceWrap}><Text style={[styles.balance, inDebt ? styles.debt : styles.ok]}>{inDebt ? formatMoney(item.balance) : t('customers.noDebt')}</Text><Ionicons name="chevron-forward" size={16} color={colors.muted} /></View>
+        <View style={styles.balanceWrap}>
+          {inDebt ? (
+            <Badge
+              label={agingLabel(oldestDays[item.id])}
+              tone={(oldestDays[item.id] ?? 0) > 60 ? 'danger' : (oldestDays[item.id] ?? 0) > 30 ? 'warning' : 'primary'}
+            />
+          ) : (
+            <Badge label={t('customers.noDebt')} tone="success" />
+          )}
+          <Ionicons name="chevron-forward" size={16} color={colors.muted} />
+        </View>
       </Pressable>
     );
   }
@@ -127,7 +147,7 @@ export default function CustomersScreen({ navigation }: Props) {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} />}
           ListEmptyComponent={
             <Text style={styles.empty}>
               {customers.length === 0 ? t('customers.empty') : t('customers.noResult')}
@@ -137,6 +157,15 @@ export default function CustomersScreen({ navigation }: Props) {
       )}
     </SafeAreaView>
   );
+}
+
+/** 0-30 j -> "0-30", 45 j -> "30+", 75 j -> "60+", 120 j -> "90+" */
+function agingLabel(days?: number): string {
+  if (days === undefined) return 'Kridi';
+  if (days > 90) return '90+';
+  if (days > 60) return '60+';
+  if (days > 30) return '30+';
+  return '0-30';
 }
 
 function Chip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
@@ -150,6 +179,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
+  debtLine: { color: colors.warning },
   top: { padding: spacing.md, paddingBottom: spacing.sm, gap: spacing.md },
   pageHeading: { flexDirection: 'row', alignItems: 'center', gap: spacing.md }, headingIcon: { width: 46, height: 46, borderRadius: 15, backgroundColor: colors.neutralBg, alignItems: 'center', justifyContent: 'center' }, headingCopy: { flex: 1 }, pageTitle: { fontSize: 21, fontWeight: '900', color: colors.text }, pageSubtitle: { fontSize: 12, color: colors.muted, marginTop: 2 },
   totalBox: { backgroundColor: colors.card, borderRadius: 17, borderWidth: 1, borderColor: colors.border, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.sm },

@@ -104,6 +104,27 @@ public class ReportService {
                 productRepository.countLowStock());
     }
 
+    public record DailyPoint(LocalDate date, long salesCount, BigDecimal revenue, BigDecimal grossProfit) {
+    }
+
+    /** Chiffre d'affaires et bénéfice brut de chacun des N derniers jours (aujourd'hui inclus). */
+    @Transactional(readOnly = true)
+    public List<DailyPoint> daily(int days) {
+        int n = Math.min(Math.max(days, 1), 31);
+        LocalDate today = LocalDate.now();
+        List<DailyPoint> points = new java.util.ArrayList<>();
+        for (int i = n - 1; i >= 0; i--) {
+            LocalDate day = today.minusDays(i);
+            LocalDateTime start = day.atStartOfDay();
+            LocalDateTime end = day.plusDays(1).atStartOfDay();
+            BigDecimal revenue = nz(saleRepository.sumTotalBetween(start, end));
+            BigDecimal cost = nz(saleLineRepository.sumCostBetween(start, end))
+                    .subtract(nz(saleReturnRepository.sumReturnedCostBetween(start, end)));
+            points.add(new DailyPoint(day, saleRepository.countValidatedBetween(start, end), revenue, revenue.subtract(cost)));
+        }
+        return points;
+    }
+
     public ReportSummaryResponse today() {
         LocalDate today = LocalDate.now();
         return summary(today, today);

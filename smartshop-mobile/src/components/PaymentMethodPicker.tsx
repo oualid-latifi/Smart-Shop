@@ -63,8 +63,8 @@ export default function PaymentMethodPicker({ value, onChange }: { value: Paymen
   return (
     <View>
       <Text style={styles.label}>{t('payments.method')}</Text>
-      <View style={styles.row} accessibilityRole="radiogroup">
-        {METHODS.map((m) => {
+      <View style={styles.list} accessibilityRole="radiogroup">
+        {METHODS.map((m, i) => {
           const active = value.method === m.value;
           return (
             <Pressable
@@ -72,9 +72,10 @@ export default function PaymentMethodPicker({ value, onChange }: { value: Paymen
               accessibilityRole="radio"
               accessibilityState={{ checked: active }}
               onPress={() => set({ method: m.value, checkDueDate: m.value === 'CHECK' && !value.checkDueDate ? inDays(0) : value.checkDueDate })}
-              style={[styles.option, active && styles.optionActive]}
+              style={[styles.option, i > 0 && styles.optionDivider]}
             >
-              <Ionicons name={m.icon} size={18} color={active ? colors.onPrimary : colors.primary} />
+              <View style={[styles.radio, active && styles.radioOn]}>{active ? <View style={styles.radioDot} /> : null}</View>
+              <Ionicons name={m.icon} size={18} color={active ? colors.primary : colors.muted} />
               <Text style={[styles.optionText, active && styles.optionTextActive]} numberOfLines={1}>{t(`payments.${m.value}`)}</Text>
             </Pressable>
           );
@@ -116,10 +117,14 @@ export default function PaymentMethodPicker({ value, onChange }: { value: Paymen
 const styles = StyleSheet.create({
   label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: spacing.xs },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
-  option: { flexGrow: 1, flexBasis: '22%', minHeight: 48, flexDirection: 'row', gap: 4, alignItems: 'center', justifyContent: 'center', borderRadius: radius, borderWidth: 1, borderColor: colors.primary, paddingHorizontal: 6 },
-  optionActive: { backgroundColor: colors.primary },
-  optionText: { color: colors.primary, fontWeight: '700', fontSize: 12 },
-  optionTextActive: { color: colors.onPrimary },
+  list: { backgroundColor: colors.cardAlt, borderRadius: radius, marginBottom: spacing.md, paddingHorizontal: spacing.md },
+  option: { minHeight: 48, flexDirection: 'row', gap: spacing.sm + 2, alignItems: 'center' },
+  optionDivider: { borderTopWidth: 1, borderTopColor: colors.border },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: colors.primary },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: colors.primary },
+  optionText: { color: colors.muted, fontWeight: '600', fontSize: 14 },
+  optionTextActive: { color: colors.text, fontWeight: '800' },
   check: { backgroundColor: colors.neutralBg, borderRadius: radius, padding: spacing.md, marginBottom: spacing.md },
   twoCols: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },

@@ -1,676 +1,289 @@
-
 import React, { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { api } from '../api/client';
-import type { TargetProgress } from '../api/types';
-import { ProgressBar } from './TargetsScreen';
 import { errorMessage } from '../api/errors';
+import type { Sale, TargetProgress } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
-import Screen from '../components/Screen';
+import { Avatar, Badge, Card, IconTile, SectionHeader, StatTile } from '../components/ui';
 import { formatMoney } from '../format';
-import { colors, radius, spacing } from '../theme';
-
-interface TopProductDto {
-  productId: string;
-  name: string;
-  quantitySold: number;
-  revenue: number;
-}
+import { colors, heroGradient, radius, spacing } from '../theme';
+import { ProgressBar } from './TargetsScreen';
 
 interface TodayReport {
   salesCount: number;
   revenue: number;
   grossProfit: number;
-  netProfit: number;
-  cashCollected: number;
-  topProducts: TopProductDto[];
   totalCustomerDebt: number;
-  stockValue: number;
   lowStockCount: number;
 }
 
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
+interface DailyPoint {
+  date: string;
+  salesCount: number;
+  revenue: number;
+  grossProfit: number;
+}
+
+const DAYS = {
+  fr: ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'],
+  ar: ['أحد', 'إثن', 'ثلا', 'أرب', 'خمي', 'جمع', 'سبت'],
+};
+
+/** Variation en % entre deux montants (null si pas de point de comparaison). */
+function variation(current: number, previous: number): number | null {
+  if (previous <= 0) return null;
+  return Math.round(((current - previous) / previous) * 100);
+}
+
+function timeOf(iso: string): string {
+  const d = new Date(iso);
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
 
 export default function DashboardScreen() {
   const { t, i18n } = useTranslation();
   const { user, can } = useAuth();
-  const canReports = can('REPORTS');
-  const [myTarget, setMyTarget] = useState<TargetProgress | null>(null);
   const navigation = useNavigation<any>();
-
   const isAr = !!i18n.language && i18n.language.startsWith('ar');
+  const canReports = can('REPORTS');
+  const canSales = can('SALES');
 
   const [report, setReport] = useState<TodayReport | null>(null);
+  const [daily, setDaily] = useState<DailyPoint[]>([]);
+  const [recent, setRecent] = useState<Sale[]>([]);
+  const [myTarget, setMyTarget] = useState<TargetProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
-
     try {
+      const jobs: Promise<unknown>[] = [];
       if (canReports) {
-        setReport(await api<TodayReport>('/api/reports/today'));
+        jobs.push(api<TodayReport>('/api/reports/today').then(setReport));
+        jobs.push(api<DailyPoint[]>('/api/reports/daily?days=7').then(setDaily));
       } else {
-        const targets = await api<TargetProgress[]>('/api/targets');
-        setMyTarget(targets.find((x) => x.name === user?.name) ?? null);
+        jobs.push(api<TargetProgress[]>('/api/targets').then((list) => setMyTarget(list.find((x) => x.name === user?.name) ?? null)));
       }
+      if (canSales) jobs.push(api<Sale[]>('/api/sales?limit=4').then(setRecent));
+      await Promise.all(jobs);
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {
       setLoading(false);
     }
-  }, [t, canReports, user?.name]);
+  }, [t, canReports, canSales, user?.name]);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-    }, [load]),
-  );
+  useFocusEffect(useCallback(() => { void load(); }, [load]));
 
-  const newSaleLabel = t('sales.new', {
-    defaultValue: isAr ? 'عملية بيع جديدة' : 'Nouvelle vente',
-  });
+  const today = daily[daily.length - 1];
+  const yesterday = daily[daily.length - 2];
+  const dayChange = today && yesterday ? variation(today.revenue, yesterday.revenue) : null;
+  const weekTotal = daily.reduce((s, d) => s + d.revenue, 0);
+  const margin = report && report.revenue > 0 ? Math.round((report.grossProfit / report.revenue) * 100) : null;
+  const maxDay = Math.max(1, ...daily.map((d) => d.revenue));
+  const dayNames = isAr ? DAYS.ar : DAYS.fr;
 
   return (
-    <Screen>
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.brandMark}>
-          <Ionicons name="storefront" size={23} color="#fff" />
-        </View>
-
-        <View style={styles.headerText}>
-          <Text style={styles.eyebrow}>SMARTSHOP</Text>
-
-          <Text style={styles.hello} numberOfLines={1}>
-            {t('home.welcome', { name: user?.name ?? '' })}
-          </Text>
-
-          <Text style={styles.subtitle}>
-            {t('reports.today')}
-          </Text>
-        </View>
-
-      
-      </View>
-
-      {/* New sale */}
-      <Pressable accessibilityRole="button"
-        style={({ pressed }) => [
-          styles.saleHero,
-          pressed && styles.pressed,
-        ]}
-        onPress={() => navigation.navigate('Sales')}
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await load(); setRefreshing(false); }} tintColor={colors.primary} colors={[colors.primary]} />}
       >
-        <View style={styles.saleIcon}>
-          <Ionicons name="add" size={26} color={colors.primaryDark} />
-        </View>
-
-        <View style={styles.saleCopy}>
-          <Text style={styles.saleEyebrow}>
-            {isAr ? 'ابدأ عملية جديدة' : 'ACTION RAPIDE'}
-          </Text>
-
-          <Text style={styles.saleTitle}>
-            {newSaleLabel}
-          </Text>
-
-          <Text style={styles.saleHint}>
-            {isAr
-              ? 'سجّل عملية بيع في ثوانٍ'
-              : 'Enregistrer une vente en quelques secondes'}
-          </Text>
-        </View>
-
-        <Ionicons
-          name={isAr ? 'arrow-back' : 'arrow-forward'}
-          size={20}
-          color="#fff"
-        />
-      </Pressable>
-
-      {/* Today's summary */}
-      <View style={styles.sectionHeading}>
-        <Text style={styles.section}>
-          {isAr ? 'ملخص اليوم' : 'Résumé du jour'}
-        </Text>
-
-        <View style={styles.livePill}>
-          <View style={styles.liveDot} />
-          <Text style={styles.liveText}>
-            {isAr ? 'اليوم' : 'AUJOURD’HUI'}
-          </Text>
-        </View>
-      </View>
-
-      {!canReports && myTarget ? (
-        <View style={styles.targetCard}>
-          <Text style={styles.targetTitle}>{t('targets.mine')}</Text>
-          <Text style={styles.targetValue}>{formatMoney(myTarget.achieved)}{myTarget.target !== null ? ` / ${formatMoney(myTarget.target)}` : ''}</Text>
-          <ProgressBar percent={myTarget.percent} />
-          <Text style={styles.targetHint}>{t('targets.sales', { n: myTarget.salesCount })}</Text>
-        </View>
-      ) : null}
-
-      {loading ? (
-        <ActivityIndicator
-          style={styles.loader}
-          color={colors.primary}
-        />
-      ) : error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{error}</Text>
-
-          <PrimaryButton
-            title={t('common.retry')}
-            onPress={() => void load()}
-            variant="outline"
-          />
-        </View>
-      ) : report ? (
-        <>
-          {/* Statistics */}
-          <View style={styles.grid}>
-            <StatCard
-              icon="wallet-outline"
-              label={t('reports.revenue')}
-              value={formatMoney(report.revenue)}
-              hint={t('reports.salesCount', { n: report.salesCount })}
-              tone="teal"
-            />
-
-            <StatCard
-              icon="trending-up-outline"
-              label={t('reports.netProfit')}
-              value={formatMoney(report.netProfit)}
-              valueColor={
-                report.netProfit < 0 ? colors.danger : colors.success
-              }
-              tone="green"
-            />
-
-            <StatCard
-              icon="cash-outline"
-              label={t('reports.cashCollected')}
-              value={formatMoney(report.cashCollected)}
-              tone="blue"
-            />
-
-            <StatCard
-              icon="pie-chart-outline"
-              label={t('reports.grossProfit')}
-              value={formatMoney(report.grossProfit)}
-              tone="violet"
-            />
+        {/* En-tête */}
+        <View style={styles.header}>
+          <View style={styles.flex}>
+            <Text style={styles.hello}>{isAr ? 'مرحبا 👋' : 'Bonjour 👋'}</Text>
+            <Text style={styles.name} numberOfLines={1}>{user?.name ?? ''}</Text>
+            <Text style={styles.muted}>{isAr ? 'يوم سعيد!' : 'Bonne journée !'}</Text>
           </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('tabs.more')} onPress={() => navigation.navigate('More')}>
+            <Avatar name={user?.name ?? 'S'} size={46} />
+          </Pressable>
+        </View>
 
-          {/* Current information */}
-          <Text style={styles.section}>
-            {t('reports.now')}
-          </Text>
+        {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
+        {error ? (
+          <Card style={styles.errorCard}>
+            <Text style={styles.errorText}>{error}</Text>
+            <PrimaryButton title={t('common.retry')} onPress={() => void load()} variant="outline" />
+          </Card>
+        ) : null}
 
-          <View style={styles.card}>
-            <Row
-              icon="people-outline"
-              label={t('reports.customerDebt')}
-              value={formatMoney(report.totalCustomerDebt)}
-              onPress={() => navigation.navigate('Customers')}
-            />
-
-            <View style={styles.divider} />
-
-            <Row
-              icon="alert-circle-outline"
-              label={t('reports.lowStock')}
-              value={String(report.lowStockCount)}
-              valueColor={
-                report.lowStockCount > 0 ? colors.danger : undefined
-              }
-              onPress={() => navigation.navigate('Products')}
-            />
-
-            <View style={styles.divider} />
-
-            <Row
-              icon="cube-outline"
-              label={t('reports.stockValue')}
-              value={formatMoney(report.stockValue)}
-            />
-          </View>
-
-          {/* Top products and Reports navigation */}
-          <View style={styles.sectionHeading}>
-            <Text style={styles.section}>
-              {t('reports.topProducts')}
-            </Text>
-
-            <Pressable accessibilityRole="button"
-              onPress={() =>
-                navigation.navigate('More', {
-                  screen: 'Reports',
-                  params: {
-                    screen: 'Reports',
-                  },
-                })
-              }
-            >
-              <Text style={styles.seeAll}>
-                {isAr ? 'التقارير' : 'Voir rapports'}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.card}>
-            {report.topProducts.length === 0 ? (
-              <Text style={styles.empty}>
-                {t('reports.noTop')}
-              </Text>
-            ) : (
-              report.topProducts.slice(0, 3).map((p, i) => (
-                <View key={p.productId}>
-                  {i > 0 ? <View style={styles.divider} /> : null}
-
-                  <View style={styles.topRow}>
-                    <View style={styles.rank}>
-                      <Text style={styles.rankText}>{i + 1}</Text>
-                    </View>
-
-                    <View style={styles.topInfo}>
-                      <Text style={styles.topName} numberOfLines={1}>
-                        {p.name}
-                      </Text>
-
-                      <Text style={styles.topSub}>
-                        {p.quantitySold} {t('reports.sold')}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.topValue}>
-                      {formatMoney(p.revenue)}
-                    </Text>
-                  </View>
+        {/* Ventes du jour */}
+        {report ? (
+          <LinearGradient colors={heroGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.hero}>
+            <View style={styles.flex}>
+              <Text style={styles.heroLabel}>{isAr ? 'مبيعات اليوم' : 'Ventes du jour'}</Text>
+              <Text style={styles.heroValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(report.revenue)}</Text>
+              {dayChange !== null ? (
+                <View style={styles.heroChip}>
+                  <Ionicons name={dayChange >= 0 ? 'trending-up' : 'trending-down'} size={13} color="#fff" />
+                  <Text style={styles.heroChipText}>{dayChange >= 0 ? '+' : ''}{dayChange}% {isAr ? 'مقارنة بالأمس' : 'vs hier'}</Text>
                 </View>
-              ))
-            )}
+              ) : null}
+            </View>
+            {/* Mini courbe décorative à partir des 7 derniers jours */}
+            <View style={styles.sparkline} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+              {daily.map((d) => (
+                <View key={d.date} style={[styles.sparkBar, { height: 8 + (d.revenue / maxDay) * 46 }]} />
+              ))}
+            </View>
+          </LinearGradient>
+        ) : null}
+
+        {report ? (
+          <View style={styles.tiles}>
+            <StatTile icon="receipt-outline" tone="primary" value={String(report.salesCount)} label={isAr ? 'عمليات' : 'Transactions'} />
+            <StatTile icon="cash-outline" tone="warning" value={formatMoney(report.grossProfit).replace(' DH', '')} label={isAr ? 'الربح' : 'Bénéfice (DH)'} />
+            <StatTile icon="pie-chart-outline" tone="violet" value={margin !== null ? `${margin}%` : '—'} label={isAr ? 'الهامش' : 'Marge'} />
           </View>
-        </>
-      ) : null}
-    </Screen>
-  );
-}
+        ) : null}
 
-function StatCard({
-  icon,
-  label,
-  value,
-  hint,
-  valueColor,
-  tone,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-  hint?: string;
-  valueColor?: string;
-  tone: 'teal' | 'green' | 'blue' | 'violet';
-}) {
-  const toneStyle = {
-    teal: styles.tone_teal,
-    green: styles.tone_green,
-    blue: styles.tone_blue,
-    violet: styles.tone_violet,
-  }[tone];
+        {/* Objectif (vendeurs sans accès aux rapports) */}
+        {!canReports && myTarget ? (
+          <Card style={styles.block}>
+            <Text style={styles.muted}>{t('targets.mine')}</Text>
+            <Text style={styles.targetValue}>{formatMoney(myTarget.achieved)}{myTarget.target !== null ? ` / ${formatMoney(myTarget.target)}` : ''}</Text>
+            <ProgressBar percent={myTarget.percent} />
+            <Text style={styles.muted}>{t('targets.sales', { n: myTarget.salesCount })}</Text>
+          </Card>
+        ) : null}
 
-  const toneColor = {
-    teal: '#0f766e',
-    green: '#15803d',
-    blue: '#1d4ed8',
-    violet: '#6d28d9',
-  }[tone];
+        {/* Évolution sur 7 jours */}
+        {daily.length > 0 ? (
+          <Card style={styles.block}>
+            <View style={styles.chartHead}>
+              <Text style={styles.cardTitle}>{isAr ? 'تطور المبيعات (7 أيام)' : 'Évolution des ventes (7 jours)'}</Text>
+              <Text style={styles.chartTotal}>{formatMoney(weekTotal)}</Text>
+            </View>
+            <View
+              style={styles.chart}
+              accessible
+              accessibilityLabel={daily.map((d) => `${dayNames[new Date(d.date).getDay()]} ${formatMoney(d.revenue)}`).join(', ')}
+            >
+              {daily.map((d, i) => {
+                const isToday = i === daily.length - 1;
+                return (
+                  <View key={d.date} style={styles.barCol}>
+                    <View style={styles.barTrack}>
+                      <View style={[styles.bar, { height: `${Math.max(4, (d.revenue / maxDay) * 100)}%` }, isToday && styles.barToday]} />
+                    </View>
+                    <Text style={[styles.barLabel, isToday && styles.barLabelToday]}>{dayNames[new Date(d.date).getDay()]}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </Card>
+        ) : null}
 
-  return (
-    <View style={styles.stat}>
-      <View style={[styles.statIcon, toneStyle]}>
-        <Ionicons name={icon} size={19} color={toneColor} />
-      </View>
+        {/* À surveiller */}
+        {report && (report.lowStockCount > 0 || report.totalCustomerDebt > 0) ? (
+          <View style={styles.alerts}>
+            {report.lowStockCount > 0 ? (
+              <Pressable accessibilityRole="button" style={styles.alert} onPress={() => navigation.navigate('Products')}>
+                <IconTile name="alert-circle-outline" tone="danger" size={34} />
+                <View style={styles.flex}>
+                  <Text style={styles.alertValue}>{report.lowStockCount}</Text>
+                  <Text style={styles.muted} numberOfLines={1}>{t('reports.lowStock')}</Text>
+                </View>
+              </Pressable>
+            ) : null}
+            {report.totalCustomerDebt > 0 ? (
+              <Pressable accessibilityRole="button" style={styles.alert} onPress={() => navigation.navigate('More', { screen: 'Aging' })}>
+                <IconTile name="people-outline" tone="warning" size={34} />
+                <View style={styles.flex}>
+                  <Text style={styles.alertValue} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(report.totalCustomerDebt)}</Text>
+                  <Text style={styles.muted} numberOfLines={1}>{t('reports.customerDebt')}</Text>
+                </View>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
 
-      <Text style={styles.statLabel}>{label}</Text>
-
-      <Text
-        style={[
-          styles.statValue,
-          valueColor ? { color: valueColor } : null,
-        ]}
-        numberOfLines={1}
-      >
-        {value}
-      </Text>
-
-      {hint ? (
-        <Text style={styles.statHint}>{hint}</Text>
-      ) : null}
-    </View>
-  );
-}
-
-function Row({
-  icon,
-  label,
-  value,
-  valueColor,
-  onPress,
-}: {
-  icon: IconName;
-  label: string;
-  value: string;
-  valueColor?: string;
-  onPress?: () => void;
-}) {
-  return (
-    <Pressable accessibilityRole="button"
-      style={styles.row}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={styles.rowIcon}>
-        <Ionicons name={icon} size={18} color={colors.primary} />
-      </View>
-
-      <Text style={styles.rowLabel}>{label}</Text>
-
-      <Text
-        style={[
-          styles.rowValue,
-          valueColor ? { color: valueColor } : null,
-        ]}
-      >
-        {value}
-      </Text>
-
-      {onPress ? (
-        <Ionicons
-          name="chevron-forward"
-          size={16}
-          color={colors.muted}
-        />
-      ) : null}
-    </Pressable>
+        {/* Activité récente */}
+        {canSales ? (
+          <>
+            <SectionHeader
+              title={isAr ? 'النشاط الأخير' : 'Activité récente'}
+              action={isAr ? 'عرض الكل' : 'Voir tout'}
+              onAction={() => navigation.navigate('Sales', { screen: 'SalesHistory' })}
+            />
+            <Card style={styles.list}>
+              {recent.length === 0 && !loading ? <Text style={styles.empty}>{t('history.empty')}</Text> : null}
+              {recent.map((sale, i) => (
+                <Pressable
+                  key={sale.id}
+                  accessibilityRole="button"
+                  onPress={() => navigation.navigate('Sales', { screen: 'SaleDetail', params: { sale } })}
+                  style={[styles.activity, i > 0 && styles.divider]}
+                >
+                  <IconTile name={sale.status === 'CANCELLED' ? 'close-circle-outline' : 'cart-outline'} tone={sale.status === 'CANCELLED' ? 'danger' : 'success'} size={36} />
+                  <View style={styles.flex}>
+                    <Text style={styles.activityTitle} numberOfLines={1}>{isAr ? 'بيع' : 'Vente'} #{sale.number}</Text>
+                    <Text style={styles.muted} numberOfLines={1}>{timeOf(sale.saleDate)} · {sale.customerName ?? t('sales.walkIn')}</Text>
+                  </View>
+                  <View style={styles.activityRight}>
+                    <Text style={styles.activityAmount}>{formatMoney(sale.total)}</Text>
+                    {sale.remaining > 0 ? <Badge label={t('history.kridi')} tone="warning" /> : null}
+                  </View>
+                </Pressable>
+              ))}
+            </Card>
+          </>
+        ) : null}
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  targetCard: { backgroundColor: colors.card, borderRadius: radius, borderWidth: 1, borderColor: colors.border, padding: spacing.md, gap: spacing.xs, marginBottom: spacing.md },
-  targetTitle: { color: colors.muted, fontWeight: '700' },
-  targetValue: { color: colors.text, fontWeight: '900', fontSize: 20 },
-  targetHint: { color: colors.muted, fontSize: 12 },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.lg,
-  },
-
-  brandMark: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-
-  headerText: { flex: 1 },
-  eyebrow: {
-    color: colors.primary,
-    fontSize: 10,
-    letterSpacing: 1.8,
-    fontWeight: '900',
-  },
-  hello: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    marginTop: 2,
-  },
-  subtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    color: colors.muted,
-    fontWeight: '600',
-  },
-
-  iconButton: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-
-  saleHero: {
-    minHeight: 104,
-    backgroundColor: colors.primaryDark,
-    borderRadius: 22,
-    padding: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    overflow: 'hidden',
-  },
-  pressed: {
-    opacity: 0.88,
-    transform: [{ scale: 0.99 }],
-  },
-  saleIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 16,
-    backgroundColor: '#d7faf2',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saleCopy: { flex: 1 },
-  saleEyebrow: {
-    color: '#b9eee4',
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 1.2,
-  },
-  saleTitle: {
-    color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
-    marginTop: 3,
-  },
-  saleHint: {
-    color: '#d4f3ed',
-    fontSize: 11,
-    marginTop: 3,
-  },
-
-  sectionHeading: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
-  },
-  section: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: colors.text,
-  },
-  livePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 99,
-    backgroundColor: colors.successBg,
-  },
-  liveDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.success,
-  },
-  liveText: {
-    color: colors.success,
-    fontSize: 9,
-    fontWeight: '900',
-  },
-
-  seeAll: {
-    color: colors.primary,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  loader: { marginTop: spacing.xl },
-  errorBox: {
-    marginTop: spacing.lg,
-    padding: spacing.md,
-    borderRadius: radius,
-    backgroundColor: colors.dangerBg,
-    gap: spacing.md,
-  },
+  safe: { flex: 1, backgroundColor: colors.background },
+  content: { padding: spacing.md, paddingBottom: spacing.xl, width: '100%', maxWidth: 640, alignSelf: 'center' },
+  flex: { flex: 1 },
+  loader: { marginVertical: spacing.lg },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  hello: { color: colors.text, fontSize: 15, fontWeight: '600' },
+  name: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 2 },
+  muted: { color: colors.muted, fontSize: 12 },
+  errorCard: { gap: spacing.md, marginBottom: spacing.md },
   errorText: { color: colors.danger },
-
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  stat: {
-    flexGrow: 1,
-    flexBasis: '45%',
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    minHeight: 126,
-  },
-  statIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  tone_teal: { backgroundColor: '#ccfbf1' },
-  tone_green: { backgroundColor: '#dcfce7' },
-  tone_blue: { backgroundColor: '#dbeafe' },
-  tone_violet: { backgroundColor: '#ede9fe' },
-
-  statLabel: {
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '600',
-  },
-  statValue: {
-    marginTop: 4,
-    fontSize: 18,
-    fontWeight: '900',
-    color: colors.text,
-  },
-  statHint: {
-    marginTop: 3,
-    fontSize: 11,
-    color: colors.muted,
-  },
-
-  card: {
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: spacing.md,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: colors.border,
-  },
-
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: 13,
-  },
-  rowIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 11,
-    backgroundColor: colors.neutralBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowLabel: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.text,
-    fontWeight: '600',
-  },
-  rowValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.text,
-  },
-
-  empty: {
-    paddingVertical: spacing.md,
-    color: colors.muted,
-  },
-  topRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    paddingVertical: 12,
-  },
-  rank: {
-    width: 30,
-    height: 30,
-    borderRadius: 10,
-    backgroundColor: colors.neutralBg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: {
-    fontSize: 13,
-    fontWeight: '900',
-    color: colors.primary,
-  },
-  topInfo: { flex: 1 },
-  topName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  topSub: {
-    fontSize: 11,
-    color: colors.muted,
-    marginTop: 2,
-  },
-  topValue: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.text,
-  },
+  hero: { borderRadius: radius + 4, padding: spacing.md + 4, flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md, minHeight: 128 },
+  heroLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '700' },
+  heroValue: { color: '#fff', fontSize: 30, fontWeight: '900', marginTop: 4 },
+  heroChip: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', marginTop: spacing.sm, backgroundColor: 'rgba(255,255,255,0.18)', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  heroChipText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  sparkline: { flexDirection: 'row', alignItems: 'flex-end', gap: 4, height: 56 },
+  sparkBar: { width: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.55)' },
+  tiles: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  block: { marginTop: spacing.md, gap: spacing.sm },
+  targetValue: { color: colors.text, fontSize: 20, fontWeight: '900' },
+  cardTitle: { color: colors.text, fontWeight: '800', fontSize: 14, flex: 1 },
+  chartHead: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  chartTotal: { color: colors.success, fontWeight: '800', fontSize: 12 },
+  chart: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.sm, height: 130, marginTop: spacing.sm },
+  barCol: { flex: 1, alignItems: 'center', gap: 6, height: '100%' },
+  barTrack: { flex: 1, width: '100%', justifyContent: 'flex-end' },
+  bar: { width: '100%', borderRadius: 6, backgroundColor: colors.primarySoft },
+  barToday: { backgroundColor: colors.primary },
+  barLabel: { color: colors.muted, fontSize: 10, fontWeight: '600' },
+  barLabelToday: { color: colors.text, fontWeight: '800' },
+  alerts: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.md },
+  alert: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, backgroundColor: colors.card, borderRadius: radius, borderWidth: 1, borderColor: colors.border, padding: spacing.sm + 4 },
+  alertValue: { color: colors.text, fontWeight: '900', fontSize: 15 },
+  list: { paddingVertical: 4 },
+  empty: { color: colors.muted, paddingVertical: spacing.md, textAlign: 'center' },
+  activity: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm + 4, paddingVertical: spacing.sm + 4, minHeight: 56 },
+  divider: { borderTopWidth: 1, borderTopColor: colors.border },
+  activityTitle: { color: colors.text, fontWeight: '700' },
+  activityRight: { alignItems: 'flex-end', gap: 4 },
+  activityAmount: { color: colors.text, fontWeight: '800' },
 });
