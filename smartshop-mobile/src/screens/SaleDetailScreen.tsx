@@ -2,16 +2,17 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Sale } from '../api/types';
 import DocumentActions from '../components/DocumentActions';
+import PinPrompt from '../components/PinPrompt';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
 import { useAuth } from '../auth/AuthContext';
 import { confirmAction } from '../confirm';
-import { openWhatsApp, shareDocument } from '../documents';
+import { openWhatsApp, shareDocument, printDocument } from '../documents';
 import { formatDateTime, formatMoney } from '../format';
 import type { SalesStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
@@ -28,6 +29,7 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
 
   const cancelled = sale.status === 'CANCELLED';
 
@@ -37,6 +39,13 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
   }
 
   const documentActions = [
+    { key: 'print', label: t('docs.print'), icon: 'print-outline' as const,
+      onPress: () => printDocument(`/api/sales/${sale.id}/ticket.pdf?width=80`, `${sale.number}-print.pdf`) },
+    { key: 'printA4', label: t('docs.printA4'), icon: 'print-outline' as const,
+      onPress: async () => {
+        await printDocument(`/api/sales/${sale.id}/invoice.pdf`, `facture-${sale.number}-print.pdf`);
+        await refreshSale();
+      } },
     { key: 't80', label: t('docs.ticket80'), icon: 'receipt-outline' as const,
       onPress: () => shareDocument(`/api/sales/${sale.id}/ticket.pdf?width=80`, `${sale.number}.pdf`, t('docs.shareTitle')) },
     { key: 't58', label: t('docs.ticket58'), icon: 'receipt-outline' as const,
@@ -63,35 +72,39 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
       ) },
   ];
 
+  async function cancelSale(approvalPin?: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api<Sale>(`/api/sales/${sale.id}/cancel`, {
+        method: 'POST',
+        body: { reason: reason.trim(), approvalPin: approvalPin ?? null },
+      });
+      setSale(updated);
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') setPinMessage(e.message);
+      else setError(errorMessage(e, t));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function askCancel() {
     if (!reason.trim()) {
       setError(t('history.invalidReason'));
       return;
     }
-    confirmAction(
-      t('history.cancelConfirm'),
-      async () => {
-        setSaving(true);
-        setError(null);
-        try {
-          const updated = await api<Sale>(`/api/sales/${sale.id}/cancel`, {
-            method: 'POST',
-            body: { reason: reason.trim() },
-          });
-          setSale(updated);
-        } catch (e) {
-          setError(errorMessage(e, t));
-        } finally {
-          setSaving(false);
-        }
-      },
-      t('common.cancel'),
-      t('common.confirm'),
-    );
+    confirmAction(t('history.cancelConfirm'), () => void cancelSale(), t('common.cancel'), t('common.confirm'));
   }
 
   return (
     <Screen>
+      <PinPrompt
+        visible={pinMessage !== null}
+        message={pinMessage}
+        onCancel={() => setPinMessage(null)}
+        onSubmit={(pin) => { setPinMessage(null); void cancelSale(pin); }}
+      />
       <View style={styles.card}>
         <Text style={styles.number}>{sale.number}</Text>
         <Text style={styles.name}>{sale.customerName ?? t('sales.walkIn')}</Text>

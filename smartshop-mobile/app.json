@@ -48,7 +48,8 @@
           "cameraPermission": "SmartShop utilise la caméra pour photographier les produits et scanner les codes-barres.",
           "recordAudioAndroid": false
         }
-      ]
+      ],
+      "expo-notifications"
     ],
     "scheme": "smartshop",
     "backgroundColor": "#0a1224"

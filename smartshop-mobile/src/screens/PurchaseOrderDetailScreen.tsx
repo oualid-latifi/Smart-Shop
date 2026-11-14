@@ -9,7 +9,7 @@ import DocumentActions from '../components/DocumentActions';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import { confirmAction } from '../confirm';
-import { openWhatsApp, shareDocument } from '../documents';
+import { openWhatsApp, shareDocument, printDocument } from '../documents';
 import { formatDate, formatMoney } from '../format';
 import type { MoreStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
@@ -75,6 +75,8 @@ export default function PurchaseOrderDetailScreen({ route }: Props) {
         actions={[
           { key: 'pdf', label: t('orders.pdf'), icon: 'document-text-outline',
             onPress: () => shareDocument(`/api/purchase-orders/${order.id}/pdf`, `${order.number}.pdf`, t('docs.shareTitle')) },
+          { key: 'print', label: t('docs.printDoc'), icon: 'print-outline',
+            onPress: () => printDocument(`/api/purchase-orders/${order.id}/pdf`, `${order.number}-print.pdf`) },
           { key: 'wa', label: t('docs.whatsapp'), icon: 'logo-whatsapp',
             onPress: () => openWhatsApp(t('orders.whatsappMessage', { number: order.number, total: formatMoney(order.total) }), order.supplierPhone) },
         ]}

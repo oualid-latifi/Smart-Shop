@@ -253,7 +253,9 @@
     "lowStock": "Produits en stock bas",
     "periodLabel": "Période",
     "exportExcel": "Rapport Excel détaillé",
-    "exportPdf": "Résumé PDF"
+    "exportPdf": "Résumé PDF",
+    "weeklyWhatsApp": "Semaine sur WhatsApp",
+    "weeklyEmail": "Semaine par email"
   },
   "expenses": {
     "title": "Dépenses",
@@ -335,7 +337,10 @@
     "failed": "Impossible de générer le document.",
     "saleMessage": "Bonjour {{name}}, voici le récapitulatif de votre achat {{number}} : total {{total}}{{rest}}. Merci !",
     "restPart": ", reste à payer {{rest}}",
-    "quoteMessage": "Bonjour {{name}}, voici notre devis {{number}} d’un montant de {{total}}, valable jusqu’au {{date}}."
+    "quoteMessage": "Bonjour {{name}}, voici notre devis {{number}} d’un montant de {{total}}, valable jusqu’au {{date}}.",
+    "print": "Imprimer le ticket",
+    "printA4": "Imprimer la facture",
+    "printDoc": "Imprimer"
   },
   "quotes": {
     "title": "Devis",
@@ -380,7 +385,16 @@
     "quoteDays": "Validité des devis (jours)",
     "documentFooter": "Pied de page des factures",
     "ticketFooter": "Message en bas du ticket",
-    "saved": "Paramètres enregistrés ✓"
+    "saved": "Paramètres enregistrés ✓",
+    "alerts": "Alertes et rapport hebdomadaire",
+    "bigSale": "Alerte « grosse vente » à partir de (DH)",
+    "bigSaleHint": "Vide = pas d’alerte",
+    "weekly": "Envoyer le rapport chaque lundi par email",
+    "reportEmails": "Emails du rapport",
+    "reportEmailsHint": "Séparés par des virgules. Vide = comptes propriétaires",
+    "sendNow": "Envoyer le rapport maintenant",
+    "sent": "Rapport envoyé à {{n}} destinataire(s) ✓",
+    "online": "Ouvrir la boutique en ligne (page publique /shop)"
   },
   "payments": {
     "method": "Mode de paiement",
@@ -590,5 +604,176 @@
   },
   "access": {
     "denied": "Ton compte n’a pas accès à cette fonction."
+  },
+  "approval": {
+    "title": "Code du propriétaire",
+    "hint": "Cette opération doit être validée par le propriétaire.",
+    "placeholder": "Code PIN",
+    "validate": "Valider",
+    "setTitle": "Code PIN du propriétaire",
+    "setHint": "Demandé aux employés pour les grosses remises et les annulations (4 à 8 chiffres). Vide = supprimer.",
+    "saved": "Code enregistré ✓",
+    "defined": "Un code est défini",
+    "none": "Aucun code défini",
+    "maxDiscount": "Remise maximale sans code (%)",
+    "maxDiscountHint": "Vide = pas de limite"
+  },
+  "promos": {
+    "title": "Promotions",
+    "subtitle": "Remises sur une période",
+    "new": "Nouvelle promotion",
+    "empty": "Aucune promotion",
+    "name": "Nom de la promotion",
+    "kind": "Type",
+    "PERCENT_OFF": "- X %",
+    "FIXED_PRICE": "Prix fixe",
+    "SECOND_ITEM_PERCENT": "2e article à - X %",
+    "value": "Valeur",
+    "valuePercent": "Pourcentage (%)",
+    "valuePrice": "Prix promo (DH)",
+    "target": "S'applique à",
+    "all": "Tout le magasin",
+    "brand": "Une marque",
+    "product": "Un produit",
+    "from": "Du (JJ/MM/AAAA)",
+    "to": "Au (JJ/MM/AAAA)",
+    "running": "En cours",
+    "upcoming": "À venir",
+    "ended": "Terminée",
+    "save": "Enregistrer",
+    "delete": "Supprimer",
+    "deleteConfirm": "Supprimer cette promotion ?"
+  },
+  "replenish": {
+    "title": "Réapprovisionnement",
+    "subtitle": "Quoi commander, d'après les ventes",
+    "period": "Ventes des {{n}} derniers jours",
+    "cover": "Couvrir {{n}} jours",
+    "stock": "Stock {{n}}",
+    "sold": "{{n}} vendus",
+    "daysLeft": "≈ {{n}} j de stock",
+    "toOrder": "À commander",
+    "create": "Créer les bons de commande",
+    "created": "{{n}} bon(s) de commande créé(s) ✓",
+    "noSupplier": "Choisis un fournisseur",
+    "empty": "Rien à commander pour l'instant 👍"
+  },
+  "dormant": {
+    "title": "Stock dormant",
+    "subtitle": "Produits qui ne se vendent plus",
+    "days": "Sans vente depuis {{n}} jours",
+    "never": "Jamais vendu",
+    "since": "Pas vendu depuis {{n}} j",
+    "value": "Argent immobilisé",
+    "empty": "Aucun stock dormant 👍"
+  },
+  "supplierPrices": {
+    "title": "Prix fournisseurs",
+    "last": "Dernier",
+    "min": "Min",
+    "avg": "Moyen",
+    "cheapest": "Le moins cher",
+    "none": "Aucun achat enregistré pour ce produit"
+  },
+  "insights": {
+    "title": "Analyses",
+    "subtitle": "Tendances et moments forts",
+    "thisMonth": "Ce mois-ci",
+    "vsLast": "vs même période du mois dernier",
+    "revenue": "Chiffre d'affaires",
+    "profit": "Bénéfice",
+    "forecast": "Prévision fin de mois",
+    "forecastHint": "Au rythme actuel ({{days}}/{{total}} jours)",
+    "weekdays": "Jours les plus actifs",
+    "hours": "Heures les plus actives",
+    "brands": "Marge par marque",
+    "units": "{{n}} vendus",
+    "period": "Sur les {{n}} derniers jours"
+  },
+  "variants": {
+    "count": "{{n}} variantes",
+    "from": "dès {{price}}",
+    "group": "Famille de variantes",
+    "groupHint": "Ex. « iPhone 15 » : regroupe les couleurs et capacités sur une seule carte",
+    "create": "Créer une variante",
+    "createHint": "Autre couleur ou capacité de ce produit, avec son propre stock",
+    "reference": "Référence de la variante",
+    "color": "Couleur",
+    "capacity": "Capacité",
+    "price": "Prix de vente (vide = même prix)",
+    "created": "Variante créée ✓"
+  },
+  "labels": {
+    "title": "Étiquettes",
+    "select": "Choisis les produits",
+    "print": "Imprimer {{n}} étiquette(s)",
+    "all": "Tous les produits",
+    "copies": "Exemplaires",
+    "A4": "Planche A4",
+    "THERMAL": "Imprimante d'étiquettes",
+    "cancel": "Annuler"
+  },
+  "notifs": {
+    "title": "Notifications",
+    "subtitle": "Stock bas, grosses ventes, chèques à encaisser",
+    "unread": "{{n}} non lue(s)",
+    "allRead": "Tout est lu",
+    "markAll": "Tout marquer comme lu",
+    "empty": "Aucune notification pour le moment.",
+    "bell": "Notifications ({{n}} non lues)"
+  },
+  "backups": {
+    "title": "Sauvegardes",
+    "subtitle": "Sauvegarde automatique chaque nuit et restauration",
+    "help": "Toutes les données (produits, ventes, clients, caisse…) sont sauvegardées automatiquement chaque nuit sur le serveur. Télécharge régulièrement une copie sur ton téléphone ou ton Drive.",
+    "create": "Sauvegarder maintenant",
+    "fromFile": "Restaurer depuis un fichier",
+    "list": "Sauvegardes du serveur",
+    "empty": "Aucune sauvegarde pour le moment.",
+    "created": "Sauvegarde créée ✓ ({{name}})",
+    "download": "Télécharger",
+    "restore": "Restaurer",
+    "restoring": "Restauration en cours…",
+    "restored": "Données restaurées ✓",
+    "confirm": "Restaurer remplace TOUTES les données actuelles par celles de la sauvegarde. Continuer ?"
+  },
+  "online": {
+    "title": "Boutique en ligne",
+    "subtitle": "Commandes reçues sur ta page web",
+    "linkHint": "Lien de ta boutique à partager avec tes clients :",
+    "share": "Partager le lien",
+    "shareText": "Découvrez nos produits et commandez en ligne :",
+    "all": "Toutes",
+    "empty": "Aucune commande.",
+    "total": "Total",
+    "convert": "Transformer en vente",
+    "confirm": "Confirmer",
+    "cancel": "Annuler la commande",
+    "cancelConfirm": "Annuler la commande {{number}} ?",
+    "converted": "Vente {{number}} créée ✓",
+    "waText": "Bonjour, nous avons bien reçu votre commande {{number}}.",
+    "status": {
+      "NEW": "Nouvelle",
+      "CONFIRMED": "Confirmée",
+      "CONVERTED": "Vendue",
+      "CANCELLED": "Annulée"
+    }
+  },
+  "offline": {
+    "title": "Ventes hors-ligne",
+    "noNetwork": "Hors-ligne : les ventes seront envoyées au retour du réseau",
+    "pending": "{{n}} vente(s) en attente d’envoi",
+    "failed": "{{n}} vente(s) refusée(s) par le serveur",
+    "help": "Pas de connexion au serveur. Tu peux continuer à vendre : les ventes sont gardées sur le téléphone et envoyées automatiquement dès que le réseau revient.",
+    "helpOnline": "Les ventes en attente sont envoyées automatiquement toutes les 30 secondes.",
+    "syncNow": "Envoyer maintenant",
+    "empty": "Aucune vente en attente.",
+    "items": "{{n}} produit(s)",
+    "waiting": "En attente",
+    "refused": "Refusée",
+    "discard": "Supprimer",
+    "discardConfirm": "Supprimer cette vente ? Elle ne sera jamais enregistrée.",
+    "saved": "Vente enregistrée hors-ligne ✓ Elle sera envoyée dès le retour du réseau.",
+    "cached": "Hors-ligne : catalogue enregistré sur le téléphone"
   }
 }

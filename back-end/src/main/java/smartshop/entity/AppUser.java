@@ -32,6 +32,10 @@ public class AppUser {
     @Column(length = 15)
     private Role role;
 
+    // Jeton Expo du téléphone pour les notifications push (null = pas de push)
+    @Column(name = "push_token", length = 255)
+    private String pushToken;
+
     // Null = actif (comptes créés avant cette colonne)
     @Column
     private Boolean active;
@@ -60,6 +64,9 @@ public class AppUser {
 
     public Role getRole() { return role != null ? role : Role.OWNER; }
     public void setRole(Role role) { this.role = role; }
+
+    public String getPushToken() { return pushToken; }
+    public void setPushToken(String pushToken) { this.pushToken = pushToken; }
 
     public boolean isActive() { return active == null || active; }
     public void setActive(boolean active) { this.active = active; }

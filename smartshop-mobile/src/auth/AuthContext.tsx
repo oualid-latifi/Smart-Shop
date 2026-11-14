@@ -1,7 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError, setUnauthorizedHandler } from '../api/client';
 import type { AuthResponse, MeResponse, Permission, Role } from '../api/types';
-import { storage, TOKEN_KEY } from '../storage';
+import { storage, TOKEN_KEY, USER_KEY } from '../storage';
 
 type Status = 'loading' | 'signedOut' | 'signedIn';
 
@@ -30,13 +30,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = useCallback(async () => {
     await storage.remove(TOKEN_KEY);
+    await storage.remove(USER_KEY);
     setUser(null);
     setStatus('signedOut');
   }, []);
 
   const startSession = useCallback(async (response: AuthResponse) => {
     await storage.set(TOKEN_KEY, response.token);
-    setUser({ name: response.name, email: response.email, role: response.role, permissions: response.permissions });
+    const profile = { name: response.name, email: response.email, role: response.role, permissions: response.permissions };
+    await storage.set(USER_KEY, JSON.stringify(profile));
+    setUser(profile);
     setStatus('signedIn');
   }, []);
 
@@ -61,13 +64,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const me = await api<MeResponse>('/api/auth/me');
         if (!cancelled) {
-          setUser({ name: me.name, email: me.email, role: me.role, permissions: me.permissions });
+          const profile = { name: me.name, email: me.email, role: me.role, permissions: me.permissions };
+          void storage.set(USER_KEY, JSON.stringify(profile));
+          setUser(profile);
           setStatus('signedIn');
         }
       } catch (error) {
-        // Serveur injoignable : on garde le token mais on affiche l'écran de connexion
-        if (!(error instanceof ApiError && error.status === 0)) {
+        // Serveur injoignable : on garde la session avec le dernier profil connu (mode hors-ligne)
+        if (error instanceof ApiError && error.status === 0) {
+          const saved = await storage.get(USER_KEY);
+          if (saved && !cancelled) {
+            try {
+              setUser(JSON.parse(saved));
+              setStatus('signedIn');
+              return;
+            } catch {
+              // profil illisible : écran de connexion
+            }
+          }
+        } else {
           await storage.remove(TOKEN_KEY);
+          await storage.remove(USER_KEY);
         }
         if (!cancelled) setStatus('signedOut');
       }

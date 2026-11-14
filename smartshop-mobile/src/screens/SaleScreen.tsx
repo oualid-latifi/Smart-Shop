@@ -20,6 +20,9 @@ import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Customer, Product, Sale } from '../api/types';
 import BarcodeScanner from '../components/BarcodeScanner';
+import PinPrompt from '../components/PinPrompt';
+import VariantPicker from '../components/VariantPicker';
+import { ApiError } from '../api/client';
 import PaymentMethodPicker, { EMPTY_PAYMENT, paymentBody, paymentError, type PaymentValue } from '../components/PaymentMethodPicker';
 import PrimaryButton from '../components/PrimaryButton';
 import { Badge, ProductThumb } from '../components/ui';
@@ -27,6 +30,8 @@ import TextField from '../components/TextField';
 import { confirmAction } from '../confirm';
 import { formatMoney, parseNumber } from '../format';
 import { Ionicons } from '@expo/vector-icons';
+import OfflineBanner from '../components/OfflineBanner';
+import { newClientRef, readLocal, useOffline, writeLocal } from '../offline';
 import { colors, radius, spacing } from '../theme';
 
 interface CartLine {
@@ -34,6 +39,7 @@ interface CartLine {
   quantity: number;
   price: string; // prix négociable (d'une unité, ou d'un carton si packs), saisi en texte
   packs: boolean; // true = la quantité compte des cartons
+  edited: boolean; // prix modifié à la main (sinon prix catalogue / promotion)
 }
 
 // Nombre d'unités retirées du stock par cette ligne
@@ -46,14 +52,23 @@ function stepOf(line: CartLine): number {
   return line.packs && line.product.unitsPerPack ? line.product.unitsPerPack : 1;
 }
 
+// Prix de référence de la ligne : carton, prix promo, ou "2e article à -X %" (prix moyen selon la quantité)
 function catalogPrice(line: CartLine): number {
-  return line.packs && line.product.packPrice != null ? line.product.packPrice : line.product.salePrice;
+  if (line.packs && line.product.packPrice != null) return line.product.packPrice;
+  const p = line.product;
+  if (p.promoPrice != null) return p.promoPrice;
+  if (p.secondItemPercent != null && line.quantity > 1) {
+    const discounted = Math.floor(line.quantity / 2);
+    return Math.round(((p.salePrice * line.quantity - (p.salePrice * p.secondItemPercent / 100) * discounted) / line.quantity) * 100) / 100;
+  }
+  return p.salePrice;
 }
 
 type Props = NativeStackScreenProps<SalesStackParamList, 'SaleNew'>;
 
 // Prix retenu pour une ligne : le prix négocié s'il est valide, sinon le prix catalogue
 function unitPrice(line: CartLine): number {
+  if (!line.edited) return catalogPrice(line);
   const value = parseNumber(line.price);
   return value !== null && value >= 0 ? value : catalogPrice(line);
 }
@@ -68,6 +83,7 @@ export default function SaleScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [scanning, setScanning] = useState(false);
   const [brand, setBrand] = useState<string | null>(null);
+  const [variantPick, setVariantPick] = useState<Product[] | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState('');
   const [paid, setPaid] = useState('');
@@ -75,7 +91,13 @@ export default function SaleScreen({ navigation }: Props) {
 
   const [error, setError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
+  // Code du propriétaire demandé par le serveur (remise au-delà du plafond)
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
   const success = lastSale !== null;
+  const offline = useOffline();
+  const clientRef = useRef<string | null>(null);
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [cachedCatalog, setCachedCatalog] = useState(false);
   const [discountMode, setDiscountMode] = useState<'DH' | '%'>('DH');
   const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
   const [saving, setSaving] = useState(false);
@@ -95,10 +117,25 @@ export default function SaleScreen({ navigation }: Props) {
       // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
       setProducts(shuffle(available));
       setCustomers(c.filter((customer) => customer.active));
+      setCachedCatalog(false);
+      offline.setOffline(false);
+      // Copie sur le téléphone pour pouvoir vendre sans réseau
+      void writeLocal('catalog-products', available);
+      void writeLocal('catalog-customers', c);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        const [p, c] = await Promise.all([readLocal<Product[]>('catalog-products'), readLocal<Customer[]>('catalog-customers')]);
+        if (p) {
+          setProducts(p);
+          setCustomers((c ?? []).filter((customer) => customer.active));
+          setCachedCatalog(true);
+          offline.setOffline(true);
+          return;
+        }
+      }
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [t, offline.setOffline]);
 
   // Recharge produits (stock à jour) et clients à chaque retour sur l'écran
   useFocusEffect(
@@ -121,6 +158,16 @@ export default function SaleScreen({ navigation }: Props) {
         .some((value) => value.toLowerCase().includes(query))),
     );
   }, [products, search, brand]);
+
+  // Les variantes d'un même modèle (variantGroup) partagent une seule carte
+  const groups = useMemo(() => {
+    const map = new Map<string, Product[]>();
+    matches.forEach((p) => {
+      const key = p.variantGroup?.trim() || p.id;
+      map.set(key, [...(map.get(key) ?? []), p]);
+    });
+    return [...map.values()];
+  }, [matches]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase();
@@ -218,7 +265,7 @@ export default function SaleScreen({ navigation }: Props) {
           line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line,
         );
       }
-      return [...current, { product, quantity: 1, price: String(product.salePrice), packs: false }];
+      return [...current, { product, quantity: 1, price: String(product.promoPrice ?? product.salePrice), packs: false, edited: false }];
     });
     setSearch('');
   }
@@ -240,7 +287,7 @@ export default function SaleScreen({ navigation }: Props) {
     );
   }
 
-  async function submit() {
+  async function submit(approvalPin?: string) {
     if (!canSubmit) {
       setError(creditWithoutCustomer ? t('sales.creditNeedsCustomer') : checkWithoutCustomer ? t('payments.checkNeedsCustomer') : paymentProblem ?? t('sales.invalid'));
       return;
@@ -248,10 +295,9 @@ export default function SaleScreen({ navigation }: Props) {
 
     setSaving(true);
     setError(null);
-    try {
-      const created = await api<Sale>('/api/sales', {
-        method: 'POST',
-        body: {
+    // Même identifiant si on réessaie la même vente (code PIN, réseau coupé) : jamais de doublon
+    if (!clientRef.current) clientRef.current = newClientRef();
+    const body = {
           customerId,
           discount: discountMode === 'DH' ? discountValue : null,
           discountPercent: discountMode === '%' && discount.trim() !== '' ? discountInput : null,
@@ -264,8 +310,13 @@ export default function SaleScreen({ navigation }: Props) {
             packs: line.packs,
             unitPrice: unitPrice(line),
           })),
-        },
-      });
+          approvalPin: approvalPin ?? null,
+          clientRef: clientRef.current,
+        };
+    try {
+      const created = await api<Sale>('/api/sales', { method: 'POST', body });
+      clientRef.current = null;
+      setOfflineSaved(false);
       setCart([]);
       setDiscount('');
       setPaid('');
@@ -277,7 +328,29 @@ export default function SaleScreen({ navigation }: Props) {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       await load();
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') {
+        setPinMessage(e.message);
+      } else if (e instanceof ApiError && e.status === 0) {
+        // Pas de réseau : la vente part dans la file d'attente et le stock affiché baisse tout de suite
+        await offline.enqueue({ clientRef: body.clientRef, body, total, createdAt: new Date().toISOString() });
+        const sold = new Map(cart.map((line) => [line.product.id, unitsOf(line)]));
+        const next = products.map((p) => (sold.has(p.id) ? { ...p, stockQuantity: p.stockQuantity - (sold.get(p.id) ?? 0) } : p));
+        setProducts(next);
+        void writeLocal('catalog-products', next);
+        clientRef.current = null;
+        setCart([]);
+        setDiscount('');
+        setPaid('');
+        setCustomerId(null);
+        setPayment(EMPTY_PAYMENT);
+        setCustomerSearch('');
+        setSearch('');
+        setLastSale(null);
+        setOfflineSaved(true);
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
+      } else {
+        setError(errorMessage(e, t));
+      }
     } finally {
       setSaving(false);
     }
@@ -299,6 +372,15 @@ export default function SaleScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} />}
       >
+        <OfflineBanner onPress={() => navigation.navigate('OfflineQueue')} />
+        {offlineSaved ? (
+          <View style={styles.success} accessibilityLiveRegion="polite">
+            <Ionicons name="cloud-offline-outline" size={20} color={colors.warning} />
+            <Text style={[styles.successText, styles.flex]}>{t('offline.saved')}</Text>
+          </View>
+        ) : cachedCatalog && cart.length === 0 ? (
+          <Text style={styles.muted}>{t('offline.cached')}</Text>
+        ) : null}
         {success ? (
           <View style={styles.success} accessibilityLiveRegion="polite">
             <Ionicons name="checkmark-circle" size={20} color={colors.success} />
@@ -339,6 +421,13 @@ export default function SaleScreen({ navigation }: Props) {
             <Ionicons name="barcode-outline" size={22} color={colors.onPrimary} />
           </Pressable>
         </View>
+        <VariantPicker variants={variantPick} onClose={() => setVariantPick(null)} onPick={(v) => { setVariantPick(null); addProduct(v); }} />
+        <PinPrompt
+          visible={pinMessage !== null}
+          message={pinMessage}
+          onCancel={() => setPinMessage(null)}
+          onSubmit={(pin) => { setPinMessage(null); void submit(pin); }}
+        />
         <BarcodeScanner visible={scanning} onClose={() => setScanning(false)} onScanned={(code) => void onScanned(code)} />
 
         {brands.length > 0 ? (
@@ -361,9 +450,13 @@ export default function SaleScreen({ navigation }: Props) {
           <View style={styles.emptyCatalog}><Ionicons name="cube-outline" size={28} color={colors.muted} /><Text style={styles.muted}>{t('sales.noProducts')}</Text></View>
         ) : (
           <View style={styles.catalogGrid}>
-            {matches.map((p) => {
-              const inCart = quantityInCart.get(p.id) ?? 0;
-              const unavailable = p.stockQuantity <= 0;
+            {groups.map((variants) => {
+              const p = variants.find((v) => v.stockQuantity > 0) ?? variants[0];
+              const isGroup = variants.length > 1;
+              const inCart = variants.reduce((s, v) => s + (quantityInCart.get(v.id) ?? 0), 0);
+              const stock = variants.reduce((s, v) => s + Math.max(0, v.stockQuantity), 0);
+              const unavailable = stock <= 0;
+              const fromPrice = Math.min(...variants.map((v) => v.promoPrice ?? v.salePrice));
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -372,20 +465,30 @@ export default function SaleScreen({ navigation }: Props) {
                   accessibilityState={{ disabled: unavailable }}
                   key={p.id}
                   style={({ pressed }) => [styles.productCard, inCart > 0 && styles.productInCart, pressed && styles.productPressed, unavailable && styles.productUnavailable]}
-                  onPress={() => addProduct(p)}
+                  onPress={() => (isGroup ? setVariantPick(variants) : addProduct(p))}
                   disabled={unavailable}
                 >
                   <View style={styles.productImageWrap}>
                     {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={styles.productImage} resizeMode="cover" /> : <Ionicons name="phone-portrait-outline" size={40} color={colors.muted} />}
                     {inCart > 0 ? <View style={styles.inCartBadge}><Text style={styles.inCartText}>{inCart}</Text></View> : null}
                   </View>
-                  <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
-                  <Text style={styles.productMeta} numberOfLines={1}>{p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
-                  <Text style={styles.productPrice}>{formatMoney(p.salePrice)}</Text>
+                  <Text style={styles.productName} numberOfLines={1}>{isGroup ? p.variantGroup : p.name}</Text>
+                  <Text style={styles.productMeta} numberOfLines={1}>{isGroup ? t('variants.count', { n: variants.length }) : p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
+                  {isGroup ? (
+                    <Text style={styles.productPrice}>{t('variants.from', { price: formatMoney(fromPrice) })}</Text>
+                  ) : p.promoPrice != null ? (
+                    <View style={styles.promoRow}>
+                      <Text style={styles.productPrice}>{formatMoney(p.promoPrice)}</Text>
+                      <Text style={styles.oldPrice}>{formatMoney(p.salePrice)}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.productPrice}>{formatMoney(p.salePrice)}</Text>
+                  )}
+                  {p.promoLabel ? <Badge label={p.promoLabel} tone="danger" icon="pricetag" /> : null}
                   <View style={styles.productFooter}>
                     <Badge
-                      label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: p.stockQuantity })}
-                      tone={unavailable ? 'danger' : p.stockQuantity <= p.alertThreshold ? 'warning' : 'success'}
+                      label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: stock })}
+                      tone={unavailable ? 'danger' : stock <= p.alertThreshold ? 'warning' : 'success'}
                     />
                     <View style={[styles.addRound, unavailable && styles.addProductDisabled]}><Ionicons name="add" size={20} color={colors.onPrimary} /></View>
                   </View>
@@ -425,7 +528,7 @@ export default function SaleScreen({ navigation }: Props) {
                         accessibilityRole="radio"
                         accessibilityState={{ checked: line.packs === packs }}
                         onPress={() => setCart((current) => current.map((l) => (l.product.id === line.product.id && l.packs !== packs
-                          ? { ...l, packs, quantity: 1, price: String(packs ? l.product.packPrice ?? l.product.salePrice * (l.product.unitsPerPack ?? 1) : l.product.salePrice) }
+                          ? { ...l, packs, quantity: 1, edited: false, price: String(packs ? l.product.packPrice ?? l.product.salePrice * (l.product.unitsPerPack ?? 1) : l.product.salePrice) }
                           : l)))}
                         style={[styles.packOption, line.packs === packs && styles.packOptionActive]}
                       >
@@ -439,16 +542,16 @@ export default function SaleScreen({ navigation }: Props) {
                 <View style={styles.priceRow}>
                   <TextInput
                     style={[styles.priceInput, parseNumber(line.price) === null && styles.priceInputError]}
-                    value={line.price}
-                    onChangeText={(value) => setCart((current) => current.map((l) => (l.product.id === line.product.id ? { ...l, price: value } : l)))}
+                    value={line.edited ? line.price : String(catalogPrice(line))}
+                    onChangeText={(value) => setCart((current) => current.map((l) => (l.product.id === line.product.id ? { ...l, price: value, edited: true } : l)))}
                     keyboardType="decimal-pad"
                     selectTextOnFocus
                     accessibilityLabel={`${t('sales.negotiatedPrice')} ${line.product.name}`}
                   />
                   <Text style={styles.muted}>× {line.quantity} = {formatMoney(unitPrice(line) * line.quantity)}</Text>
                 </View>
-                {unitPrice(line) !== catalogPrice(line) ? (
-                  <Text style={styles.catalogPrice}>{formatMoney(catalogPrice(line))}</Text>
+                {unitPrice(line) !== line.product.salePrice && !line.packs ? (
+                  <Text style={styles.catalogPrice}>{formatMoney(line.product.salePrice)}</Text>
                 ) : null}
               </View>
               <View style={styles.qty}>
@@ -586,7 +689,7 @@ export default function SaleScreen({ navigation }: Props) {
         {error ? <Text style={styles.error} accessibilityLiveRegion="assertive">{error}</Text> : null}
 
         {cart.length > 0 ? (
-          <PrimaryButton icon="checkmark-done" title={`${t('sales.save')} · ${formatMoney(total)}`} onPress={submit} loading={saving} disabled={!canSubmit} />
+          <PrimaryButton icon="checkmark-done" title={`${t('sales.save')} · ${formatMoney(total)}`} onPress={() => void submit()} loading={saving} disabled={!canSubmit} />
         ) : null}
       </ScrollView>
 
@@ -678,6 +781,8 @@ const styles = StyleSheet.create({
   catalogCount: { color: colors.muted, fontSize: 12, marginBottom: spacing.sm },
   productImageWrap: { aspectRatio: 1.15, borderRadius: radius - 4, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: spacing.sm },
   productFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs, marginTop: spacing.sm },
+  promoRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' },
+  oldPrice: { color: colors.muted, fontSize: 12, textDecorationLine: 'line-through' },
   addRound: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   productCard: { width: '48%', flexGrow: 1, minWidth: 145, backgroundColor: colors.card, borderRadius: radius + 2, borderWidth: 1, borderColor: colors.border, padding: spacing.sm + 2, marginBottom: 2 },

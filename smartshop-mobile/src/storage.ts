@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 export const TOKEN_KEY = 'smartshop_token';
 export const LANG_KEY = 'smartshop_lang';
 export const API_URL_KEY = 'smartshop_api_url';
+export const USER_KEY = 'smartshop_user'; // dernier profil connu, pour ouvrir l'application sans réseau
 
 // Sur téléphone : stockage chiffré. Sur le web : localStorage.
 export const storage = {

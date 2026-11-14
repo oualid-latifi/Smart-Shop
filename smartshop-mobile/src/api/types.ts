@@ -32,6 +32,7 @@ export interface Product {
   barcode: string | null;
   brand: string | null;
   model: string | null;
+  variantGroup: string | null;
   color: string | null;
   capacity: string | null;
   imageUrl: string | null;
@@ -44,6 +45,9 @@ export interface Product {
   alertThreshold: number;
   lowStock: boolean;
   active: boolean;
+  promoPrice: number | null;
+  secondItemPercent: number | null;
+  promoLabel: string | null;
 }
 
 export interface Customer {
@@ -187,6 +191,58 @@ export interface ShopSettings {
   quoteValidityDays: number;
   documentFooter: string | null;
   ticketFooter: string | null;
+  maxDiscountPercent: number | null;
+  hasApprovalPin: boolean;
+  bigSaleAmount: number | null;
+  weeklyReportEnabled: boolean;
+  reportEmails: string | null;
+  onlineShopEnabled: boolean;
+}
+
+export type OnlineOrderStatus = 'NEW' | 'CONFIRMED' | 'CONVERTED' | 'CANCELLED';
+
+export interface OnlineOrder {
+  id: string;
+  number: string;
+  customerName: string;
+  phone: string;
+  address: string | null;
+  note: string | null;
+  status: OnlineOrderStatus;
+  total: number;
+  createdAt: string;
+  saleId: string | null;
+  lines: { productId: string; productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
+}
+
+export type NotificationType = 'LOW_STOCK' | 'CHECK_DUE' | 'BIG_SALE' | 'TARGET_REACHED' | 'BACKUP_FAILED' | 'ONLINE_ORDER';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  referenceId: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationFeed {
+  unread: number;
+  items: AppNotification[];
+}
+
+export interface BackupInfo {
+  name: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface WeeklyReport {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
 }
 
 export type QuoteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';
@@ -370,4 +426,72 @@ export interface ImportResult {
   created: number;
   updated: number;
   errors: { line: number; message: string }[];
+}
+
+export type PromotionKind = 'PERCENT_OFF' | 'FIXED_PRICE' | 'SECOND_ITEM_PERCENT';
+
+export interface Promotion {
+  id: string;
+  name: string;
+  kind: PromotionKind;
+  value: number;
+  productId: string | null;
+  productName: string | null;
+  brand: string | null;
+  startsOn: string;
+  endsOn: string;
+  active: boolean;
+  running: boolean;
+}
+
+export interface Replenishment {
+  productId: string;
+  reference: string;
+  name: string;
+  stock: number;
+  alertThreshold: number;
+  soldInPeriod: number;
+  dailyAverage: number;
+  daysOfCover: number | null;
+  suggestedQuantity: number;
+  lastSupplierId: string | null;
+  lastSupplierName: string | null;
+  lastPurchasePrice: number;
+}
+
+export interface DormantProduct {
+  productId: string;
+  reference: string;
+  name: string;
+  stock: number;
+  stockValue: number;
+  lastSaleDate: string | null;
+  daysWithoutSale: number | null;
+}
+
+export interface SupplierPrice {
+  supplierId: string | null;
+  supplierName: string;
+  lastPrice: number;
+  minPrice: number;
+  averagePrice: number;
+  purchases: number;
+  totalQuantity: number;
+  lastPurchaseDate: string;
+  cheapest: boolean;
+}
+
+export interface Insights {
+  month: {
+    current: { revenue: number; profit: number; sales: number };
+    previous: { revenue: number; profit: number; sales: number };
+    revenueChangePercent: number | null;
+    profitChangePercent: number | null;
+  };
+  forecast: { revenueSoFar: number; projectedRevenue: number; daysElapsed: number; daysInMonth: number };
+  byWeekday: { index: number; revenue: number; sales: number }[];
+  byHour: { index: number; revenue: number; sales: number }[];
+  byBrand: { brand: string; revenue: number; cost: number; margin: number; marginPercent: number; units: number }[];
+  analysisFrom: string;
+  analysisTo: string;
 }

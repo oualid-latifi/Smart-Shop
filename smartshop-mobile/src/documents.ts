@@ -1,5 +1,6 @@
 import { Linking, Platform } from 'react-native';
 import { File, Paths } from 'expo-file-system';
+import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { ApiError, getBaseUrl } from './api/client';
 import { storage, TOKEN_KEY } from './storage';
@@ -8,6 +9,38 @@ import { storage, TOKEN_KEY } from './storage';
  * Télécharge un PDF du serveur (facture, devis, BL, ticket) puis ouvre la feuille de partage :
  * l'utilisateur choisit WhatsApp, l'imprimante, l'email, l'enregistrement dans Fichiers…
  */
+/**
+ * Imprime directement un PDF du serveur (ticket, facture, étiquettes) : Wi-Fi, Bluetooth ou imprimante
+ * réseau via le service d'impression du téléphone. "Enregistrer en PDF" est aussi proposé.
+ */
+export async function printDocument(path: string, fileName: string): Promise<void> {
+  const token = await storage.get(TOKEN_KEY);
+  const url = `${await getBaseUrl()}${path}`;
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  if (Platform.OS === 'web') {
+    const response = await fetch(url, { headers });
+    if (!response.ok) throw new ApiError(response.status, '');
+    const win = window.open(URL.createObjectURL(await response.blob()), '_blank');
+    win?.addEventListener('load', () => win.print());
+    return;
+  }
+
+  let file: File;
+  try {
+    file = await File.downloadFileAsync(url, new File(Paths.cache, fileName), { headers, idempotent: true });
+  } catch {
+    throw new ApiError(0, 'network');
+  }
+  try {
+    await Print.printAsync({ uri: file.uri });
+  } catch (e) {
+    // Fermer la fenêtre d'impression sans imprimer n'est pas une erreur
+    if (e instanceof Error && /cancel|did not complete/i.test(e.message)) return;
+    throw e;
+  }
+}
+
 export async function shareDocument(path: string, fileName: string, dialogTitle: string, mimeType = 'application/pdf'): Promise<void> {
   const token = await storage.get(TOKEN_KEY);
   const url = `${await getBaseUrl()}${path}`;
@@ -30,8 +63,12 @@ export async function shareDocument(path: string, fileName: string, dialogTitle:
   if (!(await Sharing.isAvailableAsync())) {
     throw new ApiError(0, '');
   }
-  const isPdf = mimeType === 'application/pdf';
-  await Sharing.shareAsync(file.uri, { mimeType, UTI: isPdf ? 'com.adobe.pdf' : 'org.openxmlformats.spreadsheetml.sheet', dialogTitle });
+  const UTIS: Record<string, string> = {
+    'application/pdf': 'com.adobe.pdf',
+    'application/zip': 'public.zip-archive',
+    'text/csv': 'public.comma-separated-values-text',
+  };
+  await Sharing.shareAsync(file.uri, { mimeType, UTI: UTIS[mimeType] ?? 'org.openxmlformats.spreadsheetml.sheet', dialogTitle });
 }
 
 /** Numéro marocain local (06…, 07…, 05…) -> format international pour WhatsApp (2126…). */

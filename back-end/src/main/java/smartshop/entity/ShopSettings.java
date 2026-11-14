@@ -60,6 +60,29 @@ public class ShopSettings {
     @Column(name = "ticket_footer", length = 255)
     private String ticketFooter;
 
+    // Remise maximale (en %) qu'un employé peut accorder sans le code du propriétaire (null = pas de limite)
+    @Column(name = "max_discount_percent")
+    private Integer maxDiscountPercent;
+
+    // Une vente à partir de ce montant déclenche une notification (null = jamais)
+    @Column(name = "big_sale_amount", precision = 12, scale = 2)
+    private BigDecimal bigSaleAmount;
+
+    // Rapport hebdomadaire par email : activé ? destinataires (séparés par des virgules)
+    @Column(name = "weekly_report_enabled")
+    private Boolean weeklyReportEnabled;
+
+    @Column(name = "report_emails", length = 500)
+    private String reportEmails;
+
+    // Boutique en ligne publique (/shop) ouverte aux clients ?
+    @Column(name = "online_shop_enabled")
+    private Boolean onlineShopEnabled;
+
+    // Code PIN du propriétaire, haché (BCrypt)
+    @Column(name = "approval_pin_hash", length = 100)
+    private String approvalPinHash;
+
     public Long getId() { return id; }
 
     public String getShopName() { return shopName; }
@@ -97,6 +120,23 @@ public class ShopSettings {
 
     public String getDocumentFooter() { return documentFooter; }
     public void setDocumentFooter(String documentFooter) { this.documentFooter = documentFooter; }
+
+    public Integer getMaxDiscountPercent() { return maxDiscountPercent; }
+    public void setMaxDiscountPercent(Integer maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+
+    public BigDecimal getBigSaleAmount() { return bigSaleAmount; }
+    public void setBigSaleAmount(BigDecimal bigSaleAmount) { this.bigSaleAmount = bigSaleAmount; }
+
+    public Boolean getOnlineShopEnabled() { return onlineShopEnabled; }
+    public void setOnlineShopEnabled(Boolean onlineShopEnabled) { this.onlineShopEnabled = onlineShopEnabled; }
+    public Boolean getWeeklyReportEnabled() { return weeklyReportEnabled; }
+    public void setWeeklyReportEnabled(Boolean weeklyReportEnabled) { this.weeklyReportEnabled = weeklyReportEnabled; }
+
+    public String getReportEmails() { return reportEmails; }
+    public void setReportEmails(String reportEmails) { this.reportEmails = reportEmails; }
+
+    public String getApprovalPinHash() { return approvalPinHash; }
+    public void setApprovalPinHash(String approvalPinHash) { this.approvalPinHash = approvalPinHash; }
 
     public String getTicketFooter() { return ticketFooter; }
     public void setTicketFooter(String ticketFooter) { this.ticketFooter = ticketFooter; }

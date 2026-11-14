@@ -1,0 +1,41 @@
+# Déploiement en un clic sur Render (https://render.com) : New + > Blueprint > choisir ce dépôt.
+# Render crée la base PostgreSQL et le serveur, et génère JWT_SECRET automatiquement.
+databases:
+  - name: smartshop-db
+    databaseName: smartshop
+    user: smartshop
+    plan: basic-256mb
+    region: frankfurt
+
+services:
+  - type: web
+    name: smartshop
+    runtime: docker
+    rootDir: back-end
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    region: frankfurt
+    healthCheckPath: /actuator/health
+    # Disque permanent pour les sauvegardes automatiques (sinon perdues à chaque redémarrage)
+    disk:
+      name: backups
+      mountPath: /data/backups
+      sizeGB: 1
+    envVars:
+      - key: DB_HOST
+        fromDatabase: { name: smartshop-db, property: host }
+      - key: DB_PORT
+        fromDatabase: { name: smartshop-db, property: port }
+      - key: DB_NAME
+        fromDatabase: { name: smartshop-db, property: database }
+      - key: DB_USERNAME
+        fromDatabase: { name: smartshop-db, property: user }
+      - key: DB_PASSWORD
+        fromDatabase: { name: smartshop-db, property: password }
+      - key: JWT_SECRET
+        generateValue: true
+      - key: API_DOCS_ENABLED
+        value: "false"
+      # À remplir après le premier déploiement : https://smartshop-xxxx.onrender.com
+      - key: APP_PUBLIC_URL
+        sync: false

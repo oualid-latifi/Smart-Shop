@@ -104,6 +104,8 @@ d'environnement, décrites dans `back-end/.env.example`.
 
 ## Mise en production : checklist
 
+Guide pas à pas (Render, VPS Docker, APK Android) : **[DEPLOIEMENT.md](DEPLOIEMENT.md)**.
+
 1. Servir l'API **uniquement en HTTPS** (reverse proxy Nginx / Caddy, ou hébergeur PaaS).
 2. Définir les variables d'environnement avec des valeurs fortes et uniques.
 3. Mettre `DB_DDL_AUTO=validate` et `API_DOCS_ENABLED=false`.

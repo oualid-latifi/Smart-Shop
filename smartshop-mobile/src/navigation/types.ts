@@ -5,6 +5,7 @@ export type SalesStackParamList = {
   SalesHistory: undefined;
   SaleDetail: { sale: Sale };
   SaleReturn: { sale: Sale };
+  OfflineQueue: undefined;
 };
 
 export type ProductsStackParamList = {
@@ -46,6 +47,13 @@ export type MoreStackParamList = {
   Cash: undefined;
   Targets: undefined;
   Import: undefined;
+  Promotions: undefined;
+  Replenishment: undefined;
+  Dormant: undefined;
+  Insights: undefined;
+  Notifications: undefined;
+  Backups: undefined;
+  OnlineOrders: undefined;
 };
 
 export type QuotesStackParamList = {

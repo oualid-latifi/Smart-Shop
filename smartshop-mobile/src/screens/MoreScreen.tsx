@@ -27,11 +27,16 @@ export default function MoreScreen({ navigation }: Props) {
   const { i18n, t } = useTranslation();
   const isAr = (i18n.language || '').startsWith('ar');
 
-  const { can } = useAuth();
+  const { can, user } = useAuth();
+  const isOwner = user?.role === 'OWNER';
 
   // Chaque entrée n'apparaît que si le compte a au moins un des droits indiqués
-  const all: { title: string; subtitle: string; icon: React.ComponentProps<typeof Ionicons>['name']; screen: string; anyOf: Permission[] }[] = [
+  const all: { title: string; subtitle: string; icon: React.ComponentProps<typeof Ionicons>['name']; screen: string; anyOf: Permission[]; ownerOnly?: boolean }[] = [
+    { title: t('notifs.title'), subtitle: t('notifs.subtitle'), icon: 'notifications-outline', screen: 'Notifications', anyOf: ['SALES', 'STOCK', 'PAYMENTS', 'REPORTS', 'SETTINGS'] },
     { title: t('tabs.customers'), subtitle: isAr ? 'الزبناء والديون' : 'Fiches clients et crédit', icon: 'people-outline', screen: 'Customers', anyOf: ['CUSTOMERS', 'PAYMENTS'] },
+    { title: t('insights.title'), subtitle: t('insights.subtitle'), icon: 'analytics-outline', screen: 'Insights', anyOf: ['REPORTS'] },
+    { title: t('promos.title'), subtitle: t('promos.subtitle'), icon: 'pricetags-outline', screen: 'Promotions', anyOf: ['PRODUCTS_WRITE'] },
+    { title: t('online.title'), subtitle: t('online.subtitle'), icon: 'globe-outline', screen: 'OnlineOrders', anyOf: ['SALES'] },
     { title: t('quotes.title'), subtitle: t('quotes.subtitle'), icon: 'document-text-outline', screen: 'Quotes', anyOf: ['SALES'] },
     { title: t('targets.title'), subtitle: t('targets.subtitle'), icon: 'trophy-outline', screen: 'Targets', anyOf: ['SALES', 'USERS'] },
     { title: t('aging.title'), subtitle: t('aging.subtitle'), icon: 'hourglass-outline', screen: 'Aging', anyOf: ['PAYMENTS'] },
@@ -39,6 +44,8 @@ export default function MoreScreen({ navigation }: Props) {
     { title: t('cash.title'), subtitle: t('cash.subtitle'), icon: 'cash-outline', screen: 'Cash', anyOf: ['CASH'] },
     { title: isAr ? 'المشتريات' : 'Achats', subtitle: isAr ? 'تدبير المشتريات والموردين' : 'Gérer les achats et les fournisseurs', icon: 'bag-handle-outline', screen: 'Purchases', anyOf: ['PURCHASES'] },
     { title: t('orders.title'), subtitle: t('orders.subtitle'), icon: 'clipboard-outline', screen: 'PurchaseOrders', anyOf: ['PURCHASES', 'STOCK'] },
+    { title: t('replenish.title'), subtitle: t('replenish.subtitle'), icon: 'refresh-circle-outline', screen: 'Replenishment', anyOf: ['STOCK'] },
+    { title: t('dormant.title'), subtitle: t('dormant.subtitle'), icon: 'snow-outline', screen: 'Dormant', anyOf: ['STOCK'] },
     { title: t('inventory.title'), subtitle: t('inventory.subtitle'), icon: 'list-outline', screen: 'Inventories', anyOf: ['STOCK'] },
     { title: t('warehouses.title'), subtitle: t('warehouses.subtitle'), icon: 'business-outline', screen: 'Warehouses', anyOf: ['STOCK'] },
     { title: isAr ? 'التقارير والمصاريف' : 'Rapports et dépenses', subtitle: isAr ? 'ملخص النشاط والمصاريف' : 'Consulter les rapports et les dépenses', icon: 'bar-chart-outline', screen: 'Reports', anyOf: ['REPORTS'] },
@@ -46,8 +53,9 @@ export default function MoreScreen({ navigation }: Props) {
     { title: t('activity.title'), subtitle: t('activity.subtitle'), icon: 'pulse-outline', screen: 'Activity', anyOf: ['USERS'] },
     { title: t('import.title'), subtitle: t('import.subtitle'), icon: 'cloud-upload-outline', screen: 'Import', anyOf: ['SETTINGS'] },
     { title: t('shop.title'), subtitle: t('shop.subtitle'), icon: 'storefront-outline', screen: 'ShopSettings', anyOf: ['SETTINGS'] },
+    { title: t('backups.title'), subtitle: t('backups.subtitle'), icon: 'shield-checkmark-outline', screen: 'Backups', anyOf: ['SETTINGS'], ownerOnly: true },
   ];
-  const items = all.filter((item) => item.anyOf.some(can));
+  const items = all.filter((item) => item.anyOf.some(can) && (!item.ownerOnly || isOwner));
 
   return (
     <ScrollView

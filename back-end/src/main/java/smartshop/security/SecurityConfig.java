@@ -53,11 +53,17 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/verify/**").permitAll()
+                        // Boutique en ligne : page et API publiques
+                        .requestMatchers("/shop", "/shop/", "/api/public/**").permitAll()
+                        .requestMatchers("/api/online-orders/**").hasAuthority("SALES")
                         // Comptes, journal, objectifs, paramètres
                         .requestMatchers("/api/users/**", "/api/activity/**").hasAuthority("USERS")
                         .requestMatchers(HttpMethod.PUT, "/api/targets/**").hasAuthority("USERS")
-                        .requestMatchers(HttpMethod.PUT, "/api/settings").hasAuthority("SETTINGS")
-                        .requestMatchers("/api/import/**").hasAuthority("SETTINGS")
+                        .requestMatchers(HttpMethod.PUT, "/api/settings", "/api/settings/**").hasAuthority("SETTINGS")
+                        .requestMatchers(HttpMethod.GET, "/api/promotions/**").authenticated()
+                        .requestMatchers("/api/promotions/**").hasAuthority("PRODUCTS_WRITE")
+                        .requestMatchers("/api/import/**", "/api/backups/**").hasAuthority("SETTINGS")
                         .requestMatchers("/api/cash/**").hasAuthority("CASH")
                         // Ventes et devis
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("SALES_CANCEL")

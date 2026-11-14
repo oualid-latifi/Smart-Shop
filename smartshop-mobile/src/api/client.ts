@@ -4,11 +4,13 @@ import { storage, TOKEN_KEY, API_URL_KEY } from '../storage';
 export class ApiError extends Error {
   status: number; // 0 = serveur injoignable
   fieldErrors?: Record<string, string>;
+  code?: string; // ex : APPROVAL_REQUIRED (code du propriétaire demandé)
 
-  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>, code?: string) {
     super(message);
     this.status = status;
     this.fieldErrors = fieldErrors;
+    this.code = code;
   }
 }
 
@@ -87,7 +89,7 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       typeof data?.message === 'string' ? data.message : typeof data?.detail === 'string' ? data.detail : '';
     const fieldErrors =
       data?.errors && typeof data.errors === 'object' ? (data.errors as Record<string, string>) : undefined;
-    throw new ApiError(response.status, message, fieldErrors);
+    throw new ApiError(response.status, message, fieldErrors, typeof data?.code === 'string' ? data.code : undefined);
   }
 
   return data as T;
