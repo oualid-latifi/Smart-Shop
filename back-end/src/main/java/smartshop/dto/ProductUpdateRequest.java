@@ -14,6 +14,7 @@ public record ProductUpdateRequest(
         @Size(max = 64) String barcode,                       // facultatif : code-barres
         @Size(max = 80) String brand,
         @Size(max = 100) String model,
+        @Size(max = 150) String variantGroup,               // facultatif : famille de variantes
         @Size(max = 50) String color,
         @Size(max = 60) String capacity,
         String imageUrl,

@@ -59,6 +59,7 @@ public class ProductService {
         product.setBarcode(data.getBarcode());
         product.setBrand(data.getBrand());
         product.setModel(data.getModel());
+        product.setVariantGroup(data.getVariantGroup());
         product.setColor(data.getColor());
         product.setCapacity(data.getCapacity());
         product.setImageUrl(data.getImageUrl());
@@ -77,6 +78,43 @@ public class ProductService {
         Product product = findById(id);
         product.setActive(false);
         productRepository.save(product);
+    }
+
+    @Transactional(readOnly = true)
+    public List<Product> findAllById(List<UUID> ids) {
+        return productRepository.findAllById(ids);
+    }
+
+    /**
+     * Nouvelle variante d'un produit : mêmes nom, marque, modèle, TVA, conditionnement, photo et seuil,
+     * avec sa propre référence, couleur, capacité, prix et stock (à zéro, il entrera par un achat).
+     */
+    @Transactional
+    public Product createVariant(UUID sourceId, String reference, String color, String capacity, java.math.BigDecimal salePrice, String barcode) {
+        Product source = findById(sourceId);
+        String group = source.getVariantGroup() != null ? source.getVariantGroup() : source.getName();
+        if (source.getVariantGroup() == null) {
+            source.setVariantGroup(group);
+            productRepository.save(source);
+        }
+        Product variant = new Product();
+        variant.setReference(reference.trim());
+        variant.setName(source.getName());
+        variant.setBrand(source.getBrand());
+        variant.setModel(source.getModel());
+        variant.setVariantGroup(group);
+        variant.setColor(color != null ? color : source.getColor());
+        variant.setCapacity(capacity != null ? capacity : source.getCapacity());
+        variant.setBarcode(barcode);
+        variant.setImageUrl(source.getImageUrl());
+        variant.setSalePrice(salePrice != null ? salePrice : source.getSalePrice());
+        // Coût estimé d'après le produit d'origine, corrigé au premier achat
+        variant.setAveragePurchasePrice(source.getAveragePurchasePrice());
+        variant.setVatRate(source.getVatRate());
+        variant.setUnitsPerPack(source.getUnitsPerPack());
+        variant.setPackPrice(source.getPackPrice());
+        variant.setAlertThreshold(source.getAlertThreshold());
+        return create(variant);
     }
 
     @Transactional(readOnly = true)

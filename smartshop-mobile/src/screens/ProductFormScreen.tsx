@@ -14,6 +14,7 @@ import Screen from '../components/Screen';
 import TextField from '../components/TextField';
 import { confirmAction } from '../confirm';
 import { formatMoney, parseNumber } from '../format';
+import type { Product } from '../api/types';
 import type { ProductsStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
 import { useUnsavedChanges } from '../useUnsavedChanges';
@@ -41,6 +42,13 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [name, setName] = useState(product?.name ?? '');
   const [brand, setBrand] = useState(product?.brand ?? '');
   const [model, setModel] = useState(product?.model ?? '');
+  const [variantGroup, setVariantGroup] = useState(product?.variantGroup ?? '');
+  // Nouvelle variante (autre couleur / capacité)
+  const [variantRef, setVariantRef] = useState('');
+  const [variantColor, setVariantColor] = useState('');
+  const [variantCapacity, setVariantCapacity] = useState('');
+  const [variantPrice, setVariantPrice] = useState('');
+  const [variantSaving, setVariantSaving] = useState(false);
   const [color, setColor] = useState(product?.color ?? '');
   const [capacity, setCapacity] = useState(product?.capacity ?? '');
   const [imageUrl, setImageUrl] = useState(product?.imageUrl ?? '');
@@ -136,6 +144,7 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         barcode: barcode.trim() || null,
         brand: brand.trim() || null,
         model: model.trim() || null,
+        variantGroup: variantGroup.trim() || null,
         color: color.trim() || null,
         capacity: capacity.trim() || null,
         imageUrl: imageUrl.trim() || null,
@@ -262,6 +271,7 @@ export default function ProductFormScreen({ route, navigation }: Props) {
             returnKeyType="next" onSubmitEditing={() => colorRef.current?.focus()} blurOnSubmit={false} />
         </View>
       </View>
+      <TextField label={t('variants.group')} hint={t('variants.groupHint')} value={variantGroup} onChangeText={bind(setVariantGroup)} />
       <View style={styles.row}>
         <View style={styles.half}>
           <TextField ref={colorRef} label={t('products.color')} value={color} onChangeText={bind(setColor)}
@@ -377,6 +387,35 @@ export default function ProductFormScreen({ route, navigation }: Props) {
 
       {editing && product && can('STOCK') ? <SupplierPrices productId={product.id} /> : null}
 
+      {editing && product && can('PRODUCTS_WRITE') ? (
+        <View style={styles.variantBox}>
+          <Text style={styles.section}>{t('variants.create')}</Text>
+          <Text style={styles.hintText}>{t('variants.createHint')}</Text>
+          <TextField label={t('variants.reference')} required value={variantRef} onChangeText={setVariantRef} autoCapitalize="characters" />
+          <View style={styles.row}>
+            <View style={styles.half}><TextField label={t('variants.color')} value={variantColor} onChangeText={setVariantColor} /></View>
+            <View style={styles.half}><TextField label={t('variants.capacity')} value={variantCapacity} onChangeText={setVariantCapacity} /></View>
+          </View>
+          <TextField label={t('variants.price')} value={variantPrice} onChangeText={setVariantPrice} keyboardType="decimal-pad" />
+          <PrimaryButton icon="copy-outline" title={t('variants.create')} variant="outline" loading={variantSaving} disabled={!variantRef.trim()}
+            onPress={async () => {
+              setVariantSaving(true);
+              setError(null);
+              try {
+                const created = await api<Product>(`/api/products/${product.id}/variants`, {
+                  method: 'POST',
+                  body: { reference: variantRef.trim(), color: variantColor.trim() || null, capacity: variantCapacity.trim() || null, salePrice: parseNumber(variantPrice) },
+                });
+                setDirty(false);
+                navigation.replace('ProductForm', { product: created });
+              } catch (e) {
+                setError(errorMessage(e, t));
+                setVariantSaving(false);
+              }
+            }} />
+        </View>
+      ) : null}
+
       {editing && product ? (
         <View style={styles.spacer}>
           <PrimaryButton
@@ -422,6 +461,8 @@ const styles = StyleSheet.create({
   section: { fontSize: 13, fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: spacing.sm, marginBottom: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
   half: { flex: 1 },
+  variantBox: { marginTop: spacing.lg, padding: spacing.md, borderRadius: radius, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.card },
+  hintText: { color: colors.muted, fontSize: 12, marginBottom: spacing.sm },
   scanButton: { alignSelf: 'flex-start', marginTop: 24, minHeight: 50, flexDirection: 'row', gap: 6, alignItems: 'center', paddingHorizontal: spacing.md, borderRadius: radius, backgroundColor: colors.primary },
   scanText: { color: colors.onPrimary, fontWeight: '800' },
   margin: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs, backgroundColor: colors.successBg, borderRadius: radius, padding: spacing.sm, marginBottom: spacing.md },

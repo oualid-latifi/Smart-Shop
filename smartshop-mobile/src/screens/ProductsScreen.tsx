@@ -20,6 +20,7 @@ import { errorMessage } from '../api/errors';
 import type { Product } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
+import { shareDocument } from '../documents';
 import { Badge, ProductThumb } from '../components/ui';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
@@ -32,6 +33,33 @@ export default function ProductsScreen({ navigation }: Props) {
   const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [search, setSearch] = useState('');
+  // Mode étiquettes : sélection des produits à imprimer
+  const [labelMode, setLabelMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [copies, setCopies] = useState(1);
+  const [format, setFormat] = useState<'A4' | 'THERMAL'>('A4');
+  const [printing, setPrinting] = useState(false);
+
+  function toggle(id: string) {
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function printLabels() {
+    setPrinting(true);
+    try {
+      const ids = [...selected].join(',');
+      await shareDocument(`/api/products/labels.pdf?format=${format}&copies=${copies}${ids ? `&ids=${ids}` : ''}`, 'etiquettes.pdf', t('docs.shareTitle'));
+    } catch (e) {
+      setError(errorMessage(e, t));
+    } finally {
+      setPrinting(false);
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,9 +102,11 @@ export default function ProductsScreen({ navigation }: Props) {
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${item.name}, ${formatMoney(item.salePrice)}, ${t('products.stock')} ${item.stockQuantity}`}
-        onPress={() => navigation.navigate('ProductForm', { product: item })}
-        style={({ pressed }) => [styles.row, !item.active && styles.cardInactive, pressed && styles.pressed]}
+        accessibilityState={labelMode ? { checked: selected.has(item.id) } : undefined}
+        onPress={() => (labelMode ? toggle(item.id) : navigation.navigate('ProductForm', { product: item }))}
+        style={({ pressed }) => [styles.row, !item.active && styles.cardInactive, pressed && styles.pressed, labelMode && selected.has(item.id) && styles.rowSelected]}
       >
+        {labelMode ? <Ionicons name={selected.has(item.id) ? 'checkbox' : 'square-outline'} size={24} color={colors.primary} /> : null}
         <ProductThumb uri={item.imageUrl} size={54} />
         <View style={styles.rowInfo}>
           <Text style={styles.name} numberOfLines={1}>{item.name}</Text>
@@ -106,6 +136,9 @@ export default function ProductsScreen({ navigation }: Props) {
               autoCorrect={false}
             />
           </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('labels.title')} onPress={() => { setLabelMode((m) => !m); setSelected(new Set()); }} style={[styles.iconButton, labelMode && styles.iconButtonOn]}>
+            <Ionicons name="barcode-outline" size={20} color={labelMode ? colors.onPrimary : colors.primary} />
+          </Pressable>
           {can('PRODUCTS_WRITE') ? (
             <Pressable accessibilityRole="button" onPress={() => navigation.navigate('ProductForm')} style={styles.addButton}>
               <Ionicons name="add" size={18} color={colors.onPrimary} />
@@ -113,7 +146,7 @@ export default function ProductsScreen({ navigation }: Props) {
             </Pressable>
           ) : null}
         </View>
-        <Text style={styles.count}>{filtered.length} {t('sales.productsAvailable')}</Text>
+        <Text style={styles.count}>{labelMode ? t('labels.select') : `${filtered.length} ${t('sales.productsAvailable')}`}</Text>
       </View>
 
       {loading ? (
@@ -137,6 +170,22 @@ export default function ProductsScreen({ navigation }: Props) {
           }
         />
       )}
+      {labelMode ? (
+        <View style={styles.labelBar}>
+          <View style={styles.labelOptions}>
+            {(['A4', 'THERMAL'] as const).map((f) => (
+              <Pressable key={f} accessibilityRole="radio" accessibilityState={{ checked: format === f }} onPress={() => setFormat(f)} style={[styles.optChip, format === f && styles.optChipOn]}>
+                <Text style={[styles.optText, format === f && styles.optTextOn]}>{t(`labels.${f}`)}</Text>
+              </Pressable>
+            ))}
+            <Pressable accessibilityRole="button" accessibilityLabel={`${t('labels.copies')} ${copies}`} onPress={() => setCopies((c) => (c >= 5 ? 1 : c + 1))} style={styles.optChip}>
+              <Text style={styles.optText}>×{copies}</Text>
+            </Pressable>
+          </View>
+          <PrimaryButton icon="print-outline" loading={printing} onPress={() => void printLabels()}
+            title={selected.size > 0 ? t('labels.print', { n: selected.size * copies }) : t('labels.all')} />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -144,6 +193,15 @@ export default function ProductsScreen({ navigation }: Props) {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   top: { padding: spacing.md, paddingBottom: 0, gap: spacing.sm },
+  iconButton: { width: 46, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  iconButtonOn: { backgroundColor: colors.primary },
+  rowSelected: { borderColor: colors.primary, borderWidth: 2 },
+  labelBar: { padding: spacing.md, gap: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.card },
+  labelOptions: { flexDirection: 'row', gap: spacing.sm, flexWrap: 'wrap' },
+  optChip: { minHeight: 36, paddingHorizontal: spacing.md, borderRadius: 999, borderWidth: 1, borderColor: colors.border, justifyContent: 'center' },
+  optChipOn: { backgroundColor: colors.primary, borderColor: colors.primary },
+  optText: { color: colors.muted, fontWeight: '700', fontSize: 12 },
+  optTextOn: { color: colors.onPrimary },
   searchRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   addButton: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: spacing.md, borderRadius: 14, backgroundColor: colors.primary },
   addText: { color: colors.onPrimary, fontWeight: '800' },

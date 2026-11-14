@@ -29,6 +29,10 @@ public class Product {
     @Column(length = 100)
     private String model;
 
+    // Famille de variantes : les produits qui partagent ce libellé sont des variantes (couleur, capacité…)
+    @Column(name = "variant_group", length = 150)
+    private String variantGroup;
+
     @Column(length = 50)
     private String color;
 
@@ -89,6 +93,9 @@ public class Product {
 
     public String getBrand() { return brand; }
     public void setBrand(String brand) { this.brand = brand; }
+
+    public String getVariantGroup() { return variantGroup; }
+    public void setVariantGroup(String variantGroup) { this.variantGroup = variantGroup; }
 
     public String getModel() { return model; }
     public void setModel(String model) { this.model = model; }

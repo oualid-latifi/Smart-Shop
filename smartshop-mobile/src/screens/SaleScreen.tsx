@@ -21,6 +21,7 @@ import { errorMessage } from '../api/errors';
 import type { Customer, Product, Sale } from '../api/types';
 import BarcodeScanner from '../components/BarcodeScanner';
 import PinPrompt from '../components/PinPrompt';
+import VariantPicker from '../components/VariantPicker';
 import { ApiError } from '../api/client';
 import PaymentMethodPicker, { EMPTY_PAYMENT, paymentBody, paymentError, type PaymentValue } from '../components/PaymentMethodPicker';
 import PrimaryButton from '../components/PrimaryButton';
@@ -80,6 +81,7 @@ export default function SaleScreen({ navigation }: Props) {
   const [search, setSearch] = useState('');
   const [scanning, setScanning] = useState(false);
   const [brand, setBrand] = useState<string | null>(null);
+  const [variantPick, setVariantPick] = useState<Product[] | null>(null);
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discount, setDiscount] = useState('');
   const [paid, setPaid] = useState('');
@@ -135,6 +137,16 @@ export default function SaleScreen({ navigation }: Props) {
         .some((value) => value.toLowerCase().includes(query))),
     );
   }, [products, search, brand]);
+
+  // Les variantes d'un même modèle (variantGroup) partagent une seule carte
+  const groups = useMemo(() => {
+    const map = new Map<string, Product[]>();
+    matches.forEach((p) => {
+      const key = p.variantGroup?.trim() || p.id;
+      map.set(key, [...(map.get(key) ?? []), p]);
+    });
+    return [...map.values()];
+  }, [matches]);
 
   const filteredCustomers = useMemo(() => {
     const query = customerSearch.trim().toLowerCase();
@@ -358,6 +370,7 @@ export default function SaleScreen({ navigation }: Props) {
             <Ionicons name="barcode-outline" size={22} color={colors.onPrimary} />
           </Pressable>
         </View>
+        <VariantPicker variants={variantPick} onClose={() => setVariantPick(null)} onPick={(v) => { setVariantPick(null); addProduct(v); }} />
         <PinPrompt
           visible={pinMessage !== null}
           message={pinMessage}
@@ -386,9 +399,13 @@ export default function SaleScreen({ navigation }: Props) {
           <View style={styles.emptyCatalog}><Ionicons name="cube-outline" size={28} color={colors.muted} /><Text style={styles.muted}>{t('sales.noProducts')}</Text></View>
         ) : (
           <View style={styles.catalogGrid}>
-            {matches.map((p) => {
-              const inCart = quantityInCart.get(p.id) ?? 0;
-              const unavailable = p.stockQuantity <= 0;
+            {groups.map((variants) => {
+              const p = variants.find((v) => v.stockQuantity > 0) ?? variants[0];
+              const isGroup = variants.length > 1;
+              const inCart = variants.reduce((s, v) => s + (quantityInCart.get(v.id) ?? 0), 0);
+              const stock = variants.reduce((s, v) => s + Math.max(0, v.stockQuantity), 0);
+              const unavailable = stock <= 0;
+              const fromPrice = Math.min(...variants.map((v) => v.promoPrice ?? v.salePrice));
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -397,16 +414,18 @@ export default function SaleScreen({ navigation }: Props) {
                   accessibilityState={{ disabled: unavailable }}
                   key={p.id}
                   style={({ pressed }) => [styles.productCard, inCart > 0 && styles.productInCart, pressed && styles.productPressed, unavailable && styles.productUnavailable]}
-                  onPress={() => addProduct(p)}
+                  onPress={() => (isGroup ? setVariantPick(variants) : addProduct(p))}
                   disabled={unavailable}
                 >
                   <View style={styles.productImageWrap}>
                     {p.imageUrl ? <Image source={{ uri: p.imageUrl }} style={styles.productImage} resizeMode="cover" /> : <Ionicons name="phone-portrait-outline" size={40} color={colors.muted} />}
                     {inCart > 0 ? <View style={styles.inCartBadge}><Text style={styles.inCartText}>{inCart}</Text></View> : null}
                   </View>
-                  <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
-                  <Text style={styles.productMeta} numberOfLines={1}>{p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
-                  {p.promoPrice != null ? (
+                  <Text style={styles.productName} numberOfLines={1}>{isGroup ? p.variantGroup : p.name}</Text>
+                  <Text style={styles.productMeta} numberOfLines={1}>{isGroup ? t('variants.count', { n: variants.length }) : p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
+                  {isGroup ? (
+                    <Text style={styles.productPrice}>{t('variants.from', { price: formatMoney(fromPrice) })}</Text>
+                  ) : p.promoPrice != null ? (
                     <View style={styles.promoRow}>
                       <Text style={styles.productPrice}>{formatMoney(p.promoPrice)}</Text>
                       <Text style={styles.oldPrice}>{formatMoney(p.salePrice)}</Text>
@@ -417,8 +436,8 @@ export default function SaleScreen({ navigation }: Props) {
                   {p.promoLabel ? <Badge label={p.promoLabel} tone="danger" icon="pricetag" /> : null}
                   <View style={styles.productFooter}>
                     <Badge
-                      label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: p.stockQuantity })}
-                      tone={unavailable ? 'danger' : p.stockQuantity <= p.alertThreshold ? 'warning' : 'success'}
+                      label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: stock })}
+                      tone={unavailable ? 'danger' : stock <= p.alertThreshold ? 'warning' : 'success'}
                     />
                     <View style={[styles.addRound, unavailable && styles.addProductDisabled]}><Ionicons name="add" size={20} color={colors.onPrimary} /></View>
                   </View>

@@ -675,5 +675,28 @@
     "brands": "Marge par marque",
     "units": "{{n}} vendus",
     "period": "Sur les {{n}} derniers jours"
+  },
+  "variants": {
+    "count": "{{n}} variantes",
+    "from": "dès {{price}}",
+    "group": "Famille de variantes",
+    "groupHint": "Ex. « iPhone 15 » : regroupe les couleurs et capacités sur une seule carte",
+    "create": "Créer une variante",
+    "createHint": "Autre couleur ou capacité de ce produit, avec son propre stock",
+    "reference": "Référence de la variante",
+    "color": "Couleur",
+    "capacity": "Capacité",
+    "price": "Prix de vente (vide = même prix)",
+    "created": "Variante créée ✓"
+  },
+  "labels": {
+    "title": "Étiquettes",
+    "select": "Choisis les produits",
+    "print": "Imprimer {{n}} étiquette(s)",
+    "all": "Tous les produits",
+    "copies": "Exemplaires",
+    "A4": "Planche A4",
+    "THERMAL": "Imprimante d'étiquettes",
+    "cancel": "Annuler"
   }
 }

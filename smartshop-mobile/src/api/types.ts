@@ -32,6 +32,7 @@ export interface Product {
   barcode: string | null;
   brand: string | null;
   model: string | null;
+  variantGroup: string | null;
   color: string | null;
   capacity: string | null;
   imageUrl: string | null;
