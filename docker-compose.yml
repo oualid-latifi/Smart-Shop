@@ -1,0 +1,42 @@
+# Serveur SmartShop + PostgreSQL sur une même machine (VPS, PC de la boutique…)
+# 1. Copier .env.docker.example en .env et remplir les mots de passe
+# 2. docker compose up -d --build
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartshop
+      POSTGRES_USER: smartshop
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD manquant dans .env}
+      TZ: Africa/Casablanca
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartshop -d smartshop"]
+      interval: 10s
+      retries: 10
+
+  app:
+    build: ./back-end
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    # Email, CORS… : toutes les variables du fichier .env sont transmises
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/smartshop
+      DB_USERNAME: smartshop
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET manquant dans .env}
+      APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:8080}
+      API_DOCS_ENABLED: "false"
+    ports:
+      - "8080:8080"
+    volumes:
+      - backups:/data/backups
+
+volumes:
+  db-data:
+  backups:

@@ -30,6 +30,8 @@ import TextField from '../components/TextField';
 import { confirmAction } from '../confirm';
 import { formatMoney, parseNumber } from '../format';
 import { Ionicons } from '@expo/vector-icons';
+import OfflineBanner from '../components/OfflineBanner';
+import { newClientRef, readLocal, useOffline, writeLocal } from '../offline';
 import { colors, radius, spacing } from '../theme';
 
 interface CartLine {
@@ -92,6 +94,10 @@ export default function SaleScreen({ navigation }: Props) {
   // Code du propriétaire demandé par le serveur (remise au-delà du plafond)
   const [pinMessage, setPinMessage] = useState<string | null>(null);
   const success = lastSale !== null;
+  const offline = useOffline();
+  const clientRef = useRef<string | null>(null);
+  const [offlineSaved, setOfflineSaved] = useState(false);
+  const [cachedCatalog, setCachedCatalog] = useState(false);
   const [discountMode, setDiscountMode] = useState<'DH' | '%'>('DH');
   const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
   const [saving, setSaving] = useState(false);
@@ -111,10 +117,25 @@ export default function SaleScreen({ navigation }: Props) {
       // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
       setProducts(shuffle(available));
       setCustomers(c.filter((customer) => customer.active));
+      setCachedCatalog(false);
+      offline.setOffline(false);
+      // Copie sur le téléphone pour pouvoir vendre sans réseau
+      void writeLocal('catalog-products', available);
+      void writeLocal('catalog-customers', c);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        const [p, c] = await Promise.all([readLocal<Product[]>('catalog-products'), readLocal<Customer[]>('catalog-customers')]);
+        if (p) {
+          setProducts(p);
+          setCustomers((c ?? []).filter((customer) => customer.active));
+          setCachedCatalog(true);
+          offline.setOffline(true);
+          return;
+        }
+      }
       setError(errorMessage(e, t));
     }
-  }, [t]);
+  }, [t, offline.setOffline]);
 
   // Recharge produits (stock à jour) et clients à chaque retour sur l'écran
   useFocusEffect(
@@ -274,10 +295,9 @@ export default function SaleScreen({ navigation }: Props) {
 
     setSaving(true);
     setError(null);
-    try {
-      const created = await api<Sale>('/api/sales', {
-        method: 'POST',
-        body: {
+    // Même identifiant si on réessaie la même vente (code PIN, réseau coupé) : jamais de doublon
+    if (!clientRef.current) clientRef.current = newClientRef();
+    const body = {
           customerId,
           discount: discountMode === 'DH' ? discountValue : null,
           discountPercent: discountMode === '%' && discount.trim() !== '' ? discountInput : null,
@@ -291,8 +311,12 @@ export default function SaleScreen({ navigation }: Props) {
             unitPrice: unitPrice(line),
           })),
           approvalPin: approvalPin ?? null,
-        },
-      });
+          clientRef: clientRef.current,
+        };
+    try {
+      const created = await api<Sale>('/api/sales', { method: 'POST', body });
+      clientRef.current = null;
+      setOfflineSaved(false);
       setCart([]);
       setDiscount('');
       setPaid('');
@@ -306,6 +330,24 @@ export default function SaleScreen({ navigation }: Props) {
     } catch (e) {
       if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') {
         setPinMessage(e.message);
+      } else if (e instanceof ApiError && e.status === 0) {
+        // Pas de réseau : la vente part dans la file d'attente et le stock affiché baisse tout de suite
+        await offline.enqueue({ clientRef: body.clientRef, body, total, createdAt: new Date().toISOString() });
+        const sold = new Map(cart.map((line) => [line.product.id, unitsOf(line)]));
+        const next = products.map((p) => (sold.has(p.id) ? { ...p, stockQuantity: p.stockQuantity - (sold.get(p.id) ?? 0) } : p));
+        setProducts(next);
+        void writeLocal('catalog-products', next);
+        clientRef.current = null;
+        setCart([]);
+        setDiscount('');
+        setPaid('');
+        setCustomerId(null);
+        setPayment(EMPTY_PAYMENT);
+        setCustomerSearch('');
+        setSearch('');
+        setLastSale(null);
+        setOfflineSaved(true);
+        scrollRef.current?.scrollTo({ y: 0, animated: true });
       } else {
         setError(errorMessage(e, t));
       }
@@ -330,6 +372,15 @@ export default function SaleScreen({ navigation }: Props) {
         keyboardShouldPersistTaps="handled"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} tintColor={colors.primary} colors={[colors.primary]} />}
       >
+        <OfflineBanner onPress={() => navigation.navigate('OfflineQueue')} />
+        {offlineSaved ? (
+          <View style={styles.success} accessibilityLiveRegion="polite">
+            <Ionicons name="cloud-offline-outline" size={20} color={colors.warning} />
+            <Text style={[styles.successText, styles.flex]}>{t('offline.saved')}</Text>
+          </View>
+        ) : cachedCatalog && cart.length === 0 ? (
+          <Text style={styles.muted}>{t('offline.cached')}</Text>
+        ) : null}
         {success ? (
           <View style={styles.success} accessibilityLiveRegion="polite">
             <Ionicons name="checkmark-circle" size={20} color={colors.success} />

@@ -77,6 +77,13 @@ public class SaleService {
 
     @Transactional
     public Sale create(SaleRequest request) {
+        // Vente déjà reçue (renvoyée par la file hors-ligne) : on renvoie la même, sans toucher au stock
+        String clientRef = request.clientRef() == null || request.clientRef().isBlank() ? null : request.clientRef().trim();
+        if (clientRef != null) {
+            java.util.Optional<Sale> existing = saleRepository.findByClientRef(clientRef);
+            if (existing.isPresent()) return existing.get();
+        }
+
         Customer customer = null;
         if (request.customerId() != null) {
             customer = customerRepository.findById(request.customerId())
@@ -97,6 +104,7 @@ public class SaleService {
         }
 
         Sale sale = new Sale();
+        sale.setClientRef(clientRef);
         sale.setCustomer(customer);
         sale.setPaymentMethod(method);
         sale.setSeller(smartshop.security.CurrentUser.get().orElse(null));

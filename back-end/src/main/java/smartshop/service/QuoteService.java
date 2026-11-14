@@ -136,6 +136,7 @@ public class QuoteService {
                 null,
                 null,
                 lines,
+                null,
                 null));
 
         quote.setStatus(QuoteStatus.CONVERTED);

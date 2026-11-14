@@ -337,7 +337,10 @@
     "failed": "Impossible de générer le document.",
     "saleMessage": "Bonjour {{name}}, voici le récapitulatif de votre achat {{number}} : total {{total}}{{rest}}. Merci !",
     "restPart": ", reste à payer {{rest}}",
-    "quoteMessage": "Bonjour {{name}}, voici notre devis {{number}} d’un montant de {{total}}, valable jusqu’au {{date}}."
+    "quoteMessage": "Bonjour {{name}}, voici notre devis {{number}} d’un montant de {{total}}, valable jusqu’au {{date}}.",
+    "print": "Imprimer le ticket",
+    "printA4": "Imprimer la facture",
+    "printDoc": "Imprimer"
   },
   "quotes": {
     "title": "Devis",
@@ -755,5 +758,22 @@
       "CONVERTED": "Vendue",
       "CANCELLED": "Annulée"
     }
+  },
+  "offline": {
+    "title": "Ventes hors-ligne",
+    "noNetwork": "Hors-ligne : les ventes seront envoyées au retour du réseau",
+    "pending": "{{n}} vente(s) en attente d’envoi",
+    "failed": "{{n}} vente(s) refusée(s) par le serveur",
+    "help": "Pas de connexion au serveur. Tu peux continuer à vendre : les ventes sont gardées sur le téléphone et envoyées automatiquement dès que le réseau revient.",
+    "helpOnline": "Les ventes en attente sont envoyées automatiquement toutes les 30 secondes.",
+    "syncNow": "Envoyer maintenant",
+    "empty": "Aucune vente en attente.",
+    "items": "{{n}} produit(s)",
+    "waiting": "En attente",
+    "refused": "Refusée",
+    "discard": "Supprimer",
+    "discardConfirm": "Supprimer cette vente ? Elle ne sera jamais enregistrée.",
+    "saved": "Vente enregistrée hors-ligne ✓ Elle sera envoyée dès le retour du réseau.",
+    "cached": "Hors-ligne : catalogue enregistré sur le téléphone"
   }
 }

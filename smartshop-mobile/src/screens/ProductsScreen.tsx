@@ -20,7 +20,7 @@ import { errorMessage } from '../api/errors';
 import type { Product } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
-import { shareDocument } from '../documents';
+import { shareDocument, printDocument } from '../documents';
 import { Badge, ProductThumb } from '../components/ui';
 import { formatMoney } from '../format';
 import type { ProductsStackParamList } from '../navigation/types';
@@ -53,7 +53,7 @@ export default function ProductsScreen({ navigation }: Props) {
     setPrinting(true);
     try {
       const ids = [...selected].join(',');
-      await shareDocument(`/api/products/labels.pdf?format=${format}&copies=${copies}${ids ? `&ids=${ids}` : ''}`, 'etiquettes.pdf', t('docs.shareTitle'));
+      await printDocument(`/api/products/labels.pdf?format=${format}&copies=${copies}${ids ? `&ids=${ids}` : ''}`, 'etiquettes.pdf');
     } catch (e) {
       setError(errorMessage(e, t));
     } finally {

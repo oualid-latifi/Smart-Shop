@@ -11,6 +11,7 @@ import type { Permission } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
 import QuickAddSheet, { type QuickAction } from '../components/QuickAddSheet';
 import { NotificationsProvider } from '../notifications';
+import { OfflineProvider } from '../offline';
 import { colors, heroGradient } from '../theme';
 import ProductsStack from './ProductsStack';
 import MoreStack from './MoreStack';
@@ -73,6 +74,7 @@ export default function AppTabs() {
 
   return (
     <NotificationsProvider>
+     <OfflineProvider>
       <Tab.Navigator
         initialRouteName="Home"
         screenOptions={{
@@ -118,6 +120,7 @@ export default function AppTabs() {
       </Tab.Navigator>
 
       <QuickAddSheetConnected visible={quickOpen} onClose={() => setQuickOpen(false)} />
+     </OfflineProvider>
     </NotificationsProvider>
   );
 }

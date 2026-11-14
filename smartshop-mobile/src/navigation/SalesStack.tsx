@@ -7,6 +7,7 @@ import SaleDetailScreen from '../screens/SaleDetailScreen';
 import SaleReturnScreen from '../screens/SaleReturnScreen';
 import SaleScreen from '../screens/SaleScreen';
 import SalesHistoryScreen from '../screens/SalesHistoryScreen';
+import OfflineQueueScreen from '../screens/OfflineQueueScreen';
 import { colors } from '../theme';
 import type { SalesStackParamList } from './types';
 
@@ -29,6 +30,7 @@ export default function SalesStack() {
           ),
         })}
       />
+      <Stack.Screen name="OfflineQueue" component={OfflineQueueScreen} options={{ title: t('offline.title') }} />
       <Stack.Screen
         name="SalesHistory"
         component={SalesHistoryScreen}

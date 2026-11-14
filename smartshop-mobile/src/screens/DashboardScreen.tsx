@@ -14,6 +14,7 @@ import PrimaryButton from '../components/PrimaryButton';
 import { Avatar, Badge, Card, IconTile, SectionHeader, StatTile } from '../components/ui';
 import { formatMoney } from '../format';
 import { useNotifications } from '../notifications';
+import OfflineBanner from '../components/OfflineBanner';
 import { colors, heroGradient, radius, spacing } from '../theme';
 import { ProgressBar } from './TargetsScreen';
 
@@ -120,6 +121,7 @@ export default function DashboardScreen() {
           </Pressable>
         </View>
 
+        <OfflineBanner onPress={() => navigation.navigate('Sales', { screen: 'OfflineQueue' })} />
         {loading ? <ActivityIndicator color={colors.primary} style={styles.loader} /> : null}
         {error ? (
           <Card style={styles.errorCard}>

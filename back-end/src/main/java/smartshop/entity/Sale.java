@@ -30,6 +30,10 @@ public class Sale {
     @Column(name = "verification_code", length = 32, unique = true)
     private String verificationCode;
 
+    // Identifiant créé par le téléphone : une vente renvoyée deux fois (hors-ligne, réseau coupé) n'est enregistrée qu'une fois
+    @Column(name = "client_ref", length = 40, unique = true)
+    private String clientRef;
+
     // Bon de livraison (BL-2026-00001)
     @Column(name = "delivery_number", length = 20, unique = true)
     private String deliveryNumber;
@@ -140,6 +144,8 @@ public class Sale {
     public String getInvoiceNumber() { return invoiceNumber; }
     public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
 
+    public String getClientRef() { return clientRef; }
+    public void setClientRef(String clientRef) { this.clientRef = clientRef; }
     public String getVerificationCode() { return verificationCode; }
     public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
 

@@ -5,6 +5,7 @@ export type SalesStackParamList = {
   SalesHistory: undefined;
   SaleDetail: { sale: Sale };
   SaleReturn: { sale: Sale };
+  OfflineQueue: undefined;
 };
 
 export type ProductsStackParamList = {

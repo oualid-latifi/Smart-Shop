@@ -12,7 +12,7 @@ import Screen from '../components/Screen';
 import TextField from '../components/TextField';
 import { useAuth } from '../auth/AuthContext';
 import { confirmAction } from '../confirm';
-import { openWhatsApp, shareDocument } from '../documents';
+import { openWhatsApp, shareDocument, printDocument } from '../documents';
 import { formatDateTime, formatMoney } from '../format';
 import type { SalesStackParamList } from '../navigation/types';
 import { colors, radius, spacing } from '../theme';
@@ -39,6 +39,13 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
   }
 
   const documentActions = [
+    { key: 'print', label: t('docs.print'), icon: 'print-outline' as const,
+      onPress: () => printDocument(`/api/sales/${sale.id}/ticket.pdf?width=80`, `${sale.number}-print.pdf`) },
+    { key: 'printA4', label: t('docs.printA4'), icon: 'print-outline' as const,
+      onPress: async () => {
+        await printDocument(`/api/sales/${sale.id}/invoice.pdf`, `facture-${sale.number}-print.pdf`);
+        await refreshSale();
+      } },
     { key: 't80', label: t('docs.ticket80'), icon: 'receipt-outline' as const,
       onPress: () => shareDocument(`/api/sales/${sale.id}/ticket.pdf?width=80`, `${sale.number}.pdf`, t('docs.shareTitle')) },
     { key: 't58', label: t('docs.ticket58'), icon: 'receipt-outline' as const,

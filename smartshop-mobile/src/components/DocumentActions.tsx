@@ -11,6 +11,7 @@ const ICON_TONES: Record<string, Tone> = {
   'receipt-outline': 'primary',
   'cube-outline': 'warning',
   'download-outline': 'violet',
+  'print-outline': 'primary',
 };
 
 export interface DocumentAction {

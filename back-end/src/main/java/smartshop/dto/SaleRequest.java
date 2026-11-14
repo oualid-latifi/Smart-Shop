@@ -16,6 +16,7 @@ public record SaleRequest(
         smartshop.entity.PaymentMethod paymentMethod,  // facultatif : espèces par défaut
         @jakarta.validation.Valid CheckInfo check,     // obligatoire si paiement par chèque
         @NotEmpty @Valid List<SaleLineRequest> lines,
-        String approvalPin                              // code du propriétaire si la remise dépasse le plafond
+        String approvalPin,                             // code du propriétaire si la remise dépasse le plafond
+        @jakarta.validation.constraints.Size(max = 40) String clientRef // identifiant unique créé par le téléphone (mode hors-ligne)
 ) {
 }

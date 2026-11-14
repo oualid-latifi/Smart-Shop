@@ -97,6 +97,16 @@ class OnlineShopIntegrationTest {
         call(null, post("/api/public/orders"), order(1), 429);
     }
 
+    @Test
+    void offlineSaleSentTwiceIsRecordedOnce() throws Exception {
+        String body = "{\"clientRef\":\"lz8k2-ab12cd\",\"lines\":[{\"productId\":\"%s\",\"quantity\":1}]}".formatted(productId);
+        String first = call(owner, post("/api/sales"), body, 201).get("id").asText();
+        String second = call(owner, post("/api/sales"), body, 201).get("id").asText();
+        assertThat(second).isEqualTo(first);
+        assertThat(call(owner, get("/api/sales"), null, 200)).hasSize(1);
+        assertThat(call(owner, get("/api/products/" + productId), null, 200).get("stockQuantity").asInt()).isEqualTo(2);
+    }
+
     private String order(int quantity) {
         return """
                 {"name":"Karim","phone":"0611223344","address":"Casablanca","lines":[{"productId":"%s","quantity":%d}]}"""

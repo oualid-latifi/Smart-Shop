@@ -204,7 +204,7 @@ public class OnlineShopService {
         List<SaleLineRequest> lines = order.getLines().stream()
                 .map(l -> new SaleLineRequest(l.getProductId(), l.getQuantity(), l.getUnitPrice(), false))
                 .toList();
-        Sale sale = saleService.create(new SaleRequest(customer.getId(), null, null, amountPaid, null, null, lines, null));
+        Sale sale = saleService.create(new SaleRequest(customer.getId(), null, null, amountPaid, null, null, lines, null, null));
         order.setStatus(OnlineOrder.Status.CONVERTED);
         order.setSaleId(sale.getId());
         orderRepository.save(order);
