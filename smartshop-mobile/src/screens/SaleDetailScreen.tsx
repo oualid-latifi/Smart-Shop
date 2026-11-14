@@ -2,10 +2,11 @@ import React, { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Sale } from '../api/types';
 import DocumentActions from '../components/DocumentActions';
+import PinPrompt from '../components/PinPrompt';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
@@ -28,6 +29,7 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
 
   const cancelled = sale.status === 'CANCELLED';
 
@@ -63,35 +65,39 @@ export default function SaleDetailScreen({ route, navigation }: Props) {
       ) },
   ];
 
+  async function cancelSale(approvalPin?: string) {
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api<Sale>(`/api/sales/${sale.id}/cancel`, {
+        method: 'POST',
+        body: { reason: reason.trim(), approvalPin: approvalPin ?? null },
+      });
+      setSale(updated);
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') setPinMessage(e.message);
+      else setError(errorMessage(e, t));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function askCancel() {
     if (!reason.trim()) {
       setError(t('history.invalidReason'));
       return;
     }
-    confirmAction(
-      t('history.cancelConfirm'),
-      async () => {
-        setSaving(true);
-        setError(null);
-        try {
-          const updated = await api<Sale>(`/api/sales/${sale.id}/cancel`, {
-            method: 'POST',
-            body: { reason: reason.trim() },
-          });
-          setSale(updated);
-        } catch (e) {
-          setError(errorMessage(e, t));
-        } finally {
-          setSaving(false);
-        }
-      },
-      t('common.cancel'),
-      t('common.confirm'),
-    );
+    confirmAction(t('history.cancelConfirm'), () => void cancelSale(), t('common.cancel'), t('common.confirm'));
   }
 
   return (
     <Screen>
+      <PinPrompt
+        visible={pinMessage !== null}
+        message={pinMessage}
+        onCancel={() => setPinMessage(null)}
+        onSubmit={(pin) => { setPinMessage(null); void cancelSale(pin); }}
+      />
       <View style={styles.card}>
         <Text style={styles.number}>{sale.number}</Text>
         <Text style={styles.name}>{sale.customerName ?? t('sales.walkIn')}</Text>

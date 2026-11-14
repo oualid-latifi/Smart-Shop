@@ -53,10 +53,13 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
+                        .requestMatchers("/verify/**").permitAll()
                         // Comptes, journal, objectifs, paramètres
                         .requestMatchers("/api/users/**", "/api/activity/**").hasAuthority("USERS")
                         .requestMatchers(HttpMethod.PUT, "/api/targets/**").hasAuthority("USERS")
-                        .requestMatchers(HttpMethod.PUT, "/api/settings").hasAuthority("SETTINGS")
+                        .requestMatchers(HttpMethod.PUT, "/api/settings", "/api/settings/**").hasAuthority("SETTINGS")
+                        .requestMatchers(HttpMethod.GET, "/api/promotions/**").authenticated()
+                        .requestMatchers("/api/promotions/**").hasAuthority("PRODUCTS_WRITE")
                         .requestMatchers("/api/import/**").hasAuthority("SETTINGS")
                         .requestMatchers("/api/cash/**").hasAuthority("CASH")
                         // Ventes et devis

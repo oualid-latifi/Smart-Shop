@@ -26,6 +26,10 @@ public class Sale {
     @Column(name = "invoice_date")
     private LocalDateTime invoiceDate;
 
+    // Code secret de la facture : le QR code mène à la page publique de vérification
+    @Column(name = "verification_code", length = 32, unique = true)
+    private String verificationCode;
+
     // Bon de livraison (BL-2026-00001)
     @Column(name = "delivery_number", length = 20, unique = true)
     private String deliveryNumber;
@@ -135,6 +139,9 @@ public class Sale {
 
     public String getInvoiceNumber() { return invoiceNumber; }
     public void setInvoiceNumber(String invoiceNumber) { this.invoiceNumber = invoiceNumber; }
+
+    public String getVerificationCode() { return verificationCode; }
+    public void setVerificationCode(String verificationCode) { this.verificationCode = verificationCode; }
 
     public LocalDateTime getInvoiceDate() { return invoiceDate; }
     public void setInvoiceDate(LocalDateTime invoiceDate) { this.invoiceDate = invoiceDate; }

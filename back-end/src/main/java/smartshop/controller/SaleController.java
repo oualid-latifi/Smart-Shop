@@ -46,7 +46,7 @@ public class SaleController {
     @PostMapping("/{id}/cancel")
     public SaleResponse cancel(@PathVariable UUID id,
                                @Valid @RequestBody CancelSaleRequest request) {
-        return SaleResponse.from(saleService.cancel(id, request.reason()));
+        return SaleResponse.from(saleService.cancel(id, request.reason(), request.approvalPin()));
     }
 
     @PostMapping("/{id}/returns")

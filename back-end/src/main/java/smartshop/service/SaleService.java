@@ -43,6 +43,8 @@ public class SaleService {
     private final StockMovementRepository stockMovementRepository;
     private final NumberingService numberingService;
     private final SaleReturnRepository saleReturnRepository;
+    private final PromotionService promotionService;
+    private final ApprovalService approvalService;
 
     public SaleService(SaleRepository saleRepository,
                        CustomerRepository customerRepository,
@@ -50,7 +52,9 @@ public class SaleService {
                        ProductRepository productRepository,
                        StockMovementRepository stockMovementRepository,
                        NumberingService numberingService,
-                       SaleReturnRepository saleReturnRepository) {
+                       SaleReturnRepository saleReturnRepository,
+                       PromotionService promotionService,
+                       ApprovalService approvalService) {
         this.saleRepository = saleRepository;
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
@@ -58,6 +62,8 @@ public class SaleService {
         this.stockMovementRepository = stockMovementRepository;
         this.numberingService = numberingService;
         this.saleReturnRepository = saleReturnRepository;
+        this.promotionService = promotionService;
+        this.approvalService = approvalService;
     }
 
     @Transactional
@@ -87,6 +93,9 @@ public class SaleService {
         sale.setSeller(smartshop.security.CurrentUser.get().orElse(null));
 
         BigDecimal subtotal = BigDecimal.ZERO;
+        // Valeur "prix catalogue" (promotions comprises) : sert à mesurer la remise réelle accordée
+        BigDecimal catalogValue = BigDecimal.ZERO;
+        var running = promotionService.running();
 
         for (SaleLineRequest lineRequest : request.lines()) {
             Product product = productRepository.findById(lineRequest.productId())
@@ -111,8 +120,11 @@ public class SaleService {
                 line.setPackPrice(packPrice);
                 line.setUnitPrice(packPrice.divide(BigDecimal.valueOf(product.getUnitsPerPack()), 2, RoundingMode.HALF_UP));
             } else {
-                line.setUnitPrice(lineRequest.unitPrice() != null ? lineRequest.unitPrice() : product.getSalePrice());
+                BigDecimal promoPrice = PromotionService.lineUnitPrice(product, promotionService.bestOffer(product, running), units);
+                line.setUnitPrice(lineRequest.unitPrice() != null ? lineRequest.unitPrice() : promoPrice);
+                catalogValue = catalogValue.add(promoPrice.multiply(BigDecimal.valueOf(units)));
             }
+            if (byPack) catalogValue = catalogValue.add(product.getEffectivePackPrice().multiply(BigDecimal.valueOf(lineRequest.quantity())));
             // On garde le coût du moment : le bénéfice de cette vente ne changera plus
             line.setUnitCost(product.getAveragePurchasePrice());
             sale.addLine(line);
@@ -133,6 +145,7 @@ public class SaleService {
                     "La remise dépasse le total de la vente (" + subtotal + " DH)");
         }
         BigDecimal total = subtotal.subtract(discount);
+        approvalService.checkDiscount(catalogValue, total, request.approvalPin());
 
         // Par défaut, la vente est payée en entier
         BigDecimal paid = request.amountPaid() != null ? request.amountPaid() : total;
@@ -177,7 +190,8 @@ public class SaleService {
     }
 
     @Transactional
-    public Sale cancel(UUID saleId, String reason) {
+    public Sale cancel(UUID saleId, String reason, String approvalPin) {
+        approvalService.checkCancellation(approvalPin);
         Sale sale = findById(saleId);
 
         if (sale.getStatus() == SaleStatus.CANCELLED) {
@@ -314,9 +328,25 @@ public class SaleService {
         if (sale.getInvoiceNumber() == null) {
             sale.setInvoiceNumber(numberingService.next(DocumentType.INVOICE));
             sale.setInvoiceDate(LocalDateTime.now());
+            sale.setVerificationCode(newVerificationCode());
             saleRepository.save(sale);
         }
         return sale;
+    }
+
+    // 20 caractères non devinables (A-Z, 2-9 sans caractères ambigus)
+    private static String newVerificationCode() {
+        String alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+        java.security.SecureRandom random = new java.security.SecureRandom();
+        StringBuilder code = new StringBuilder();
+        for (int i = 0; i < 20; i++) code.append(alphabet.charAt(random.nextInt(alphabet.length())));
+        return code.toString();
+    }
+
+    /** Retrouve une facture par son code de vérification (page publique). */
+    @Transactional(readOnly = true)
+    public java.util.Optional<Sale> findByVerificationCode(String code) {
+        return saleRepository.findByVerificationCode(code);
     }
 
     /** Émet le bon de livraison de la vente (une seule fois). */

@@ -57,9 +57,12 @@ public class DocumentPdfService {
     private static final Color DANGER = new Color(185, 28, 28);
 
     private final ShopSettingsService settingsService;
+    private final String publicUrl;
 
-    public DocumentPdfService(ShopSettingsService settingsService) {
+    public DocumentPdfService(ShopSettingsService settingsService,
+                              @org.springframework.beans.factory.annotation.Value("${app.public-url:http://localhost:8080}") String publicUrl) {
         this.settingsService = settingsService;
+        this.publicUrl = publicUrl.replaceAll("/+$", "");
     }
 
     /** Réponse HTTP qui ouvre le PDF dans le lecteur (ou le télécharge sous ce nom). */
@@ -127,7 +130,7 @@ public class DocumentPdfService {
     /** Tout ce qui varie d'un document A4 à l'autre. */
     private record DocSpec(String title, List<Meta> meta, Party left, Party right, List<Row> rows, boolean withPrices,
                            BigDecimal discount, BigDecimal total, BigDecimal amountPaid, String paymentLabel,
-                           String wordsPrefix, String note, List<String> signatures) {
+                           String wordsPrefix, String note, List<String> signatures, String verifyUrl) {
     }
 
     public byte[] invoice(Sale sale) {
@@ -141,7 +144,8 @@ public class DocumentPdfService {
         return a4(settings, new DocSpec("FACTURE", meta, issuer(settings), customerParty("FACTURÉ À", sale.getCustomer(), null),
                 rows(sale, settings), true, sale.getDiscount(), sale.getTotal(), sale.getAmountPaid(),
                 paymentLabel(sale.getPaymentMethod()), "Arrêtée la présente facture à la somme de :", null,
-                List.of("Cachet et signature")));
+                List.of("Cachet et signature"),
+                sale.getVerificationCode() != null ? publicUrl + "/verify/" + sale.getVerificationCode() : null));
     }
 
     public byte[] quote(Quote quote) {
@@ -153,7 +157,7 @@ public class DocumentPdfService {
         return a4(settings, new DocSpec("DEVIS", meta, issuer(settings), customerParty("CLIENT", quote.getCustomer(), quote.getCustomerName()),
                 rows(quote, settings), true, quote.getDiscount(), quote.getTotal(), null, null,
                 "Arrêté le présent devis à la somme de :", quote.getNote(),
-                List.of("Bon pour accord (date, cachet et signature du client)")));
+                List.of("Bon pour accord (date, cachet et signature du client)"), null));
     }
 
     public byte[] deliveryNote(Sale sale) {
@@ -166,7 +170,7 @@ public class DocumentPdfService {
         return a4(settings, new DocSpec("BON DE LIVRAISON", meta, issuer(settings), customerParty("LIVRÉ À", sale.getCustomer(), null),
                 rows(sale, settings), false, BigDecimal.ZERO, sale.getTotal(), null, null, null,
                 "Marchandise reçue en bon état et conforme à la commande.",
-                List.of("Signature du livreur", "Signature et cachet du client")));
+                List.of("Signature du livreur", "Signature et cachet du client"), null));
     }
 
     public byte[] purchaseOrder(smartshop.entity.PurchaseOrder order) {
@@ -184,7 +188,7 @@ public class DocumentPdfService {
         if (order.getSupplier().getPhone() != null) supplier.add("Tél : " + order.getSupplier().getPhone());
         return a4(settings, new DocSpec("BON DE COMMANDE", meta, new Party("ACHETEUR", issuer(settings).lines()), new Party("FOURNISSEUR", supplier),
                 rows, true, BigDecimal.ZERO, order.getTotal(), null, null, null, order.getNote(),
-                List.of("Cachet et signature de l'acheteur")));
+                List.of("Cachet et signature de l'acheteur"), null));
     }
 
     private Party issuer(ShopSettings s) {
@@ -238,7 +242,7 @@ public class DocumentPdfService {
             note.setSpacingBefore(10);
             doc.add(note);
         }
-        signatures(doc, spec.signatures());
+        signatures(doc, spec.signatures(), spec.verifyUrl(), writer);
 
         if (settings.getDocumentFooter() != null) {
             Paragraph footer = new Paragraph(settings.getDocumentFooter(), font(8.5f, Font.ITALIC, GRAY));
@@ -463,13 +467,13 @@ public class DocumentPdfService {
     }
 
     /** Cases de signature alignées à droite (une ou deux). */
-    private void signatures(Document doc, List<String> labels) {
+    private void signatures(Document doc, List<String> labels, String verifyUrl, PdfWriter writer) {
         if (labels == null || labels.isEmpty()) return;
         PdfPTable table = labels.size() == 1 ? new PdfPTable(new float[]{1.3f, 1}) : new PdfPTable(new float[]{1, 0.08f, 1});
         table.setWidthPercentage(100);
         table.setSpacingBefore(22);
         table.setKeepTogether(true);
-        if (labels.size() == 1) table.addCell(borderless());
+        if (labels.size() == 1) table.addCell(verifyUrl != null ? qrCell(verifyUrl, writer) : borderless());
         for (int i = 0; i < labels.size(); i++) {
             if (i > 0) table.addCell(borderless());
             PdfPCell box = new PdfPCell(new Phrase(labels.get(i), font(8.5f, Font.NORMAL, GRAY)));
@@ -479,6 +483,39 @@ public class DocumentPdfService {
             table.addCell(box);
         }
         doc.add(table);
+    }
+
+    /** QR code (dessiné en vecteurs) + explication : scanner pour vérifier l'authenticité de la facture. */
+    private PdfPCell qrCell(String url, PdfWriter writer) {
+        PdfPCell cell = borderless();
+        try {
+            com.google.zxing.common.BitMatrix matrix = new com.google.zxing.qrcode.QRCodeWriter()
+                    .encode(url, com.google.zxing.BarcodeFormat.QR_CODE, 0, 0, java.util.Map.of(com.google.zxing.EncodeHintType.MARGIN, 0));
+            float module = 2.2f;
+            float size = matrix.getWidth() * module;
+            com.lowagie.text.pdf.PdfTemplate qr = writer.getDirectContent().createTemplate(size, size);
+            qr.setColorFill(DARK);
+            for (int y = 0; y < matrix.getHeight(); y++) {
+                for (int x = 0; x < matrix.getWidth(); x++) {
+                    if (matrix.get(x, y)) qr.rectangle(x * module, size - (y + 1) * module, module, module);
+                }
+            }
+            qr.fill();
+            PdfPTable box = new PdfPTable(new float[]{1, 2.4f});
+            box.setWidthPercentage(100);
+            PdfPCell image = new PdfPCell(com.lowagie.text.Image.getInstance(qr));
+            image.setBorder(Rectangle.NO_BORDER);
+            box.addCell(image);
+            PdfPCell text = borderless();
+            text.setPaddingLeft(8);
+            text.addElement(new Paragraph("Facture vérifiable", font(8.5f, Font.BOLD, DARK)));
+            text.addElement(new Paragraph("Scannez ce code pour confirmer que cette facture a bien été émise par la boutique.", font(7.5f, Font.NORMAL, GRAY)));
+            box.addCell(text);
+            cell.addElement(box);
+        } catch (com.google.zxing.WriterException | com.lowagie.text.BadElementException e) {
+            // Sans QR code, la facture reste valable
+        }
+        return cell;
     }
 
     /** Pied de chaque page : mentions légales et numéro de page "x / y". */

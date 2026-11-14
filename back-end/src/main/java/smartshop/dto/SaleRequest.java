@@ -15,6 +15,7 @@ public record SaleRequest(
         @DecimalMin("0.00") BigDecimal amountPaid,     // facultatif : payé en entier si absent
         smartshop.entity.PaymentMethod paymentMethod,  // facultatif : espèces par défaut
         @jakarta.validation.Valid CheckInfo check,     // obligatoire si paiement par chèque
-        @NotEmpty @Valid List<SaleLineRequest> lines
+        @NotEmpty @Valid List<SaleLineRequest> lines,
+        String approvalPin                              // code du propriétaire si la remise dépasse le plafond
 ) {
 }

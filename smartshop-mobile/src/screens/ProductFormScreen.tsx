@@ -7,6 +7,8 @@ import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import { errorMessage } from '../api/errors';
 import BarcodeScanner from '../components/BarcodeScanner';
+import SupplierPrices from '../components/SupplierPrices';
+import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
 import TextField from '../components/TextField';
@@ -30,6 +32,7 @@ const PHOTO_OPTIONS: ImagePicker.ImagePickerOptions = {
 export default function ProductFormScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
   const product = route.params?.product;
+  const { can } = useAuth();
   const editing = !!product;
 
   const [reference, setReference] = useState(product?.reference ?? '');
@@ -371,6 +374,8 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : null}
 
       <PrimaryButton icon="checkmark" title={t('products.save')} onPress={save} loading={saving} />
+
+      {editing && product && can('STOCK') ? <SupplierPrices productId={product.id} /> : null}
 
       {editing && product ? (
         <View style={styles.spacer}>

@@ -135,7 +135,8 @@ public class QuoteService {
                 amountPaid,
                 null,
                 null,
-                lines));
+                lines,
+                null));
 
         quote.setStatus(QuoteStatus.CONVERTED);
         quote.setSaleId(sale.getId());

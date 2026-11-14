@@ -84,6 +84,13 @@ public class GlobalExceptionHandler {
                 "Opération impossible : une donnée identique existe déjà ou est encore utilisée");
     }
 
+    @ExceptionHandler(ApprovalRequiredException.class)
+    public ProblemDetail handleApproval(ApprovalRequiredException ex) {
+        ProblemDetail problem = problem(HttpStatus.FORBIDDEN, ex.getMessage());
+        problem.setProperty("code", "APPROVAL_REQUIRED");
+        return problem;
+    }
+
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex) {
         return problem(HttpStatus.UNAUTHORIZED, ex.getMessage());

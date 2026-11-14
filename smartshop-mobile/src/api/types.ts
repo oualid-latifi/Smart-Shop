@@ -44,6 +44,9 @@ export interface Product {
   alertThreshold: number;
   lowStock: boolean;
   active: boolean;
+  promoPrice: number | null;
+  secondItemPercent: number | null;
+  promoLabel: string | null;
 }
 
 export interface Customer {
@@ -187,6 +190,8 @@ export interface ShopSettings {
   quoteValidityDays: number;
   documentFooter: string | null;
   ticketFooter: string | null;
+  maxDiscountPercent: number | null;
+  hasApprovalPin: boolean;
 }
 
 export type QuoteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';
@@ -370,4 +375,72 @@ export interface ImportResult {
   created: number;
   updated: number;
   errors: { line: number; message: string }[];
+}
+
+export type PromotionKind = 'PERCENT_OFF' | 'FIXED_PRICE' | 'SECOND_ITEM_PERCENT';
+
+export interface Promotion {
+  id: string;
+  name: string;
+  kind: PromotionKind;
+  value: number;
+  productId: string | null;
+  productName: string | null;
+  brand: string | null;
+  startsOn: string;
+  endsOn: string;
+  active: boolean;
+  running: boolean;
+}
+
+export interface Replenishment {
+  productId: string;
+  reference: string;
+  name: string;
+  stock: number;
+  alertThreshold: number;
+  soldInPeriod: number;
+  dailyAverage: number;
+  daysOfCover: number | null;
+  suggestedQuantity: number;
+  lastSupplierId: string | null;
+  lastSupplierName: string | null;
+  lastPurchasePrice: number;
+}
+
+export interface DormantProduct {
+  productId: string;
+  reference: string;
+  name: string;
+  stock: number;
+  stockValue: number;
+  lastSaleDate: string | null;
+  daysWithoutSale: number | null;
+}
+
+export interface SupplierPrice {
+  supplierId: string | null;
+  supplierName: string;
+  lastPrice: number;
+  minPrice: number;
+  averagePrice: number;
+  purchases: number;
+  totalQuantity: number;
+  lastPurchaseDate: string;
+  cheapest: boolean;
+}
+
+export interface Insights {
+  month: {
+    current: { revenue: number; profit: number; sales: number };
+    previous: { revenue: number; profit: number; sales: number };
+    revenueChangePercent: number | null;
+    profitChangePercent: number | null;
+  };
+  forecast: { revenueSoFar: number; projectedRevenue: number; daysElapsed: number; daysInMonth: number };
+  byWeekday: { index: number; revenue: number; sales: number }[];
+  byHour: { index: number; revenue: number; sales: number }[];
+  byBrand: { brand: string; revenue: number; cost: number; margin: number; marginPercent: number; units: number }[];
+  analysisFrom: string;
+  analysisTo: string;
 }

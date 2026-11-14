@@ -60,6 +60,14 @@ public class ShopSettings {
     @Column(name = "ticket_footer", length = 255)
     private String ticketFooter;
 
+    // Remise maximale (en %) qu'un employé peut accorder sans le code du propriétaire (null = pas de limite)
+    @Column(name = "max_discount_percent")
+    private Integer maxDiscountPercent;
+
+    // Code PIN du propriétaire, haché (BCrypt)
+    @Column(name = "approval_pin_hash", length = 100)
+    private String approvalPinHash;
+
     public Long getId() { return id; }
 
     public String getShopName() { return shopName; }
@@ -97,6 +105,12 @@ public class ShopSettings {
 
     public String getDocumentFooter() { return documentFooter; }
     public void setDocumentFooter(String documentFooter) { this.documentFooter = documentFooter; }
+
+    public Integer getMaxDiscountPercent() { return maxDiscountPercent; }
+    public void setMaxDiscountPercent(Integer maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+
+    public String getApprovalPinHash() { return approvalPinHash; }
+    public void setApprovalPinHash(String approvalPinHash) { this.approvalPinHash = approvalPinHash; }
 
     public String getTicketFooter() { return ticketFooter; }
     public void setTicketFooter(String ticketFooter) { this.ticketFooter = ticketFooter; }

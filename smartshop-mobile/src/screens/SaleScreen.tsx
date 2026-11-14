@@ -20,6 +20,8 @@ import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { Customer, Product, Sale } from '../api/types';
 import BarcodeScanner from '../components/BarcodeScanner';
+import PinPrompt from '../components/PinPrompt';
+import { ApiError } from '../api/client';
 import PaymentMethodPicker, { EMPTY_PAYMENT, paymentBody, paymentError, type PaymentValue } from '../components/PaymentMethodPicker';
 import PrimaryButton from '../components/PrimaryButton';
 import { Badge, ProductThumb } from '../components/ui';
@@ -34,6 +36,7 @@ interface CartLine {
   quantity: number;
   price: string; // prix négociable (d'une unité, ou d'un carton si packs), saisi en texte
   packs: boolean; // true = la quantité compte des cartons
+  edited: boolean; // prix modifié à la main (sinon prix catalogue / promotion)
 }
 
 // Nombre d'unités retirées du stock par cette ligne
@@ -46,14 +49,23 @@ function stepOf(line: CartLine): number {
   return line.packs && line.product.unitsPerPack ? line.product.unitsPerPack : 1;
 }
 
+// Prix de référence de la ligne : carton, prix promo, ou "2e article à -X %" (prix moyen selon la quantité)
 function catalogPrice(line: CartLine): number {
-  return line.packs && line.product.packPrice != null ? line.product.packPrice : line.product.salePrice;
+  if (line.packs && line.product.packPrice != null) return line.product.packPrice;
+  const p = line.product;
+  if (p.promoPrice != null) return p.promoPrice;
+  if (p.secondItemPercent != null && line.quantity > 1) {
+    const discounted = Math.floor(line.quantity / 2);
+    return Math.round(((p.salePrice * line.quantity - (p.salePrice * p.secondItemPercent / 100) * discounted) / line.quantity) * 100) / 100;
+  }
+  return p.salePrice;
 }
 
 type Props = NativeStackScreenProps<SalesStackParamList, 'SaleNew'>;
 
 // Prix retenu pour une ligne : le prix négocié s'il est valide, sinon le prix catalogue
 function unitPrice(line: CartLine): number {
+  if (!line.edited) return catalogPrice(line);
   const value = parseNumber(line.price);
   return value !== null && value >= 0 ? value : catalogPrice(line);
 }
@@ -75,6 +87,8 @@ export default function SaleScreen({ navigation }: Props) {
 
   const [error, setError] = useState<string | null>(null);
   const [lastSale, setLastSale] = useState<Sale | null>(null);
+  // Code du propriétaire demandé par le serveur (remise au-delà du plafond)
+  const [pinMessage, setPinMessage] = useState<string | null>(null);
   const success = lastSale !== null;
   const [discountMode, setDiscountMode] = useState<'DH' | '%'>('DH');
   const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
@@ -218,7 +232,7 @@ export default function SaleScreen({ navigation }: Props) {
           line.product.id === product.id ? { ...line, quantity: line.quantity + 1 } : line,
         );
       }
-      return [...current, { product, quantity: 1, price: String(product.salePrice), packs: false }];
+      return [...current, { product, quantity: 1, price: String(product.promoPrice ?? product.salePrice), packs: false, edited: false }];
     });
     setSearch('');
   }
@@ -240,7 +254,7 @@ export default function SaleScreen({ navigation }: Props) {
     );
   }
 
-  async function submit() {
+  async function submit(approvalPin?: string) {
     if (!canSubmit) {
       setError(creditWithoutCustomer ? t('sales.creditNeedsCustomer') : checkWithoutCustomer ? t('payments.checkNeedsCustomer') : paymentProblem ?? t('sales.invalid'));
       return;
@@ -264,6 +278,7 @@ export default function SaleScreen({ navigation }: Props) {
             packs: line.packs,
             unitPrice: unitPrice(line),
           })),
+          approvalPin: approvalPin ?? null,
         },
       });
       setCart([]);
@@ -277,7 +292,11 @@ export default function SaleScreen({ navigation }: Props) {
       scrollRef.current?.scrollTo({ y: 0, animated: true });
       await load();
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') {
+        setPinMessage(e.message);
+      } else {
+        setError(errorMessage(e, t));
+      }
     } finally {
       setSaving(false);
     }
@@ -339,6 +358,12 @@ export default function SaleScreen({ navigation }: Props) {
             <Ionicons name="barcode-outline" size={22} color={colors.onPrimary} />
           </Pressable>
         </View>
+        <PinPrompt
+          visible={pinMessage !== null}
+          message={pinMessage}
+          onCancel={() => setPinMessage(null)}
+          onSubmit={(pin) => { setPinMessage(null); void submit(pin); }}
+        />
         <BarcodeScanner visible={scanning} onClose={() => setScanning(false)} onScanned={(code) => void onScanned(code)} />
 
         {brands.length > 0 ? (
@@ -381,7 +406,15 @@ export default function SaleScreen({ navigation }: Props) {
                   </View>
                   <Text style={styles.productName} numberOfLines={1}>{p.name}</Text>
                   <Text style={styles.productMeta} numberOfLines={1}>{p.capacity || [p.brand, p.model].filter(Boolean).join(' · ') || p.reference}</Text>
-                  <Text style={styles.productPrice}>{formatMoney(p.salePrice)}</Text>
+                  {p.promoPrice != null ? (
+                    <View style={styles.promoRow}>
+                      <Text style={styles.productPrice}>{formatMoney(p.promoPrice)}</Text>
+                      <Text style={styles.oldPrice}>{formatMoney(p.salePrice)}</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.productPrice}>{formatMoney(p.salePrice)}</Text>
+                  )}
+                  {p.promoLabel ? <Badge label={p.promoLabel} tone="danger" icon="pricetag" /> : null}
                   <View style={styles.productFooter}>
                     <Badge
                       label={unavailable ? t('sales.outOfStock') : t('sales.inStock', { n: p.stockQuantity })}
@@ -425,7 +458,7 @@ export default function SaleScreen({ navigation }: Props) {
                         accessibilityRole="radio"
                         accessibilityState={{ checked: line.packs === packs }}
                         onPress={() => setCart((current) => current.map((l) => (l.product.id === line.product.id && l.packs !== packs
-                          ? { ...l, packs, quantity: 1, price: String(packs ? l.product.packPrice ?? l.product.salePrice * (l.product.unitsPerPack ?? 1) : l.product.salePrice) }
+                          ? { ...l, packs, quantity: 1, edited: false, price: String(packs ? l.product.packPrice ?? l.product.salePrice * (l.product.unitsPerPack ?? 1) : l.product.salePrice) }
                           : l)))}
                         style={[styles.packOption, line.packs === packs && styles.packOptionActive]}
                       >
@@ -439,16 +472,16 @@ export default function SaleScreen({ navigation }: Props) {
                 <View style={styles.priceRow}>
                   <TextInput
                     style={[styles.priceInput, parseNumber(line.price) === null && styles.priceInputError]}
-                    value={line.price}
-                    onChangeText={(value) => setCart((current) => current.map((l) => (l.product.id === line.product.id ? { ...l, price: value } : l)))}
+                    value={line.edited ? line.price : String(catalogPrice(line))}
+                    onChangeText={(value) => setCart((current) => current.map((l) => (l.product.id === line.product.id ? { ...l, price: value, edited: true } : l)))}
                     keyboardType="decimal-pad"
                     selectTextOnFocus
                     accessibilityLabel={`${t('sales.negotiatedPrice')} ${line.product.name}`}
                   />
                   <Text style={styles.muted}>× {line.quantity} = {formatMoney(unitPrice(line) * line.quantity)}</Text>
                 </View>
-                {unitPrice(line) !== catalogPrice(line) ? (
-                  <Text style={styles.catalogPrice}>{formatMoney(catalogPrice(line))}</Text>
+                {unitPrice(line) !== line.product.salePrice && !line.packs ? (
+                  <Text style={styles.catalogPrice}>{formatMoney(line.product.salePrice)}</Text>
                 ) : null}
               </View>
               <View style={styles.qty}>
@@ -586,7 +619,7 @@ export default function SaleScreen({ navigation }: Props) {
         {error ? <Text style={styles.error} accessibilityLiveRegion="assertive">{error}</Text> : null}
 
         {cart.length > 0 ? (
-          <PrimaryButton icon="checkmark-done" title={`${t('sales.save')} · ${formatMoney(total)}`} onPress={submit} loading={saving} disabled={!canSubmit} />
+          <PrimaryButton icon="checkmark-done" title={`${t('sales.save')} · ${formatMoney(total)}`} onPress={() => void submit()} loading={saving} disabled={!canSubmit} />
         ) : null}
       </ScrollView>
 
@@ -678,6 +711,8 @@ const styles = StyleSheet.create({
   catalogCount: { color: colors.muted, fontSize: 12, marginBottom: spacing.sm },
   productImageWrap: { aspectRatio: 1.15, borderRadius: radius - 4, backgroundColor: colors.cardAlt, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', marginBottom: spacing.sm },
   productFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.xs, marginTop: spacing.sm },
+  promoRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, flexWrap: 'wrap' },
+  oldPrice: { color: colors.muted, fontSize: 12, textDecorationLine: 'line-through' },
   addRound: { width: 34, height: 34, borderRadius: 17, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
   catalogGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.md },
   productCard: { width: '48%', flexGrow: 1, minWidth: 145, backgroundColor: colors.card, borderRadius: radius + 2, borderWidth: 1, borderColor: colors.border, padding: spacing.sm + 2, marginBottom: 2 },

@@ -14,6 +14,8 @@ public interface SaleRepository extends JpaRepository<Sale, UUID> {
 
     List<Sale> findAllByOrderBySaleDateDesc();
 
+    java.util.Optional<Sale> findByVerificationCode(String verificationCode);
+
     List<Sale> findBySaleDateGreaterThanEqualAndSaleDateLessThanOrderBySaleDateAsc(LocalDateTime start, LocalDateTime end);
 
     List<Sale> findAllByOrderBySaleDateDesc(org.springframework.data.domain.Pageable pageable);

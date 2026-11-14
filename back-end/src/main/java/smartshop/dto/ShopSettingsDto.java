@@ -24,13 +24,16 @@ public record ShopSettingsDto(
         @DecimalMin("0.00") @DecimalMax("100.00") BigDecimal defaultVatRate,
         @Min(1) @Max(365) Integer quoteValidityDays,
         @Size(max = 500) String documentFooter,
-        @Size(max = 255) String ticketFooter
+        @Size(max = 255) String ticketFooter,
+        @Min(0) @Max(100) Integer maxDiscountPercent,
+        Boolean hasApprovalPin            // lecture seule : un code PIN est-il défini ?
 ) {
 
     public static ShopSettingsDto from(ShopSettings s) {
         return new ShopSettingsDto(s.getShopName(), s.getAddress(), s.getCity(), s.getPhone(), s.getEmail(),
                 s.getIce(), s.getFiscalId(), s.getTradeRegister(), s.getPatente(), s.getDefaultVatRate(),
-                s.getQuoteValidityDays(), s.getDocumentFooter(), s.getTicketFooter());
+                s.getQuoteValidityDays(), s.getDocumentFooter(), s.getTicketFooter(),
+                s.getMaxDiscountPercent(), s.getApprovalPinHash() != null);
     }
 
     public void applyTo(ShopSettings s) {
@@ -47,6 +50,7 @@ public record ShopSettingsDto(
         s.setQuoteValidityDays(quoteValidityDays);
         s.setDocumentFooter(blankToNull(documentFooter));
         s.setTicketFooter(blankToNull(ticketFooter));
+        s.setMaxDiscountPercent(maxDiscountPercent);
     }
 
     private static String blankToNull(String value) {

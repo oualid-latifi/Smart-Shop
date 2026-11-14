@@ -46,6 +46,10 @@ export type MoreStackParamList = {
   Cash: undefined;
   Targets: undefined;
   Import: undefined;
+  Promotions: undefined;
+  Replenishment: undefined;
+  Dormant: undefined;
+  Insights: undefined;
 };
 
 export type QuotesStackParamList = {

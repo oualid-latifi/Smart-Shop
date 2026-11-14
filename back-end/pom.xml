@@ -83,6 +83,13 @@
             <version>5.3.0</version>
         </dependency>
 
+        <!-- QR code de vérification des factures -->
+        <dependency>
+            <groupId>com.google.zxing</groupId>
+            <artifactId>core</artifactId>
+            <version>3.5.3</version>
+        </dependency>
+
         <!-- JWT -->
         <dependency>
             <groupId>io.jsonwebtoken</groupId>

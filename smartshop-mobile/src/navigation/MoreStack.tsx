@@ -15,6 +15,10 @@ import WarehousesScreen from '../screens/WarehousesScreen';
 import ActivityScreen from '../screens/ActivityScreen';
 import CashScreen from '../screens/CashScreen';
 import ImportScreen from '../screens/ImportScreen';
+import DormantScreen from '../screens/DormantScreen';
+import InsightsScreen from '../screens/InsightsScreen';
+import PromotionsScreen from '../screens/PromotionsScreen';
+import ReplenishmentScreen from '../screens/ReplenishmentScreen';
 import TargetsScreen from '../screens/TargetsScreen';
 import UsersScreen from '../screens/UsersScreen';
 import type { MoreStackParamList } from './types';
@@ -61,6 +65,10 @@ export default function MoreStack() {
       <Stack.Screen name="Cash" component={CashScreen} options={{ title: t('cash.title') }} />
       <Stack.Screen name="Targets" component={TargetsScreen} options={{ title: t('targets.title') }} />
       <Stack.Screen name="Import" component={ImportScreen} options={{ title: t('import.title') }} />
+      <Stack.Screen name="Promotions" component={PromotionsScreen} options={{ title: t('promos.title') }} />
+      <Stack.Screen name="Replenishment" component={ReplenishmentScreen} options={{ title: t('replenish.title') }} />
+      <Stack.Screen name="Dormant" component={DormantScreen} options={{ title: t('dormant.title') }} />
+      <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: t('insights.title') }} />
 
       <Stack.Screen
         name="Checks"

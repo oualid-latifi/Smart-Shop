@@ -17,9 +17,17 @@ import java.util.UUID;
 public class ProductController {
 
     private final ProductService productService;
+    private final smartshop.service.PromotionService promotionService;
 
-    public ProductController(ProductService productService) {
+    public ProductController(ProductService productService, smartshop.service.PromotionService promotionService) {
         this.productService = productService;
+        this.promotionService = promotionService;
+    }
+
+    // Ajoute la promotion en cours à chaque produit
+    private List<ProductResponse> withOffers(List<Product> products) {
+        var running = promotionService.running();
+        return products.stream().map(p -> ProductResponse.from(p, promotionService.bestOffer(p, running))).toList();
     }
 
     @PostMapping
@@ -52,13 +60,13 @@ public class ProductController {
 
     @GetMapping
     public List<ProductResponse> findAll() {
-        return productService.findAllActive().stream().map(ProductResponse::from).toList();
+        return withOffers(productService.findAllActive());
     }
 
     // Recherche par code-barres (scanner de l'application)
     @GetMapping("/barcode/{code}")
     public ProductResponse findByBarcode(@PathVariable String code) {
-        return ProductResponse.from(productService.findByBarcode(code));
+        return withOffers(List.of(productService.findByBarcode(code))).get(0);
     }
 
     @GetMapping("/low-stock")
@@ -68,7 +76,7 @@ public class ProductController {
 
     @GetMapping("/{id}")
     public ProductResponse findById(@PathVariable UUID id) {
-        return ProductResponse.from(productService.findById(id));
+        return withOffers(List.of(productService.findById(id))).get(0);
     }
 
     @PutMapping("/{id}")

@@ -23,10 +23,17 @@ public record ProductResponse(
         Integer stockQuantity,
         Integer alertThreshold,
         boolean lowStock,
-        boolean active
+        boolean active,
+        BigDecimal promoPrice,          // prix unitaire en promotion (null si aucune)
+        BigDecimal secondItemPercent,   // promotion "2e article à -X %"
+        String promoLabel
 ) {
 
     public static ProductResponse from(Product p) {
+        return from(p, null);
+    }
+
+    public static ProductResponse from(Product p, smartshop.service.PromotionService.Offer offer) {
         return new ProductResponse(
                 p.getId(),
                 p.getReference(),
@@ -45,7 +52,10 @@ public record ProductResponse(
                 p.getStockQuantity(),
                 p.getAlertThreshold(),
                 p.getStockQuantity() <= p.getAlertThreshold(),
-                p.getActive()
+                p.getActive(),
+                offer != null ? offer.unitPrice() : null,
+                offer != null ? offer.secondItemPercent() : null,
+                offer != null ? offer.label() : null
         );
     }
 }
