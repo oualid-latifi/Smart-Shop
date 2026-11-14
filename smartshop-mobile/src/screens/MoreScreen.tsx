@@ -36,6 +36,7 @@ export default function MoreScreen({ navigation }: Props) {
     { title: t('tabs.customers'), subtitle: isAr ? 'الزبناء والديون' : 'Fiches clients et crédit', icon: 'people-outline', screen: 'Customers', anyOf: ['CUSTOMERS', 'PAYMENTS'] },
     { title: t('insights.title'), subtitle: t('insights.subtitle'), icon: 'analytics-outline', screen: 'Insights', anyOf: ['REPORTS'] },
     { title: t('promos.title'), subtitle: t('promos.subtitle'), icon: 'pricetags-outline', screen: 'Promotions', anyOf: ['PRODUCTS_WRITE'] },
+    { title: t('online.title'), subtitle: t('online.subtitle'), icon: 'globe-outline', screen: 'OnlineOrders', anyOf: ['SALES'] },
     { title: t('quotes.title'), subtitle: t('quotes.subtitle'), icon: 'document-text-outline', screen: 'Quotes', anyOf: ['SALES'] },
     { title: t('targets.title'), subtitle: t('targets.subtitle'), icon: 'trophy-outline', screen: 'Targets', anyOf: ['SALES', 'USERS'] },
     { title: t('aging.title'), subtitle: t('aging.subtitle'), icon: 'hourglass-outline', screen: 'Aging', anyOf: ['PAYMENTS'] },

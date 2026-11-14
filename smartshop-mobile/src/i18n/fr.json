@@ -390,7 +390,8 @@
     "reportEmails": "Emails du rapport",
     "reportEmailsHint": "Séparés par des virgules. Vide = comptes propriétaires",
     "sendNow": "Envoyer le rapport maintenant",
-    "sent": "Rapport envoyé à {{n}} destinataire(s) ✓"
+    "sent": "Rapport envoyé à {{n}} destinataire(s) ✓",
+    "online": "Ouvrir la boutique en ligne (page publique /shop)"
   },
   "payments": {
     "method": "Mode de paiement",
@@ -732,5 +733,27 @@
     "restoring": "Restauration en cours…",
     "restored": "Données restaurées ✓",
     "confirm": "Restaurer remplace TOUTES les données actuelles par celles de la sauvegarde. Continuer ?"
+  },
+  "online": {
+    "title": "Boutique en ligne",
+    "subtitle": "Commandes reçues sur ta page web",
+    "linkHint": "Lien de ta boutique à partager avec tes clients :",
+    "share": "Partager le lien",
+    "shareText": "Découvrez nos produits et commandez en ligne :",
+    "all": "Toutes",
+    "empty": "Aucune commande.",
+    "total": "Total",
+    "convert": "Transformer en vente",
+    "confirm": "Confirmer",
+    "cancel": "Annuler la commande",
+    "cancelConfirm": "Annuler la commande {{number}} ?",
+    "converted": "Vente {{number}} créée ✓",
+    "waText": "Bonjour, nous avons bien reçu votre commande {{number}}.",
+    "status": {
+      "NEW": "Nouvelle",
+      "CONFIRMED": "Confirmée",
+      "CONVERTED": "Vendue",
+      "CANCELLED": "Annulée"
+    }
   }
 }

@@ -75,6 +75,10 @@ public class ShopSettings {
     @Column(name = "report_emails", length = 500)
     private String reportEmails;
 
+    // Boutique en ligne publique (/shop) ouverte aux clients ?
+    @Column(name = "online_shop_enabled")
+    private Boolean onlineShopEnabled;
+
     // Code PIN du propriétaire, haché (BCrypt)
     @Column(name = "approval_pin_hash", length = 100)
     private String approvalPinHash;
@@ -123,6 +127,8 @@ public class ShopSettings {
     public BigDecimal getBigSaleAmount() { return bigSaleAmount; }
     public void setBigSaleAmount(BigDecimal bigSaleAmount) { this.bigSaleAmount = bigSaleAmount; }
 
+    public Boolean getOnlineShopEnabled() { return onlineShopEnabled; }
+    public void setOnlineShopEnabled(Boolean onlineShopEnabled) { this.onlineShopEnabled = onlineShopEnabled; }
     public Boolean getWeeklyReportEnabled() { return weeklyReportEnabled; }
     public void setWeeklyReportEnabled(Boolean weeklyReportEnabled) { this.weeklyReportEnabled = weeklyReportEnabled; }
 

@@ -7,7 +7,8 @@ public enum DocumentType {
     DELIVERY_NOTE("BL"),
     QUOTE("DEV"),
     PURCHASE_ORDER("BC"),
-    INVENTORY("INV");
+    INVENTORY("INV"),
+    ONLINE_ORDER("CMD");
 
     private final String prefix;
 

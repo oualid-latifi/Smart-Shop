@@ -16,6 +16,7 @@ const LOOK: Record<NotificationType, { icon: IconName; tone: Tone; screen?: stri
   BIG_SALE: { icon: 'flash-outline', tone: 'success' },
   TARGET_REACHED: { icon: 'trophy-outline', tone: 'violet', screen: 'Targets' },
   BACKUP_FAILED: { icon: 'cloud-offline-outline', tone: 'danger', screen: 'Backups' },
+  ONLINE_ORDER: { icon: 'globe-outline', tone: 'success', screen: 'OnlineOrders' },
 };
 
 type Props = { navigation: { navigate: (screen: string) => void } };

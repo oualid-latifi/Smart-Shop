@@ -11,7 +11,7 @@ import { parseNumber } from '../format';
 import { colors, radius, spacing } from '../theme';
 import { useUnsavedChanges } from '../useUnsavedChanges';
 
-type TextKey = Exclude<keyof ShopSettings, 'defaultVatRate' | 'quoteValidityDays' | 'maxDiscountPercent' | 'hasApprovalPin' | 'bigSaleAmount' | 'weeklyReportEnabled'>;
+type TextKey = Exclude<keyof ShopSettings, 'defaultVatRate' | 'quoteValidityDays' | 'maxDiscountPercent' | 'hasApprovalPin' | 'bigSaleAmount' | 'weeklyReportEnabled' | 'onlineShopEnabled'>;
 
 /** Informations de la boutique imprimées sur les factures, devis, BL et tickets. */
 export default function ShopSettingsScreen() {
@@ -93,6 +93,7 @@ export default function ShopSettingsScreen() {
         maxDiscountPercent: form.maxDiscountPercent?.trim() ? Math.round(parseNumber(form.maxDiscountPercent) ?? 0) : null,
         bigSaleAmount: form.bigSaleAmount?.trim() ? parseNumber(form.bigSaleAmount) : null,
         weeklyReportEnabled: form.weeklyReportEnabled === 'true',
+        onlineShopEnabled: form.onlineShopEnabled === 'true',
       };
       const textKeys: TextKey[] = ['shopName', 'address', 'city', 'phone', 'email', 'ice', 'fiscalId', 'tradeRegister', 'patente', 'documentFooter', 'ticketFooter', 'reportEmails'];
       textKeys.forEach((k) => ((body as Record<string, unknown>)[k] = form[k]?.trim() || null));
@@ -150,6 +151,21 @@ export default function ShopSettingsScreen() {
       />
       <PrimaryButton icon="lock-closed-outline" title={t('approval.setTitle')} variant="outline" onPress={savePin} disabled={pin.length > 0 && pin.length < 4} />
       {pinSaved ? <Text style={styles.saved}>{t('approval.saved')}</Text> : null}
+
+      <Text style={styles.section}>{t('online.title')}</Text>
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>{t('shop.online')}</Text>
+        <Switch
+          accessibilityLabel={t('shop.online')}
+          value={form.onlineShopEnabled === 'true'}
+          onValueChange={(on) => {
+            setForm((current) => ({ ...(current ?? {}), onlineShopEnabled: on ? 'true' : 'false' }));
+            setDirty(true);
+            setSaved(false);
+          }}
+          trackColor={{ true: colors.primary, false: colors.border }}
+        />
+      </View>
 
       <Text style={styles.section}>{t('shop.alerts')}</Text>
       {field('bigSaleAmount', t('shop.bigSale'), { keyboardType: 'decimal-pad', hint: t('shop.bigSaleHint') })}

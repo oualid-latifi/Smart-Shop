@@ -12,6 +12,11 @@ public class TooManyAttemptsException extends RuntimeException {
         this.retryAfter = retryAfter;
     }
 
+    public TooManyAttemptsException(String message, Duration retryAfter) {
+        super(message);
+        this.retryAfter = retryAfter;
+    }
+
     public Duration getRetryAfter() {
         return retryAfter;
     }

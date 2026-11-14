@@ -196,9 +196,26 @@ export interface ShopSettings {
   bigSaleAmount: number | null;
   weeklyReportEnabled: boolean;
   reportEmails: string | null;
+  onlineShopEnabled: boolean;
 }
 
-export type NotificationType = 'LOW_STOCK' | 'CHECK_DUE' | 'BIG_SALE' | 'TARGET_REACHED' | 'BACKUP_FAILED';
+export type OnlineOrderStatus = 'NEW' | 'CONFIRMED' | 'CONVERTED' | 'CANCELLED';
+
+export interface OnlineOrder {
+  id: string;
+  number: string;
+  customerName: string;
+  phone: string;
+  address: string | null;
+  note: string | null;
+  status: OnlineOrderStatus;
+  total: number;
+  createdAt: string;
+  saleId: string | null;
+  lines: { productId: string; productName: string; quantity: number; unitPrice: number; lineTotal: number }[];
+}
+
+export type NotificationType = 'LOW_STOCK' | 'CHECK_DUE' | 'BIG_SALE' | 'TARGET_REACHED' | 'BACKUP_FAILED' | 'ONLINE_ORDER';
 
 export interface AppNotification {
   id: string;

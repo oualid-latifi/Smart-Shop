@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0a1224">
+<title>Boutique en ligne</title>
+<style>
+  :root {
+    --bg: #0a1224; --card: #111c33; --card2: #16233f; --border: #1f2c4a; --text: #eef3ff; --muted: #8c9cbd;
+    --primary: #2f6bff; --primary2: #00c2ff; --success: #2fd07a; --danger: #ff5b6b; --warning: #ffb547;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); }
+  button, input, textarea { font: inherit; }
+  button { cursor: pointer; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 16px 16px 120px; }
+  header { background: linear-gradient(135deg, #1d4fd8, #00a3ff); padding: 20px 16px 28px; }
+  header .in { max-width: 1100px; margin: 0 auto; display: flex; gap: 12px; align-items: flex-start; }
+  header h1 { margin: 0; font-size: 24px; }
+  header p { margin: 4px 0 0; opacity: .9; font-size: 14px; }
+  .grow { flex: 1; min-width: 0; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: #fff; text-decoration: none; font-weight: 700; font-size: 14px; }
+  .search { width: 100%; min-height: 48px; border-radius: 14px; border: 1px solid var(--border); background: var(--card); color: var(--text); padding: 0 16px; margin-top: -24px; position: relative; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 12px 0; scrollbar-width: none; }
+  .chip { flex: none; min-height: 36px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--border); background: var(--card); color: var(--muted); font-weight: 700; font-size: 13px; }
+  .chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
+  .p { background: var(--card); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; display: flex; flex-direction: column; }
+  .img { aspect-ratio: 1; background: var(--card2); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 900; color: var(--muted); position: relative; }
+  .img img { width: 100%; height: 100%; object-fit: cover; }
+  .badge { position: absolute; top: 8px; left: 8px; background: var(--danger); color: #fff; font-size: 11px; font-weight: 800; padding: 3px 8px; border-radius: 999px; max-width: calc(100% - 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  [dir=rtl] .badge { left: auto; right: 8px; }
+  .body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
+  .name { font-weight: 700; font-size: 14px; line-height: 1.3; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .price { font-weight: 900; font-size: 16px; margin-top: auto; }
+  .old { color: var(--muted); text-decoration: line-through; font-size: 12px; font-weight: 600; margin-inline-start: 6px; }
+  .add { min-height: 40px; border: 0; border-radius: 12px; background: var(--primary); color: #fff; font-weight: 800; margin-top: 8px; }
+  .add:disabled { background: var(--card2); color: var(--muted); cursor: default; }
+  .qty { display: flex; align-items: center; justify-content: space-between; margin-top: 8px; background: var(--card2); border-radius: 12px; }
+  .qty button { width: 40px; height: 40px; border: 0; background: transparent; color: var(--text); font-size: 20px; font-weight: 800; }
+  .empty { color: var(--muted); text-align: center; padding: 40px 0; }
+  .bar { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: rgba(10,18,36,.96); border-top: 1px solid var(--border); display: none; }
+  .bar.show { display: block; }
+  .bar button { width: 100%; max-width: 600px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; min-height: 54px; border: 0; border-radius: 14px; background: linear-gradient(135deg, #1d4fd8, #00a3ff); color: #fff; font-weight: 800; font-size: 16px; padding: 0 18px; }
+  .sheet { position: fixed; inset: 0; background: rgba(3,8,20,.7); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+  .sheet.show { display: flex; }
+  .panel { width: 100%; max-width: 600px; max-height: 92vh; overflow-y: auto; background: var(--card); border-radius: 20px 20px 0 0; padding: 20px 16px calc(20px + env(safe-area-inset-bottom)); }
+  .panel h2 { margin: 0 0 12px; font-size: 20px; }
+  .line { display: flex; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .line .qty { margin: 0; }
+  label { display: block; color: var(--muted); font-size: 13px; font-weight: 700; margin: 12px 0 6px; }
+  input, textarea { width: 100%; min-height: 48px; border-radius: 12px; border: 1px solid var(--border); background: var(--card2); color: var(--text); padding: 10px 14px; }
+  textarea { min-height: 72px; resize: vertical; }
+  .total { display: flex; justify-content: space-between; font-size: 18px; font-weight: 900; margin: 16px 0; }
+  .primary { width: 100%; min-height: 54px; border: 0; border-radius: 14px; background: var(--primary); color: #fff; font-weight: 800; font-size: 16px; }
+  .primary:disabled { opacity: .6; }
+  .ghost { width: 100%; min-height: 48px; border: 0; background: transparent; color: var(--muted); font-weight: 700; margin-top: 6px; }
+  .err { background: #3a1622; color: var(--danger); padding: 10px 12px; border-radius: 12px; margin-top: 12px; }
+  .ok { text-align: center; padding: 12px 0; }
+  .ok .tick { width: 72px; height: 72px; border-radius: 50%; background: #0f2e22; color: var(--success); font-size: 40px; display: flex; align-items: center; justify-content: center; margin: 0 auto 12px; }
+  .wa { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 52px; border-radius: 14px; background: #25d366; color: #06210f; font-weight: 900; text-decoration: none; margin-top: 16px; }
+  .closed { max-width: 420px; margin: 80px auto; text-align: center; color: var(--muted); padding: 0 16px; }
+  :focus-visible { outline: 3px solid var(--primary2); outline-offset: 2px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="in">
+    <div class="grow">
+      <h1 id="shop">…</h1>
+      <p id="where"></p>
+    </div>
+    <button class="pill" id="lang" type="button" aria-label="Langue">ع</button>
+    <a class="pill" id="call" hidden>☎</a>
+  </div>
+</header>
+<main class="wrap">
+  <input class="search" id="q" type="search" autocomplete="off">
+  <div class="chips" id="brands" role="radiogroup"></div>
+  <div class="grid" id="grid" aria-live="polite"></div>
+  <p class="empty" id="none" hidden></p>
+</main>
+
+<div class="bar" id="bar"><button type="button" id="open"><span id="count"></span><span id="sum"></span></button></div>
+
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="ttl">
+  <div class="panel">
+    <div id="cartView">
+      <h2 id="ttl"></h2>
+      <div id="lines"></div>
+      <div class="total"><span data-t="total"></span><span id="total"></span></div>
+      <form id="form">
+        <label for="name" data-t="name"></label>
+        <input id="name" name="name" required maxlength="100" autocomplete="name">
+        <label for="phone" data-t="phone"></label>
+        <input id="phone" name="phone" required inputmode="tel" maxlength="20" autocomplete="tel" placeholder="06 12 34 56 78">
+        <label for="address" data-t="address"></label>
+        <input id="address" name="address" maxlength="255" autocomplete="street-address">
+        <label for="note" data-t="note"></label>
+        <textarea id="note" name="note" maxlength="500"></textarea>
+        <div class="err" id="err" role="alert" hidden></div>
+        <div class="total"></div>
+        <button class="primary" id="send" type="submit" data-t="send"></button>
+      </form>
+    </div>
+    <div id="doneView" class="ok" hidden>
+      <div class="tick">✓</div>
+      <h2 data-t="thanks"></h2>
+      <p id="doneText"></p>
+      <a class="wa" id="wa" target="_blank" rel="noopener" hidden data-t="wa"></a>
+    </div>
+    <button class="ghost" id="close" type="button" data-t="close"></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var T = {
+    fr: { search: 'Rechercher un produit…', all: 'Tout', add: 'Ajouter', out: 'Rupture', cart: 'Mon panier', items: ' article(s)', total: 'Total',
+          name: 'Nom complet', phone: 'Téléphone', address: 'Adresse de livraison (facultatif)', note: 'Remarque (facultatif)', send: 'Envoyer la commande',
+          sending: 'Envoi…', close: 'Fermer', thanks: 'Commande envoyée !', done: 'Ta commande {n} a bien été reçue. La boutique va te contacter pour la confirmer.',
+          wa: 'Écrire à la boutique sur WhatsApp', waText: 'Bonjour, je viens de passer la commande {n} sur votre boutique en ligne.',
+          none: 'Aucun produit trouvé.', closed: 'La boutique en ligne est fermée pour le moment.', error: 'Impossible de joindre la boutique. Réessaie.', lang: 'ع', dir: 'ltr' },
+    ar: { search: 'ابحث عن منتج…', all: 'الكل', add: 'أضف', out: 'نفد', cart: 'سلتي', items: ' منتج', total: 'المجموع',
+          name: 'الاسم الكامل', phone: 'الهاتف', address: 'عنوان التوصيل (اختياري)', note: 'ملاحظة (اختياري)', send: 'إرسال الطلب',
+          sending: 'جاري الإرسال…', close: 'إغلاق', thanks: 'تم إرسال الطلب!', done: 'توصلنا بطلبك {n}. سيتصل بك المتجر لتأكيده.',
+          wa: 'راسل المتجر عبر واتساب', waText: 'السلام عليكم، لقد أرسلت الطلب {n} من متجركم الإلكتروني.',
+          none: 'لا يوجد منتج.', closed: 'المتجر الإلكتروني مغلق حاليا.', error: 'تعذر الاتصال بالمتجر. حاول مجددا.', lang: 'Fr', dir: 'rtl' }
+  };
+  var $ = function (id) { return document.getElementById(id); };
+  var store = {
+    get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
+    set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
+  };
+  var lang = store.get('shop.lang') || ((navigator.language || '').indexOf('ar') === 0 ? 'ar' : 'fr');
+  var data = null, brand = null, cart = store.get('shop.cart') || {};
+  var t = function (k) { return T[lang][k]; };
+  var money = function (v) { return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'; };
+  function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function safeImage(url) { return typeof url === 'string' && /^(https?:\/\/|data:image\/)/i.test(url) ? url : null; }
+  function byId(id) { return data && data.products.filter(function (p) { return p.id === id; })[0]; }
+  function waNumber(phone) {
+    var d = String(phone || '').replace(/[^\d]/g, '');
+    if (d.indexOf('00') === 0) return d.slice(2);
+    if (d.charAt(0) === '0' && d.length === 10) return '212' + d.slice(1);
+    return d;
+  }
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.documentElement.dir = t('dir');
+    $('lang').textContent = t('lang');
+    $('q').placeholder = t('search');
+    $('q').setAttribute('aria-label', t('search'));
+    $('ttl').textContent = t('cart');
+    $('none').textContent = t('none');
+    document.querySelectorAll('[data-t]').forEach(function (n) { n.textContent = t(n.getAttribute('data-t')); });
+    if (data) { renderBrands(); render(); }
+  }
+
+  function renderBrands() {
+    var box = $('brands'); box.textContent = '';
+    var brands = [];
+    data.products.forEach(function (p) { if (p.brand && brands.indexOf(p.brand) < 0) brands.push(p.brand); });
+    if (brands.length < 2) return;
+    [null].concat(brands.sort()).forEach(function (b) {
+      var c = el('button', 'chip' + (brand === b ? ' on' : ''), b || t('all'));
+      c.type = 'button'; c.setAttribute('role', 'radio'); c.setAttribute('aria-checked', String(brand === b));
+      c.onclick = function () { brand = b; renderBrands(); render(); };
+      box.appendChild(c);
+    });
+  }
+
+  function qtyControl(p) {
+    var box = el('div', 'qty');
+    var minus = el('button', null, '−'); minus.type = 'button'; minus.setAttribute('aria-label', '−');
+    var plus = el('button', null, '+'); plus.type = 'button'; plus.setAttribute('aria-label', '+');
+    minus.onclick = function () { setQty(p.id, (cart[p.id] || 0) - 1); };
+    plus.onclick = function () { setQty(p.id, (cart[p.id] || 0) + 1); };
+    box.appendChild(minus); box.appendChild(el('strong', null, String(cart[p.id] || 0))); box.appendChild(plus);
+    return box;
+  }
+
+  function render() {
+    var q = $('q').value.trim().toLowerCase();
+    var list = data.products.filter(function (p) {
+      var text = [p.name, p.brand, p.color, p.capacity, p.variantGroup].join(' ').toLowerCase();
+      return (!brand || p.brand === brand) && (!q || text.indexOf(q) >= 0);
+    });
+    var grid = $('grid'); grid.textContent = '';
+    $('none').hidden = list.length > 0;
+    list.forEach(function (p) {
+      var card = el('article', 'p');
+      var img = el('div', 'img');
+      var src = safeImage(p.imageUrl);
+      if (src) { var i = el('img'); i.src = src; i.alt = p.name; i.loading = 'lazy'; img.appendChild(i); }
+      else img.textContent = (p.name || '?').charAt(0).toUpperCase();
+      if (p.promotion) img.appendChild(el('span', 'badge', p.promotion));
+      card.appendChild(img);
+      var body = el('div', 'body');
+      body.appendChild(el('div', 'name', p.name));
+      var sub = [p.brand, p.capacity, p.color].filter(Boolean).join(' · ');
+      if (sub) body.appendChild(el('div', 'sub', sub));
+      var price = el('div', 'price', money(p.price));
+      if (p.oldPrice) price.appendChild(el('span', 'old', money(p.oldPrice)));
+      body.appendChild(price);
+      if (cart[p.id]) body.appendChild(qtyControl(p));
+      else {
+        var add = el('button', 'add', p.inStock ? t('add') : t('out'));
+        add.type = 'button'; add.disabled = !p.inStock;
+        add.onclick = function () { setQty(p.id, 1); };
+        body.appendChild(add);
+      }
+      card.appendChild(body);
+      grid.appendChild(card);
+    });
+    renderCart();
+  }
+
+  function setQty(id, n) {
+    if (n <= 0) delete cart[id]; else cart[id] = Math.min(n, 20);
+    store.set('shop.cart', cart);
+    render();
+  }
+
+  function renderCart() {
+    var ids = Object.keys(cart).filter(byId);
+    var count = 0, sum = 0;
+    var lines = $('lines'); lines.textContent = '';
+    ids.forEach(function (id) {
+      var p = byId(id); count += cart[id]; sum += cart[id] * p.price;
+      var row = el('div', 'line');
+      var info = el('div', 'grow');
+      info.appendChild(el('div', 'name', p.name));
+      info.appendChild(el('div', 'sub', money(p.price)));
+      row.appendChild(info); row.appendChild(qtyControl(p));
+      lines.appendChild(row);
+    });
+    $('bar').classList.toggle('show', count > 0);
+    $('count').textContent = count + t('items');
+    $('sum').textContent = money(sum);
+    $('total').textContent = money(sum);
+    if (count === 0 && !$('cartView').hidden) closeSheet();
+  }
+
+  function openSheet() { $('cartView').hidden = false; $('doneView').hidden = true; $('err').hidden = true; $('sheet').classList.add('show'); $('name').focus(); }
+  function closeSheet() { $('sheet').classList.remove('show'); }
+
+  $('open').onclick = openSheet;
+  $('close').onclick = closeSheet;
+  $('sheet').onclick = function (e) { if (e.target === $('sheet')) closeSheet(); };
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+  $('q').oninput = render;
+  $('lang').onclick = function () { lang = lang === 'fr' ? 'ar' : 'fr'; store.set('shop.lang', lang); applyLang(); };
+
+  $('form').onsubmit = function (e) {
+    e.preventDefault();
+    var send = $('send'); send.disabled = true; send.textContent = t('sending');
+    $('err').hidden = true;
+    var body = {
+      name: $('name').value, phone: $('phone').value, address: $('address').value, note: $('note').value,
+      lines: Object.keys(cart).filter(byId).map(function (id) { return { productId: id, quantity: cart[id] }; })
+    };
+    store.set('shop.customer', { name: body.name, phone: body.phone, address: body.address });
+    fetch('/api/public/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
+      .then(function (res) {
+        if (!res.ok) {
+          var errors = res.j.errors ? Object.keys(res.j.errors).map(function (k) { return res.j.errors[k]; }).join(' · ') : '';
+          throw new Error(errors || res.j.message || t('error'));
+        }
+        cart = {}; store.set('shop.cart', cart);
+        $('cartView').hidden = true; $('doneView').hidden = false;
+        $('doneText').textContent = t('done').replace('{n}', res.j.number);
+        if (data.phone) {
+          var wa = $('wa'); wa.hidden = false;
+          wa.href = 'https://wa.me/' + waNumber(data.phone) + '?text=' + encodeURIComponent(t('waText').replace('{n}', res.j.number));
+        }
+        load();
+      })
+      .catch(function (err) { $('err').textContent = err.message || t('error'); $('err').hidden = false; })
+      .then(function () { send.disabled = false; send.textContent = t('send'); });
+  };
+
+  function load() {
+    fetch('/api/public/catalog').then(function (r) {
+      if (r.status === 404) throw new Error('closed');
+      if (!r.ok) throw new Error('error');
+      return r.json();
+    }).then(function (d) {
+      data = d;
+      document.title = d.shopName;
+      $('shop').textContent = d.shopName;
+      $('where').textContent = [d.address, d.city].filter(Boolean).join(', ');
+      if (d.phone) { var c = $('call'); c.hidden = false; c.href = 'tel:' + d.phone.replace(/[^\d+]/g, ''); c.textContent = '☎ ' + d.phone; }
+      renderBrands(); render();
+    }).catch(function (e) {
+      var main = document.querySelector('main'); main.textContent = '';
+      main.appendChild(el('p', 'closed', e.message === 'closed' ? t('closed') : t('error')));
+    });
+  }
+
+  var saved = store.get('shop.customer');
+  if (saved) { $('name').value = saved.name || ''; $('phone').value = saved.phone || ''; $('address').value = saved.address || ''; }
+  applyLang();
+  load();
+})();
+</script>
+</body>
+</html>

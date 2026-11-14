@@ -52,6 +52,7 @@ export type MoreStackParamList = {
   Insights: undefined;
   Notifications: undefined;
   Backups: undefined;
+  OnlineOrders: undefined;
 };
 
 export type QuotesStackParamList = {

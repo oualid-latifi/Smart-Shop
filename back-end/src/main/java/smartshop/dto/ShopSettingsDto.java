@@ -29,7 +29,8 @@ public record ShopSettingsDto(
         Boolean hasApprovalPin,           // lecture seule : un code PIN est-il défini ?
         @DecimalMin("0.00") BigDecimal bigSaleAmount,
         Boolean weeklyReportEnabled,
-        @Size(max = 500) String reportEmails
+        @Size(max = 500) String reportEmails,
+        Boolean onlineShopEnabled
 ) {
 
     public static ShopSettingsDto from(ShopSettings s) {
@@ -37,7 +38,8 @@ public record ShopSettingsDto(
                 s.getIce(), s.getFiscalId(), s.getTradeRegister(), s.getPatente(), s.getDefaultVatRate(),
                 s.getQuoteValidityDays(), s.getDocumentFooter(), s.getTicketFooter(),
                 s.getMaxDiscountPercent(), s.getApprovalPinHash() != null,
-                s.getBigSaleAmount(), Boolean.TRUE.equals(s.getWeeklyReportEnabled()), s.getReportEmails());
+                s.getBigSaleAmount(), Boolean.TRUE.equals(s.getWeeklyReportEnabled()), s.getReportEmails(),
+                Boolean.TRUE.equals(s.getOnlineShopEnabled()));
     }
 
     public void applyTo(ShopSettings s) {
@@ -58,6 +60,7 @@ public record ShopSettingsDto(
         s.setBigSaleAmount(bigSaleAmount);
         s.setWeeklyReportEnabled(Boolean.TRUE.equals(weeklyReportEnabled));
         s.setReportEmails(blankToNull(reportEmails));
+        s.setOnlineShopEnabled(Boolean.TRUE.equals(onlineShopEnabled));
     }
 
     private static String blankToNull(String value) {
