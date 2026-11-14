@@ -8,7 +8,7 @@ import { storage, TOKEN_KEY } from './storage';
  * Télécharge un PDF du serveur (facture, devis, BL, ticket) puis ouvre la feuille de partage :
  * l'utilisateur choisit WhatsApp, l'imprimante, l'email, l'enregistrement dans Fichiers…
  */
-export async function shareDocument(path: string, fileName: string, dialogTitle: string): Promise<void> {
+export async function shareDocument(path: string, fileName: string, dialogTitle: string, mimeType = 'application/pdf'): Promise<void> {
   const token = await storage.get(TOKEN_KEY);
   const url = `${await getBaseUrl()}${path}`;
   const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
@@ -30,7 +30,8 @@ export async function shareDocument(path: string, fileName: string, dialogTitle:
   if (!(await Sharing.isAvailableAsync())) {
     throw new ApiError(0, '');
   }
-  await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf', dialogTitle });
+  const isPdf = mimeType === 'application/pdf';
+  await Sharing.shareAsync(file.uri, { mimeType, UTI: isPdf ? 'com.adobe.pdf' : 'org.openxmlformats.spreadsheetml.sheet', dialogTitle });
 }
 
 /** Numéro marocain local (06…, 07…, 05…) -> format international pour WhatsApp (2126…). */

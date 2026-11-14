@@ -14,6 +14,8 @@ public interface PurchaseRepository extends JpaRepository<Purchase, UUID> {
 
     List<Purchase> findAllByOrderByPurchaseDateDesc();
 
+    List<Purchase> findByPurchaseDateGreaterThanEqualAndPurchaseDateLessThanOrderByPurchaseDateAsc(LocalDateTime start, LocalDateTime end);
+
     // Achats pas encore payés en entier, les plus anciens d'abord
     @Query("select p from Purchase p where (p.total - coalesce(p.returnedAmount, 0) + coalesce(p.refundReceived, 0) - p.amountPaid) > 0 order by p.purchaseDate asc")
     List<Purchase> findUnpaid();

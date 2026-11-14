@@ -55,7 +55,7 @@ export default function ImportScreen() {
           key: kind,
           label: t('import.template', { type: kind === 'products' ? t('tabs.products') : t('tabs.customers') }),
           icon: 'download-outline' as const,
-          onPress: () => shareDocument(`/api/import/templates/${kind}.csv`, `modele-${kind}.csv`, t('docs.shareTitle')),
+          onPress: () => shareDocument(`/api/import/templates/${kind}.csv`, `modele-${kind}.csv`, t('docs.shareTitle'), 'text/csv'),
         }))}
       />
 

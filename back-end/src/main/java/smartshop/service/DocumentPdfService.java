@@ -47,8 +47,14 @@ public class DocumentPdfService {
 
     private static final DateTimeFormatter DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter DATE_TIME = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
-    private static final Color ACCENT = new Color(15, 118, 110);
-    private static final Color LIGHT = new Color(240, 244, 248);
+    private static final Color ACCENT = new Color(29, 79, 216);
+    private static final Color LIGHT = new Color(243, 246, 252);
+    private static final Color ZEBRA = new Color(248, 250, 253);
+    private static final Color RULE = new Color(220, 226, 236);
+    private static final Color DARK = new Color(17, 24, 39);
+    private static final Color GRAY = new Color(100, 116, 139);
+    private static final Color SUCCESS = new Color(21, 128, 61);
+    private static final Color DANGER = new Color(185, 28, 28);
 
     private final ShopSettingsService settingsService;
 
@@ -110,28 +116,57 @@ public class DocumentPdfService {
 
     // ------------------------------------------------------------------ Documents A4
 
+    /** Ligne "libellé : valeur" du cartouche en haut à droite (N°, date, référence…). */
+    private record Meta(String label, String value) {
+    }
+
+    /** Bloc d'adresse (émetteur, client, fournisseur) : la première ligne est le nom. */
+    private record Party(String label, List<String> lines) {
+    }
+
+    /** Tout ce qui varie d'un document A4 à l'autre. */
+    private record DocSpec(String title, List<Meta> meta, Party left, Party right, List<Row> rows, boolean withPrices,
+                           BigDecimal discount, BigDecimal total, BigDecimal amountPaid, String paymentLabel,
+                           String wordsPrefix, String note, List<String> signatures) {
+    }
+
     public byte[] invoice(Sale sale) {
         ShopSettings settings = settingsService.get();
-        String date = DATE.format(sale.getInvoiceDate() != null ? sale.getInvoiceDate() : sale.getSaleDate());
-        return a4(settings, "FACTURE", sale.getInvoiceNumber(), date,
-                "Vente " + sale.getDisplayNumber(), "Client", sale.getCustomer(), null,
-                rows(sale, settings), sale.getDiscount(), sale.getTotal(), true,
-                sale.getAmountPaid(), "Arrêtée la présente facture à la somme de : ");
+        List<Meta> meta = new ArrayList<>();
+        meta.add(new Meta("Facture N°", orDefault(sale.getInvoiceNumber(), "-")));
+        meta.add(new Meta("Date", DATE.format(sale.getInvoiceDate() != null ? sale.getInvoiceDate() : sale.getSaleDate())));
+        meta.add(new Meta("Réf. vente", sale.getDisplayNumber()));
+        if (sale.getDeliveryNumber() != null) meta.add(new Meta("Bon de livraison", sale.getDeliveryNumber()));
+        if (sale.getSeller() != null) meta.add(new Meta("Vendeur", sale.getSeller().getName()));
+        return a4(settings, new DocSpec("FACTURE", meta, issuer(settings), customerParty("FACTURÉ À", sale.getCustomer(), null),
+                rows(sale, settings), true, sale.getDiscount(), sale.getTotal(), sale.getAmountPaid(),
+                paymentLabel(sale.getPaymentMethod()), "Arrêtée la présente facture à la somme de :", null,
+                List.of("Cachet et signature")));
     }
 
     public byte[] quote(Quote quote) {
         ShopSettings settings = settingsService.get();
-        return a4(settings, "DEVIS", quote.getNumber(), DATE.format(quote.getCreatedAt()),
-                "Valable jusqu'au " + DATE.format(quote.getValidUntil()), "Client", quote.getCustomer(), quote.getCustomerName(),
-                rows(quote, settings), quote.getDiscount(), quote.getTotal(), true,
-                null, "Arrêté le présent devis à la somme de : ");
+        List<Meta> meta = List.of(
+                new Meta("Devis N°", quote.getNumber()),
+                new Meta("Date", DATE.format(quote.getCreatedAt())),
+                new Meta("Valable jusqu'au", DATE.format(quote.getValidUntil())));
+        return a4(settings, new DocSpec("DEVIS", meta, issuer(settings), customerParty("CLIENT", quote.getCustomer(), quote.getCustomerName()),
+                rows(quote, settings), true, quote.getDiscount(), quote.getTotal(), null, null,
+                "Arrêté le présent devis à la somme de :", quote.getNote(),
+                List.of("Bon pour accord (date, cachet et signature du client)")));
     }
 
     public byte[] deliveryNote(Sale sale) {
         ShopSettings settings = settingsService.get();
-        return a4(settings, "BON DE LIVRAISON", sale.getDeliveryNumber(), DATE.format(LocalDateTime.now()),
-                "Vente " + sale.getDisplayNumber(), "Client", sale.getCustomer(), null,
-                rows(sale, settings), sale.getDiscount(), sale.getTotal(), false, null, null);
+        List<Meta> meta = new ArrayList<>();
+        meta.add(new Meta("BL N°", orDefault(sale.getDeliveryNumber(), "-")));
+        meta.add(new Meta("Date", DATE.format(LocalDateTime.now())));
+        meta.add(new Meta("Réf. vente", sale.getDisplayNumber()));
+        if (sale.getInvoiceNumber() != null) meta.add(new Meta("Facture", sale.getInvoiceNumber()));
+        return a4(settings, new DocSpec("BON DE LIVRAISON", meta, issuer(settings), customerParty("LIVRÉ À", sale.getCustomer(), null),
+                rows(sale, settings), false, BigDecimal.ZERO, sale.getTotal(), null, null, null,
+                "Marchandise reçue en bon état et conforme à la commande.",
+                List.of("Signature du livreur", "Signature et cachet du client")));
     }
 
     public byte[] purchaseOrder(smartshop.entity.PurchaseOrder order) {
@@ -140,113 +175,74 @@ public class DocumentPdfService {
         for (smartshop.entity.PurchaseOrderLine l : order.getLines()) {
             rows.add(new Row(l.getProduct().getReference(), designation(l.getProduct()), l.getQuantity(), l.getUnitPrice(), vatOf(l.getProduct(), settings)));
         }
-        String subtitle = order.getExpectedDate() != null ? "Livraison souhaitée le " + DATE.format(order.getExpectedDate()) : null;
-        String supplier = order.getSupplier().getName() + (order.getSupplier().getPhone() != null ? " - Tél : " + order.getSupplier().getPhone() : "");
-        return a4(settings, "BON DE COMMANDE", order.getNumber(), DATE.format(order.getCreatedAt()), subtitle,
-                "Fournisseur", null, supplier, rows, BigDecimal.ZERO, order.getTotal(), true, null, null);
+        List<Meta> meta = new ArrayList<>();
+        meta.add(new Meta("Commande N°", order.getNumber()));
+        meta.add(new Meta("Date", DATE.format(order.getCreatedAt())));
+        if (order.getExpectedDate() != null) meta.add(new Meta("Livraison souhaitée", DATE.format(order.getExpectedDate())));
+        List<String> supplier = new ArrayList<>();
+        supplier.add(order.getSupplier().getName());
+        if (order.getSupplier().getPhone() != null) supplier.add("Tél : " + order.getSupplier().getPhone());
+        return a4(settings, new DocSpec("BON DE COMMANDE", meta, new Party("ACHETEUR", issuer(settings).lines()), new Party("FOURNISSEUR", supplier),
+                rows, true, BigDecimal.ZERO, order.getTotal(), null, null, null, order.getNote(),
+                List.of("Cachet et signature de l'acheteur")));
     }
 
-    private byte[] a4(ShopSettings settings, String title, String number, String date, String subtitle,
-                      String partyLabel, Customer customer, String freeCustomerName, List<Row> rows,
-                      BigDecimal discount, BigDecimal total, boolean withPrices,
-                      BigDecimal amountPaid, String wordsPrefix) {
+    private Party issuer(ShopSettings s) {
+        List<String> lines = new ArrayList<>();
+        lines.add(orDefault(s.getShopName(), "SmartShop"));
+        String address = String.join(", ", nonNull(s.getAddress(), s.getCity()));
+        if (!address.isEmpty()) lines.add(address);
+        if (s.getPhone() != null) lines.add("Tél : " + s.getPhone());
+        if (s.getEmail() != null) lines.add(s.getEmail());
+        if (s.getIce() != null) lines.add("ICE : " + s.getIce());
+        return new Party("ÉMETTEUR", lines);
+    }
+
+    private Party customerParty(String label, Customer customer, String freeName) {
+        List<String> lines = new ArrayList<>();
+        if (customer == null) {
+            lines.add(orDefault(freeName, "Client de passage"));
+            return new Party(label, lines);
+        }
+        lines.add(customer.getName());
+        if (customer.getAddress() != null) lines.add(customer.getAddress());
+        if (customer.getPhone() != null) lines.add("Tél : " + customer.getPhone());
+        if (customer.getIce() != null) lines.add("ICE : " + customer.getIce());
+        return new Party(label, lines);
+    }
+
+    private static String paymentLabel(smartshop.entity.PaymentMethod method) {
+        return switch (method) {
+            case CHECK -> "Chèque";
+            case TRANSFER -> "Virement bancaire";
+            case CARD -> "Carte bancaire";
+            default -> "Espèces";
+        };
+    }
+
+    private byte[] a4(ShopSettings settings, DocSpec spec) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 40, 40, 40, 50);
-        PdfWriter.getInstance(doc, out);
+        Document doc = new Document(PageSize.A4, 36, 36, 36, 64);
+        PdfWriter writer = PdfWriter.getInstance(doc, out);
+        writer.setPageEvent(new PageFooter(settings));
         doc.open();
 
-        Font small = font(8, Font.NORMAL, Color.DARK_GRAY);
-        Font normal = font(10, Font.NORMAL, Color.BLACK);
-        Font bold = font(10, Font.BOLD, Color.BLACK);
+        header(doc, settings, spec.title(), spec.meta());
+        parties(doc, spec.left(), spec.right());
+        doc.add(itemsTable(spec.rows(), spec.withPrices()));
 
-        // En-tête : boutique à gauche, document à droite
-        PdfPTable header = new PdfPTable(new float[]{3, 2});
-        header.setWidthPercentage(100);
-        PdfPCell shop = borderless();
-        shop.addElement(new Paragraph(orDefault(settings.getShopName(), "SmartShop"), font(16, Font.BOLD, ACCENT)));
-        for (String line : shopLines(settings)) shop.addElement(new Paragraph(line, small));
-        header.addCell(shop);
-
-        PdfPCell docCell = borderless();
-        Paragraph docTitle = new Paragraph(title, font(18, Font.BOLD, ACCENT));
-        docTitle.setAlignment(Element.ALIGN_RIGHT);
-        docCell.addElement(docTitle);
-        docCell.addElement(right("N° " + orDefault(number, "-"), bold));
-        docCell.addElement(right("Date : " + date, normal));
-        if (subtitle != null) docCell.addElement(right(subtitle, small));
-        header.addCell(docCell);
-        doc.add(header);
-
-        // Bloc client
-        PdfPTable client = new PdfPTable(1);
-        client.setWidthPercentage(45);
-        client.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        client.setSpacingBefore(18);
-        PdfPCell clientCell = new PdfPCell();
-        clientCell.setPadding(8);
-        clientCell.setBorderColor(Color.LIGHT_GRAY);
-        clientCell.addElement(new Paragraph(partyLabel, small));
-        if (customer != null) {
-            clientCell.addElement(new Paragraph(customer.getName(), bold));
-            if (customer.getAddress() != null) clientCell.addElement(new Paragraph(customer.getAddress(), normal));
-            if (customer.getPhone() != null) clientCell.addElement(new Paragraph("Tél : " + customer.getPhone(), normal));
-            if (customer.getIce() != null) clientCell.addElement(new Paragraph("ICE : " + customer.getIce(), normal));
-        } else {
-            clientCell.addElement(new Paragraph(orDefault(freeCustomerName, "Client de passage"), bold));
+        if (spec.withPrices()) {
+            summary(doc, spec);
+        } else if (spec.note() != null) {
+            Paragraph note = new Paragraph(spec.note(), font(9, Font.ITALIC, GRAY));
+            note.setSpacingBefore(10);
+            doc.add(note);
         }
-        client.addCell(clientCell);
-        doc.add(client);
-
-        // Tableau des articles
-        PdfPTable table = withPrices
-                ? new PdfPTable(new float[]{1.4f, 4.2f, 0.8f, 1.5f, 0.9f, 1.6f})
-                : new PdfPTable(new float[]{1.6f, 6f, 1.2f});
-        table.setWidthPercentage(100);
-        table.setSpacingBefore(18);
-        table.setHeaderRows(1);
-        List<String> headings = withPrices
-                ? List.of("Réf.", "Désignation", "Qté", "P.U. HT", "TVA", "Total TTC")
-                : List.of("Réf.", "Désignation", "Quantité");
-        for (String h : headings) table.addCell(headCell(h));
-        for (Row r : rows) {
-            table.addCell(bodyCell(r.reference(), Element.ALIGN_LEFT));
-            table.addCell(bodyCell(r.designation(), Element.ALIGN_LEFT));
-            table.addCell(bodyCell(r.quantityLabel(), Element.ALIGN_CENTER));
-            if (withPrices) {
-                table.addCell(bodyCell(money(ht(r.unitPrice(), r.vatRate())), Element.ALIGN_RIGHT));
-                table.addCell(bodyCell(percent(r.vatRate()), Element.ALIGN_CENTER));
-                table.addCell(bodyCell(money(r.total()), Element.ALIGN_RIGHT));
-            }
-        }
-        doc.add(table);
-
-        if (withPrices) {
-            doc.add(totalsTable(rows, discount, total, amountPaid));
-            if (wordsPrefix != null) {
-                Paragraph words = new Paragraph();
-                words.setSpacingBefore(14);
-                words.add(new Chunk(wordsPrefix, normal));
-                words.add(new Chunk(capitalize(FrenchAmountWords.dirhams(total)) + " TTC.", bold));
-                doc.add(words);
-            }
-        } else {
-            // Bon de livraison : signatures
-            PdfPTable signatures = new PdfPTable(2);
-            signatures.setWidthPercentage(100);
-            signatures.setSpacingBefore(40);
-            for (String who : List.of("Signature du livreur", "Signature et cachet du client")) {
-                PdfPCell cell = new PdfPCell(new Phrase(who, small));
-                cell.setFixedHeight(80);
-                cell.setBorderColor(Color.LIGHT_GRAY);
-                cell.setPadding(6);
-                signatures.addCell(cell);
-            }
-            doc.add(signatures);
-        }
+        signatures(doc, spec.signatures());
 
         if (settings.getDocumentFooter() != null) {
-            Paragraph footer = new Paragraph(settings.getDocumentFooter(), small);
-            footer.setSpacingBefore(24);
+            Paragraph footer = new Paragraph(settings.getDocumentFooter(), font(8.5f, Font.ITALIC, GRAY));
+            footer.setSpacingBefore(18);
             footer.setAlignment(Element.ALIGN_CENTER);
             doc.add(footer);
         }
@@ -254,38 +250,298 @@ public class DocumentPdfService {
         return out.toByteArray();
     }
 
-    private PdfPTable totalsTable(List<Row> rows, BigDecimal discount, BigDecimal total, BigDecimal amountPaid) {
-        // La remise s'applique au TTC : on la répartit sur chaque taux au prorata
+    /** En-tête : logo + boutique à gauche, titre + cartouche de références à droite, filet de couleur. */
+    private void header(Document doc, ShopSettings settings, String title, List<Meta> meta) {
+        PdfPTable header = new PdfPTable(new float[]{1.3f, 1});
+        header.setWidthPercentage(100);
+
+        PdfPTable brand = new PdfPTable(new float[]{0.24f, 1});
+        brand.setWidthPercentage(100);
+        String shopName = orDefault(settings.getShopName(), "SmartShop");
+        PdfPCell logo = new PdfPCell(new Phrase(initials(shopName), font(17, Font.BOLD, Color.WHITE)));
+        logo.setBackgroundColor(ACCENT);
+        logo.setBorder(Rectangle.NO_BORDER);
+        logo.setFixedHeight(48);
+        logo.setHorizontalAlignment(Element.ALIGN_CENTER);
+        logo.setVerticalAlignment(Element.ALIGN_MIDDLE);
+        brand.addCell(logo);
+        PdfPCell shop = borderless();
+        shop.setPaddingLeft(10);
+        shop.addElement(new Paragraph(shopName, font(15, Font.BOLD, DARK)));
+        // Une seule ligne ici : le détail des coordonnées est dans le bloc "Émetteur" et en pied de page
+        String tagline = String.join(" · ", nonNull(settings.getCity(), settings.getPhone(), settings.getEmail()));
+        if (!tagline.isBlank()) shop.addElement(new Paragraph(tagline, font(8.5f, Font.NORMAL, GRAY)));
+        brand.addCell(shop);
+        PdfPCell left = borderless();
+        left.addElement(brand);
+        header.addCell(left);
+
+        PdfPCell right = borderless();
+        Paragraph docTitle = new Paragraph(title, font(20, Font.BOLD, ACCENT));
+        docTitle.setAlignment(Element.ALIGN_RIGHT);
+        right.addElement(docTitle);
+        PdfPTable metaTable = new PdfPTable(new float[]{1.1f, 1});
+        metaTable.setWidthPercentage(100);
+        metaTable.setSpacingBefore(6);
+        for (Meta m : meta) {
+            PdfPCell label = new PdfPCell(new Phrase(m.label(), font(8.5f, Font.NORMAL, GRAY)));
+            PdfPCell value = new PdfPCell(new Phrase(m.value(), font(9, Font.BOLD, DARK)));
+            for (PdfPCell c : List.of(label, value)) {
+                c.setBorder(Rectangle.BOTTOM);
+                c.setBorderColor(RULE);
+                c.setPaddingTop(3);
+                c.setPaddingBottom(4);
+            }
+            value.setHorizontalAlignment(Element.ALIGN_RIGHT);
+            metaTable.addCell(label);
+            metaTable.addCell(value);
+        }
+        right.addElement(metaTable);
+        header.addCell(right);
+        doc.add(header);
+
+        // Filet de couleur sous l'en-tête
+        PdfPTable rule = new PdfPTable(1);
+        rule.setWidthPercentage(100);
+        rule.setSpacingBefore(10);
+        PdfPCell bar = new PdfPCell();
+        bar.setFixedHeight(3);
+        bar.setBackgroundColor(ACCENT);
+        bar.setBorder(Rectangle.NO_BORDER);
+        rule.addCell(bar);
+        doc.add(rule);
+    }
+
+    /** Deux blocs d'adresse côte à côte (émetteur / destinataire). */
+    private void parties(Document doc, Party left, Party right) {
+        PdfPTable table = new PdfPTable(new float[]{1, 0.06f, 1});
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(14);
+        table.addCell(partyCell(left));
+        table.addCell(borderless());
+        table.addCell(partyCell(right));
+        doc.add(table);
+    }
+
+    private PdfPCell partyCell(Party party) {
+        PdfPCell cell = new PdfPCell();
+        cell.setBackgroundColor(LIGHT);
+        cell.setBorder(Rectangle.LEFT);
+        cell.setBorderColorLeft(ACCENT);
+        cell.setBorderWidthLeft(3);
+        cell.setPadding(10);
+        cell.addElement(new Paragraph(party.label(), font(8, Font.BOLD, ACCENT)));
+        for (int i = 0; i < party.lines().size(); i++) {
+            Paragraph p = new Paragraph(party.lines().get(i), i == 0 ? font(11, Font.BOLD, DARK) : font(9, Font.NORMAL, DARK));
+            p.setLeading(i == 0 ? 15 : 12);
+            cell.addElement(p);
+        }
+        return cell;
+    }
+
+    /** Tableau des articles : en-tête coloré, lignes alternées, montants alignés à droite. */
+    private PdfPTable itemsTable(List<Row> rows, boolean withPrices) {
+        PdfPTable table = withPrices
+                ? new PdfPTable(new float[]{0.4f, 1.3f, 3.6f, 0.8f, 1.3f, 0.7f, 1.4f})
+                : new PdfPTable(new float[]{0.4f, 1.4f, 4.6f, 1, 1});
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(16);
+        table.setHeaderRows(1);
+        List<String> headings = withPrices
+                ? List.of("#", "Réf.", "Désignation", "Qté", "P.U. HT", "TVA", "Total HT")
+                : List.of("#", "Réf.", "Désignation", "Quantité", "Contrôle");
+        for (int i = 0; i < headings.size(); i++) {
+            table.addCell(headCell(headings.get(i), i >= 3 ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT));
+        }
+        for (int i = 0; i < rows.size(); i++) {
+            Row r = rows.get(i);
+            Color bg = i % 2 == 1 ? ZEBRA : Color.WHITE;
+            table.addCell(itemCell(Integer.toString(i + 1), Element.ALIGN_LEFT, bg, GRAY));
+            table.addCell(itemCell(r.reference(), Element.ALIGN_LEFT, bg, GRAY));
+            table.addCell(itemCell(r.designation(), Element.ALIGN_LEFT, bg, DARK));
+            table.addCell(itemCell(r.quantityLabel(), Element.ALIGN_RIGHT, bg, DARK));
+            if (withPrices) {
+                table.addCell(itemCell(money(ht(r.unitPrice(), r.vatRate())), Element.ALIGN_RIGHT, bg, DARK));
+                table.addCell(itemCell(percent(r.vatRate()), Element.ALIGN_RIGHT, bg, GRAY));
+                table.addCell(itemCell(money(ht(r.total(), r.vatRate())), Element.ALIGN_RIGHT, bg, DARK));
+            } else {
+                table.addCell(itemCell("", Element.ALIGN_RIGHT, bg, DARK));
+            }
+        }
+        return table;
+    }
+
+    /** Bas de document : montant en lettres et paiement à gauche, totaux à droite. */
+    private void summary(Document doc, DocSpec spec) {
+        PdfPTable layout = new PdfPTable(new float[]{1.15f, 0.08f, 1});
+        layout.setWidthPercentage(100);
+        layout.setSpacingBefore(14);
+        layout.setKeepTogether(true);
+
+        PdfPCell left = borderless();
+        if (spec.wordsPrefix() != null) {
+            PdfPCell words = new PdfPCell();
+            words.setBorderColor(RULE);
+            words.setPadding(9);
+            words.addElement(new Paragraph(spec.wordsPrefix(), font(8.5f, Font.NORMAL, GRAY)));
+            words.addElement(new Paragraph(capitalize(FrenchAmountWords.dirhams(spec.total())) + " TTC.", font(9.5f, Font.BOLD, DARK)));
+            PdfPTable box = new PdfPTable(1);
+            box.setWidthPercentage(100);
+            box.addCell(words);
+            left.addElement(box);
+        }
+        if (spec.paymentLabel() != null || spec.amountPaid() != null) {
+            PdfPTable pay = new PdfPTable(new float[]{1, 1});
+            pay.setWidthPercentage(100);
+            pay.setSpacingBefore(8);
+            if (spec.paymentLabel() != null) payRow(pay, "Mode de paiement", spec.paymentLabel(), DARK);
+            if (spec.amountPaid() != null) {
+                payRow(pay, "Montant réglé", money(spec.amountPaid()) + " DH", SUCCESS);
+                BigDecimal rest = spec.total().subtract(spec.amountPaid());
+                payRow(pay, "Reste à payer", money(rest.max(BigDecimal.ZERO)) + " DH", rest.signum() > 0 ? DANGER : DARK);
+            }
+            left.addElement(pay);
+        }
+        if (spec.note() != null && !spec.note().isBlank()) {
+            Paragraph note = new Paragraph("Note : " + spec.note(), font(8.5f, Font.ITALIC, GRAY));
+            note.setSpacingBefore(8);
+            left.addElement(note);
+        }
+        layout.addCell(left);
+        layout.addCell(borderless());
+
+        PdfPCell right = borderless();
+        right.addElement(totalsTable(spec.rows(), spec.discount(), spec.total()));
+        layout.addCell(right);
+        doc.add(layout);
+    }
+
+    private PdfPTable totalsTable(List<Row> rows, BigDecimal discount, BigDecimal total) {
+        // Prix saisis TTC : la remise est répartie au prorata sur chaque taux de TVA
         BigDecimal subtotal = rows.stream().map(Row::total).reduce(BigDecimal.ZERO, BigDecimal::add);
         BigDecimal factor = subtotal.signum() == 0 ? BigDecimal.ONE : total.divide(subtotal, 10, RoundingMode.HALF_UP);
+        BigDecimal grossHt = BigDecimal.ZERO;
         Map<BigDecimal, BigDecimal> ttcByRate = new TreeMap<>();
-        for (Row r : rows) ttcByRate.merge(r.vatRate().stripTrailingZeros(), r.total().multiply(factor), BigDecimal::add);
-
-        BigDecimal totalHt = BigDecimal.ZERO;
+        for (Row r : rows) {
+            grossHt = grossHt.add(ht(r.total(), r.vatRate()));
+            ttcByRate.merge(r.vatRate().stripTrailingZeros(), r.total().multiply(factor), BigDecimal::add);
+        }
+        BigDecimal netHt = BigDecimal.ZERO;
         Map<BigDecimal, BigDecimal> vatByRate = new TreeMap<>();
         for (Map.Entry<BigDecimal, BigDecimal> e : ttcByRate.entrySet()) {
             BigDecimal ht = ht(e.getValue(), e.getKey());
-            totalHt = totalHt.add(ht);
+            netHt = netHt.add(ht);
             vatByRate.put(e.getKey(), e.getValue().setScale(2, RoundingMode.HALF_UP).subtract(ht));
         }
 
-        PdfPTable totals = new PdfPTable(new float[]{2, 1.4f});
-        totals.setWidthPercentage(42);
-        totals.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        totals.setSpacingBefore(10);
+        PdfPTable totals = new PdfPTable(new float[]{1.4f, 1});
+        totals.setWidthPercentage(100);
         if (discount != null && discount.signum() > 0) {
-            totalLine(totals, "Total avant remise", money(subtotal), false);
-            totalLine(totals, "Remise", "- " + money(discount), false);
+            totalLine(totals, "Total HT brut", money(grossHt), false);
+            totalLine(totals, "Remise", "- " + money(grossHt.subtract(netHt)), false);
+            totalLine(totals, "Total HT net", money(netHt), false);
+        } else {
+            totalLine(totals, "Total HT", money(netHt), false);
         }
-        totalLine(totals, "Total HT", money(totalHt), false);
         vatByRate.forEach((rate, vat) -> totalLine(totals, "TVA " + percent(rate), money(vat), false));
-        totalLine(totals, "Total TTC", money(total), true);
-        if (amountPaid != null) {
-            totalLine(totals, "Payé", money(amountPaid), false);
-            BigDecimal rest = total.subtract(amountPaid);
-            if (rest.signum() > 0) totalLine(totals, "Reste à payer", money(rest), true);
-        }
+        totalLine(totals, "TOTAL TTC", money(total), true);
         return totals;
+    }
+
+    private static void payRow(PdfPTable table, String label, String value, Color valueColor) {
+        PdfPCell l = new PdfPCell(new Phrase(label, font(8.5f, Font.NORMAL, GRAY)));
+        PdfPCell v = new PdfPCell(new Phrase(value, font(9, Font.BOLD, valueColor)));
+        for (PdfPCell c : List.of(l, v)) {
+            c.setBorder(Rectangle.BOTTOM);
+            c.setBorderColor(RULE);
+            c.setPaddingTop(3);
+            c.setPaddingBottom(4);
+        }
+        v.setHorizontalAlignment(Element.ALIGN_RIGHT);
+        table.addCell(l);
+        table.addCell(v);
+    }
+
+    /** Cases de signature alignées à droite (une ou deux). */
+    private void signatures(Document doc, List<String> labels) {
+        if (labels == null || labels.isEmpty()) return;
+        PdfPTable table = labels.size() == 1 ? new PdfPTable(new float[]{1.3f, 1}) : new PdfPTable(new float[]{1, 0.08f, 1});
+        table.setWidthPercentage(100);
+        table.setSpacingBefore(22);
+        table.setKeepTogether(true);
+        if (labels.size() == 1) table.addCell(borderless());
+        for (int i = 0; i < labels.size(); i++) {
+            if (i > 0) table.addCell(borderless());
+            PdfPCell box = new PdfPCell(new Phrase(labels.get(i), font(8.5f, Font.NORMAL, GRAY)));
+            box.setFixedHeight(78);
+            box.setBorderColor(RULE);
+            box.setPadding(7);
+            table.addCell(box);
+        }
+        doc.add(table);
+    }
+
+    /** Pied de chaque page : mentions légales et numéro de page "x / y". */
+    private final class PageFooter extends com.lowagie.text.pdf.PdfPageEventHelper {
+        private final ShopSettings settings;
+        private com.lowagie.text.pdf.PdfTemplate totalPages;
+        private com.lowagie.text.pdf.BaseFont base;
+
+        PageFooter(ShopSettings settings) {
+            this.settings = settings;
+        }
+
+        @Override
+        public void onOpenDocument(PdfWriter writer, Document document) {
+            totalPages = writer.getDirectContent().createTemplate(30, 12);
+            try {
+                base = com.lowagie.text.pdf.BaseFont.createFont(com.lowagie.text.pdf.BaseFont.HELVETICA, "Cp1252", false);
+            } catch (Exception e) {
+                throw new IllegalStateException(e);
+            }
+        }
+
+        @Override
+        public void onEndPage(PdfWriter writer, Document document) {
+            com.lowagie.text.pdf.PdfContentByte cb = writer.getDirectContent();
+            float left = document.left();
+            float right = document.right();
+            float y = 44;
+            cb.saveState();
+            cb.setColorStroke(RULE);
+            cb.setLineWidth(0.6f);
+            cb.moveTo(left, y);
+            cb.lineTo(right, y);
+            cb.stroke();
+
+            List<String> legal = nonNull(orDefault(settings.getShopName(), "SmartShop"),
+                    settings.getIce() != null ? "ICE " + settings.getIce() : null,
+                    settings.getFiscalId() != null ? "IF " + settings.getFiscalId() : null,
+                    settings.getTradeRegister() != null ? "RC " + settings.getTradeRegister() : null,
+                    settings.getPatente() != null ? "Patente " + settings.getPatente() : null);
+            String contact = String.join(" · ", nonNull(String.join(", ", nonNull(settings.getAddress(), settings.getCity())),
+                    settings.getPhone() != null ? "Tél " + settings.getPhone() : null, settings.getEmail()));
+
+            cb.beginText();
+            cb.setFontAndSize(base, 7.5f);
+            cb.setColorFill(GRAY);
+            cb.showTextAligned(Element.ALIGN_LEFT, String.join(" · ", legal), left, y - 12, 0);
+            if (!contact.isBlank()) cb.showTextAligned(Element.ALIGN_LEFT, contact, left, y - 22, 0);
+            String page = "Page " + writer.getPageNumber() + " / ";
+            cb.showTextAligned(Element.ALIGN_RIGHT, page, right - 14, y - 12, 0);
+            cb.endText();
+            cb.addTemplate(totalPages, right - 14, y - 12);
+            cb.restoreState();
+        }
+
+        @Override
+        public void onCloseDocument(PdfWriter writer, Document document) {
+            totalPages.beginText();
+            totalPages.setFontAndSize(base, 7.5f);
+            totalPages.setColorFill(GRAY);
+            totalPages.showText(String.valueOf(writer.getPageNumber() - 1));
+            totalPages.endText();
+        }
     }
 
     // ------------------------------------------------------------------ Relevé de compte client
@@ -293,67 +549,59 @@ public class DocumentPdfService {
     public byte[] statement(smartshop.dto.StatementResponse st) {
         ShopSettings settings = settingsService.get();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
-        Document doc = new Document(PageSize.A4, 40, 40, 40, 50);
-        PdfWriter.getInstance(doc, out);
+        Document doc = new Document(PageSize.A4, 36, 36, 36, 64);
+        PdfWriter writer = PdfWriter.getInstance(doc, out);
+        writer.setPageEvent(new PageFooter(settings));
         doc.open();
 
-        Font small = font(8, Font.NORMAL, Color.DARK_GRAY);
-        Font normal = font(10, Font.NORMAL, Color.BLACK);
-        Font bold = font(10, Font.BOLD, Color.BLACK);
+        String period = (st.from() != null ? DATE.format(st.from()) + " - " : "Jusqu'au ") + DATE.format(st.to());
+        header(doc, settings, "RELEVÉ DE COMPTE", List.of(new Meta("Période", period), new Meta("Édité le", DATE.format(LocalDateTime.now()))));
+        List<String> client = new ArrayList<>();
+        client.add(st.customerName());
+        if (st.customerAddress() != null) client.add(st.customerAddress());
+        if (st.customerPhone() != null) client.add("Tél : " + st.customerPhone());
+        if (st.customerIce() != null) client.add("ICE : " + st.customerIce());
+        parties(doc, issuer(settings), new Party("CLIENT", client));
 
-        PdfPTable header = new PdfPTable(new float[]{3, 2});
-        header.setWidthPercentage(100);
-        PdfPCell shop = borderless();
-        shop.addElement(new Paragraph(orDefault(settings.getShopName(), "SmartShop"), font(16, Font.BOLD, ACCENT)));
-        for (String line : shopLines(settings)) shop.addElement(new Paragraph(line, small));
-        header.addCell(shop);
-        PdfPCell title = borderless();
-        Paragraph t = new Paragraph("RELEVÉ DE COMPTE", font(16, Font.BOLD, ACCENT));
-        t.setAlignment(Element.ALIGN_RIGHT);
-        title.addElement(t);
-        String period = (st.from() != null ? "Du " + DATE.format(st.from()) + " " : "") + "au " + DATE.format(st.to());
-        title.addElement(right(period, normal));
-        title.addElement(right("Édité le " + DATE.format(LocalDateTime.now()), small));
-        header.addCell(title);
-        doc.add(header);
-
-        Paragraph client = new Paragraph();
-        client.setSpacingBefore(14);
-        client.add(new Chunk("Client : ", normal));
-        client.add(new Chunk(st.customerName(), bold));
-        if (st.customerPhone() != null) client.add(new Chunk("  -  Tél : " + st.customerPhone(), normal));
-        if (st.customerIce() != null) client.add(new Chunk("  -  ICE : " + st.customerIce(), normal));
-        doc.add(client);
-
-        PdfPTable table = new PdfPTable(new float[]{1.3f, 1.6f, 3.2f, 1.4f, 1.4f, 1.5f});
+        PdfPTable table = new PdfPTable(new float[]{1.2f, 1.5f, 3.2f, 1.3f, 1.3f, 1.4f});
         table.setWidthPercentage(100);
-        table.setSpacingBefore(12);
+        table.setSpacingBefore(16);
         table.setHeaderRows(1);
-        for (String h : List.of("Date", "Réf.", "Libellé", "Débit", "Crédit", "Solde")) table.addCell(headCell(h));
-        table.addCell(bodyCell("", Element.ALIGN_LEFT));
-        table.addCell(bodyCell("", Element.ALIGN_LEFT));
-        table.addCell(bodyCell("Solde au début de la période", Element.ALIGN_LEFT));
-        table.addCell(bodyCell("", Element.ALIGN_RIGHT));
-        table.addCell(bodyCell("", Element.ALIGN_RIGHT));
-        table.addCell(bodyCell(money(st.openingBalance()), Element.ALIGN_RIGHT));
-        for (smartshop.dto.StatementResponse.Entry e : st.entries()) {
-            table.addCell(bodyCell(DATE.format(e.date()), Element.ALIGN_LEFT));
-            table.addCell(bodyCell(e.reference(), Element.ALIGN_LEFT));
-            table.addCell(bodyCell(e.label(), Element.ALIGN_LEFT));
-            table.addCell(bodyCell(e.debit().signum() > 0 ? money(e.debit()) : "", Element.ALIGN_RIGHT));
-            table.addCell(bodyCell(e.credit().signum() > 0 ? money(e.credit()) : "", Element.ALIGN_RIGHT));
-            table.addCell(bodyCell(money(e.balance()), Element.ALIGN_RIGHT));
+        List<String> headings = List.of("Date", "Réf.", "Libellé", "Débit", "Crédit", "Solde");
+        for (int i = 0; i < headings.size(); i++) table.addCell(headCell(headings.get(i), i >= 3 ? Element.ALIGN_RIGHT : Element.ALIGN_LEFT));
+        table.addCell(itemCell("", Element.ALIGN_LEFT, LIGHT, GRAY));
+        table.addCell(itemCell("", Element.ALIGN_LEFT, LIGHT, GRAY));
+        table.addCell(itemCell("Solde au début de la période", Element.ALIGN_LEFT, LIGHT, DARK));
+        table.addCell(itemCell("", Element.ALIGN_RIGHT, LIGHT, DARK));
+        table.addCell(itemCell("", Element.ALIGN_RIGHT, LIGHT, DARK));
+        table.addCell(itemCell(money(st.openingBalance()), Element.ALIGN_RIGHT, LIGHT, DARK));
+        for (int i = 0; i < st.entries().size(); i++) {
+            smartshop.dto.StatementResponse.Entry e = st.entries().get(i);
+            Color bg = i % 2 == 1 ? ZEBRA : Color.WHITE;
+            table.addCell(itemCell(DATE.format(e.date()), Element.ALIGN_LEFT, bg, GRAY));
+            table.addCell(itemCell(e.reference(), Element.ALIGN_LEFT, bg, GRAY));
+            table.addCell(itemCell(e.label(), Element.ALIGN_LEFT, bg, DARK));
+            table.addCell(itemCell(e.debit().signum() > 0 ? money(e.debit()) : "", Element.ALIGN_RIGHT, bg, DARK));
+            table.addCell(itemCell(e.credit().signum() > 0 ? money(e.credit()) : "", Element.ALIGN_RIGHT, bg, SUCCESS));
+            table.addCell(itemCell(money(e.balance()), Element.ALIGN_RIGHT, bg, DARK));
         }
         doc.add(table);
 
-        PdfPTable totals = new PdfPTable(new float[]{2, 1.4f});
-        totals.setWidthPercentage(42);
-        totals.setHorizontalAlignment(Element.ALIGN_RIGHT);
-        totals.setSpacingBefore(10);
+        PdfPTable layout = new PdfPTable(new float[]{1.15f, 0.08f, 1});
+        layout.setWidthPercentage(100);
+        layout.setSpacingBefore(14);
+        layout.setKeepTogether(true);
+        layout.addCell(borderless());
+        layout.addCell(borderless());
+        PdfPTable totals = new PdfPTable(new float[]{1.4f, 1});
+        totals.setWidthPercentage(100);
         totalLine(totals, "Total débit", money(st.totalDebit()), false);
         totalLine(totals, "Total crédit", money(st.totalCredit()), false);
-        totalLine(totals, "Solde dû", money(st.closingBalance()), true);
-        doc.add(totals);
+        totalLine(totals, "SOLDE DÛ", money(st.closingBalance()), true);
+        PdfPCell right = borderless();
+        right.addElement(totals);
+        layout.addCell(right);
+        doc.add(layout);
         doc.close();
         return out.toByteArray();
     }
@@ -487,31 +735,52 @@ public class DocumentPdfService {
         return cell;
     }
 
-    private static PdfPCell headCell(String text) {
-        PdfPCell cell = new PdfPCell(new Phrase(text, font(9, Font.BOLD, Color.WHITE)));
+    private static PdfPCell headCell(String text, int align) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font(8.5f, Font.BOLD, Color.WHITE)));
         cell.setBackgroundColor(ACCENT);
-        cell.setBorderColor(ACCENT);
-        cell.setPadding(6);
-        cell.setHorizontalAlignment(Element.ALIGN_CENTER);
-        return cell;
-    }
-
-    private static PdfPCell bodyCell(String text, int align) {
-        PdfPCell cell = new PdfPCell(new Phrase(text, font(9, Font.NORMAL, Color.BLACK)));
-        cell.setBorderColor(Color.LIGHT_GRAY);
-        cell.setPadding(5);
+        cell.setBorder(Rectangle.NO_BORDER);
+        cell.setPaddingTop(7);
+        cell.setPaddingBottom(7);
+        cell.setPaddingLeft(6);
+        cell.setPaddingRight(6);
         cell.setHorizontalAlignment(align);
         return cell;
     }
 
+    private static PdfPCell itemCell(String text, int align, Color background, Color color) {
+        PdfPCell cell = new PdfPCell(new Phrase(text, font(9, Font.NORMAL, color)));
+        cell.setBackgroundColor(background);
+        cell.setBorder(Rectangle.BOTTOM);
+        cell.setBorderColor(RULE);
+        cell.setPaddingTop(6);
+        cell.setPaddingBottom(7);
+        cell.setPaddingLeft(6);
+        cell.setPaddingRight(6);
+        cell.setHorizontalAlignment(align);
+        return cell;
+    }
+
+    /** "Atlas Phone" -> "AP" (logo par défaut tant que la boutique n'a pas de logo). */
+    private static String initials(String name) {
+        StringBuilder out = new StringBuilder();
+        for (String word : name.trim().split("\\s+")) {
+            if (!word.isEmpty() && out.length() < 2) out.append(Character.toUpperCase(word.charAt(0)));
+        }
+        return out.length() == 0 ? "S" : out.toString();
+    }
+
     private static void totalLine(PdfPTable table, String label, String value, boolean strong) {
-        Font f = font(strong ? 11 : 9.5f, strong ? Font.BOLD : Font.NORMAL, Color.BLACK);
+        Font f = strong ? font(11, Font.BOLD, Color.WHITE) : font(9.5f, Font.NORMAL, DARK);
         PdfPCell l = new PdfPCell(new Phrase(label, f));
         PdfPCell v = new PdfPCell(new Phrase(value + " DH", f));
         for (PdfPCell c : List.of(l, v)) {
-            c.setPadding(5);
-            c.setBorderColor(Color.LIGHT_GRAY);
-            if (strong) c.setBackgroundColor(LIGHT);
+            c.setPaddingTop(strong ? 8 : 5);
+            c.setPaddingBottom(strong ? 9 : 6);
+            c.setPaddingLeft(8);
+            c.setPaddingRight(8);
+            c.setBorder(strong ? Rectangle.NO_BORDER : Rectangle.BOTTOM);
+            c.setBorderColor(RULE);
+            if (strong) c.setBackgroundColor(ACCENT);
         }
         v.setHorizontalAlignment(Element.ALIGN_RIGHT);
         table.addCell(l);

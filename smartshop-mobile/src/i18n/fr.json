@@ -251,7 +251,9 @@
     "supplierDebt": "Dettes aux fournisseurs",
     "stockValue": "Valeur du stock",
     "lowStock": "Produits en stock bas",
-    "periodLabel": "Période"
+    "periodLabel": "Période",
+    "exportExcel": "Rapport Excel détaillé",
+    "exportPdf": "Résumé PDF"
   },
   "expenses": {
     "title": "Dépenses",

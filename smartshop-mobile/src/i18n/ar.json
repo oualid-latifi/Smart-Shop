@@ -251,7 +251,9 @@
     "supplierDebt": "ديون الموردين",
     "stockValue": "قيمة المخزون",
     "lowStock": "منتجات بمخزون منخفض",
-    "periodLabel": "الفترة"
+    "periodLabel": "الفترة",
+    "exportExcel": "تقرير Excel مفصل",
+    "exportPdf": "ملخص PDF"
   },
   "expenses": {
     "title": "المصاريف",

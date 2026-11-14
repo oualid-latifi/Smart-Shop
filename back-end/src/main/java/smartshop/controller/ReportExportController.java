@@ -16,8 +16,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipOutputStream;
 
 @RestController
 @RequestMapping("/api/reports/export")
@@ -25,20 +23,24 @@ public class ReportExportController {
 
     private static final String XLSX_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
     private final ReportService reportService;
+    private final smartshop.service.ExcelReportService excelReportService;
 
-    public ReportExportController(ReportService reportService) {
+    public ReportExportController(ReportService reportService, smartshop.service.ExcelReportService excelReportService) {
         this.reportService = reportService;
+        this.excelReportService = excelReportService;
     }
 
     @GetMapping("/excel")
     public ResponseEntity<byte[]> excel(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) throws IOException {
-        ReportSummaryResponse report = reportService.summary(from, to);
+        LocalDate end = to != null ? to : LocalDate.now();
+        LocalDate start = from != null ? from : end.withDayOfMonth(1);
+        String name = "rapport-" + start + "-au-" + end + ".xlsx";
         return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=smartshop-report.xlsx")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + name + "\"")
                 .contentType(MediaType.parseMediaType(XLSX_TYPE))
-                .body(buildWorkbook(report));
+                .body(excelReportService.build(start, end));
     }
 
     @GetMapping("/pdf")
@@ -50,59 +52,6 @@ public class ReportExportController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=smartshop-report.pdf")
                 .contentType(MediaType.APPLICATION_PDF)
                 .body(buildPdf(report));
-    }
-
-    private byte[] buildWorkbook(ReportSummaryResponse r) throws IOException {
-        java.util.ArrayList<String[]> rows = new java.util.ArrayList<>(List.of(
-                new String[]{"SmartShop - Rapport", "Valeur"},
-                new String[]{"Du", r.from().toString()},
-                new String[]{"Au", r.to().toString()},
-                new String[]{"Nombre de ventes", Long.toString(r.salesCount())},
-                new String[]{"Chiffre d'affaires (DH)", r.revenue().toPlainString()},
-                new String[]{"Coût des produits vendus (DH)", r.costOfGoodsSold().toPlainString()},
-                new String[]{"Bénéfice brut (DH)", r.grossProfit().toPlainString()},
-                new String[]{"Dépenses (DH)", r.expenses().toPlainString()},
-                new String[]{"Bénéfice net (DH)", r.netProfit().toPlainString()},
-                new String[]{"Argent encaissé (DH)", r.cashCollected().toPlainString()},
-                new String[]{"Payé aux fournisseurs (DH)", r.paidToSuppliers().toPlainString()},
-                new String[]{"Total achats (DH)", r.purchasesTotal().toPlainString()},
-                new String[]{"Flux de trésorerie net (DH)", r.netCashFlow().toPlainString()},
-                new String[]{"Dette clients (DH)", r.totalCustomerDebt().toPlainString()},
-                new String[]{"Dette fournisseurs (DH)", r.totalSupplierDebt().toPlainString()},
-                new String[]{"Valeur du stock (DH)", r.stockValue().toPlainString()},
-                new String[]{"Produits en stock bas", Long.toString(r.lowStockCount())}
-        ));
-        rows.add(new String[]{"", ""});
-        rows.add(new String[]{"Produits les plus vendus", "Quantité", "Chiffre d'affaires (DH)"});
-        r.topProducts().forEach(p -> rows.add(new String[]{p.name(), Long.toString(p.quantitySold()), p.revenue().toPlainString()}));
-        StringBuilder sheet = new StringBuilder("<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>")
-                .append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");
-        for (int i = 0; i < rows.size(); i++) {
-            sheet.append("<row r=\"").append(i + 1).append("\">");
-            for (int c = 0; c < rows.get(i).length; c++) {
-                String cell = c == 0 ? "A" : c == 1 ? "B" : "C";
-                String value = rows.get(i)[c];
-                boolean numeric = i > 2 && !value.isBlank() && value.matches("-?\\d+(\\.\\d+)?");
-                if (numeric) {
-                    sheet.append("<c r=\"").append(cell).append(i + 1).append("\" t=\"n\"><v>").append(value).append("</v></c>");
-                } else {
-                    sheet.append("<c r=\"").append(cell).append(i + 1).append("\" t=\"inlineStr\"><is><t xml:space=\"preserve\">")
-                            .append(xml(value)).append("</t></is></c>");
-                }
-            }
-            sheet.append("</row>");
-        }
-        sheet.append("</sheetData></worksheet>");
-
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        try (ZipOutputStream zip = new ZipOutputStream(bytes, StandardCharsets.UTF_8)) {
-            put(zip, "[Content_Types].xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\"><Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/><Default Extension=\"xml\" ContentType=\"application/xml\"/><Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/><Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/></Types>");
-            put(zip, "_rels/.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/></Relationships>");
-            put(zip, "xl/workbook.xml", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\"><sheets><sheet name=\"Rapport\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
-            put(zip, "xl/_rels/workbook.xml.rels", "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\"><Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/></Relationships>");
-            put(zip, "xl/worksheets/sheet1.xml", sheet.toString());
-        }
-        return bytes.toByteArray();
     }
 
     private byte[] buildPdf(ReportSummaryResponse r) {
@@ -155,16 +104,6 @@ public class ReportExportController {
             throw new IllegalStateException(impossible);
         }
         return out.toByteArray();
-    }
-
-    private static void put(ZipOutputStream zip, String name, String content) throws IOException {
-        zip.putNextEntry(new ZipEntry(name));
-        zip.write(content.getBytes(StandardCharsets.UTF_8));
-        zip.closeEntry();
-    }
-
-    private static String xml(String value) {
-        return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;").replace("'", "&apos;");
     }
 
     private static String pdfSafe(String value) {
