@@ -50,7 +50,9 @@ public class EnumConstraintUpdater implements ApplicationRunner {
             new EnumColumn("purchase_orders", "status", PurchaseOrder.Status.class),
             new EnumColumn("inventory_counts", "status", InventoryCount.Status.class),
             new EnumColumn("warehouses", "type", Warehouse.Type.class),
-            new EnumColumn("promotions", "kind", smartshop.entity.Promotion.Kind.class));
+            new EnumColumn("promotions", "kind", smartshop.entity.Promotion.Kind.class),
+            new EnumColumn("notifications", "type", smartshop.entity.Notification.Type.class),
+            new EnumColumn("notifications", "audience", smartshop.entity.Permission.class));
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;

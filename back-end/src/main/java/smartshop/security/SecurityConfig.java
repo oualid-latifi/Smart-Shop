@@ -60,7 +60,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/settings", "/api/settings/**").hasAuthority("SETTINGS")
                         .requestMatchers(HttpMethod.GET, "/api/promotions/**").authenticated()
                         .requestMatchers("/api/promotions/**").hasAuthority("PRODUCTS_WRITE")
-                        .requestMatchers("/api/import/**").hasAuthority("SETTINGS")
+                        .requestMatchers("/api/import/**", "/api/backups/**").hasAuthority("SETTINGS")
                         .requestMatchers("/api/cash/**").hasAuthority("CASH")
                         // Ventes et devis
                         .requestMatchers(HttpMethod.POST, "/api/sales/*/cancel").hasAuthority("SALES_CANCEL")

@@ -13,6 +13,7 @@ import { useAuth } from '../auth/AuthContext';
 import PrimaryButton from '../components/PrimaryButton';
 import { Avatar, Badge, Card, IconTile, SectionHeader, StatTile } from '../components/ui';
 import { formatMoney } from '../format';
+import { useNotifications } from '../notifications';
 import { colors, heroGradient, radius, spacing } from '../theme';
 import { ProgressBar } from './TargetsScreen';
 
@@ -55,6 +56,7 @@ export default function DashboardScreen() {
   const canReports = can('REPORTS');
   const canSales = can('SALES');
 
+  const { unread } = useNotifications();
   const [report, setReport] = useState<TodayReport | null>(null);
   const [daily, setDaily] = useState<DailyPoint[]>([]);
   const [recent, setRecent] = useState<Sale[]>([]);
@@ -105,6 +107,14 @@ export default function DashboardScreen() {
             <Text style={styles.name} numberOfLines={1}>{user?.name ?? ''}</Text>
             <Text style={styles.muted}>{isAr ? 'يوم سعيد!' : 'Bonne journée !'}</Text>
           </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('notifs.bell', { n: unread })} onPress={() => navigation.navigate('More', { screen: 'Notifications' })} style={styles.bell} hitSlop={6}>
+            <Ionicons name={unread > 0 ? 'notifications' : 'notifications-outline'} size={22} color={colors.text} />
+            {unread > 0 ? (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>{unread > 99 ? '99+' : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
           <Pressable accessibilityRole="button" accessibilityLabel={t('tabs.more')} onPress={() => navigation.navigate('More')}>
             <Avatar name={user?.name ?? 'S'} size={46} />
           </Pressable>
@@ -251,6 +261,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   loader: { marginVertical: spacing.lg },
   header: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginBottom: spacing.md },
+  bell: { width: 46, height: 46, borderRadius: 23, backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  bellBadge: { position: 'absolute', top: -2, right: -2, minWidth: 20, height: 20, paddingHorizontal: 5, borderRadius: 10, backgroundColor: colors.danger, alignItems: 'center', justifyContent: 'center' },
+  bellBadgeText: { color: '#fff', fontSize: 11, fontWeight: '900' },
   hello: { color: colors.text, fontSize: 15, fontWeight: '600' },
   name: { color: colors.text, fontSize: 22, fontWeight: '900', marginTop: 2 },
   muted: { color: colors.muted, fontSize: 12 },

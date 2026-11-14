@@ -45,6 +45,9 @@ public class SaleService {
     private final SaleReturnRepository saleReturnRepository;
     private final PromotionService promotionService;
     private final ApprovalService approvalService;
+    private final NotificationService notificationService;
+    private final ShopSettingsService settingsService;
+    private final smartshop.repository.SalesTargetRepository targetRepository;
 
     public SaleService(SaleRepository saleRepository,
                        CustomerRepository customerRepository,
@@ -54,7 +57,10 @@ public class SaleService {
                        NumberingService numberingService,
                        SaleReturnRepository saleReturnRepository,
                        PromotionService promotionService,
-                       ApprovalService approvalService) {
+                       ApprovalService approvalService,
+                       NotificationService notificationService,
+                       ShopSettingsService settingsService,
+                       smartshop.repository.SalesTargetRepository targetRepository) {
         this.saleRepository = saleRepository;
         this.customerRepository = customerRepository;
         this.paymentRepository = paymentRepository;
@@ -64,6 +70,9 @@ public class SaleService {
         this.saleReturnRepository = saleReturnRepository;
         this.promotionService = promotionService;
         this.approvalService = approvalService;
+        this.notificationService = notificationService;
+        this.settingsService = settingsService;
+        this.targetRepository = targetRepository;
     }
 
     @Transactional
@@ -95,6 +104,7 @@ public class SaleService {
         BigDecimal subtotal = BigDecimal.ZERO;
         // Valeur "prix catalogue" (promotions comprises) : sert à mesurer la remise réelle accordée
         BigDecimal catalogValue = BigDecimal.ZERO;
+        List<Product> lowStockProducts = new java.util.ArrayList<>();
         var running = promotionService.running();
 
         for (SaleLineRequest lineRequest : request.lines()) {
@@ -132,8 +142,10 @@ public class SaleService {
             subtotal = subtotal.add(line.getLineTotal());
 
             // Le stock peut devenir négatif : la vente reste autorisée
+            boolean wasAboveThreshold = product.getStockQuantity() > product.getAlertThreshold();
             product.setStockQuantity(product.getStockQuantity() - units);
             productRepository.save(product);
+            if (wasAboveThreshold && product.getStockQuantity() <= product.getAlertThreshold()) lowStockProducts.add(product);
         }
 
         // Remise en % prioritaire : convertie en DH sur le sous-total
@@ -186,6 +198,7 @@ public class SaleService {
             paymentRepository.save(payment);
         }
 
+        notifyAfterSale(saved, lowStockProducts);
         return saved;
     }
 
@@ -316,6 +329,29 @@ public class SaleService {
             payment.setCheckStatus(CheckStatus.PENDING);
         }
         return payment;
+    }
+
+    // Notifications déclenchées par une vente (jamais bloquantes)
+    private void notifyAfterSale(Sale sale, List<Product> lowStock) {
+        lowStock.forEach(notificationService::lowStock);
+        BigDecimal big = settingsService.get().getBigSaleAmount();
+        if (big != null && sale.getTotal().compareTo(big) >= 0) {
+            notificationService.notify(smartshop.entity.Notification.Type.BIG_SALE, "Grosse vente : " + DocumentPdfService.money(sale.getTotal()) + " DH",
+                    sale.getDisplayNumber() + (sale.getCustomer() != null ? " · " + sale.getCustomer().getName() : "")
+                            + (sale.getSeller() != null ? " · par " + sale.getSeller().getName() : ""),
+                    smartshop.entity.Permission.REPORTS, sale.getId(), "big-sale:" + sale.getId());
+        }
+        if (sale.getSeller() != null) {
+            java.time.YearMonth month = java.time.YearMonth.now();
+            targetRepository.findByUser_IdAndMonth(sale.getSeller().getId(), month.toString()).ifPresent(target -> {
+                BigDecimal achieved = targetRepository.sumSalesBySeller(sale.getSeller().getId(), month.atDay(1).atStartOfDay(), month.plusMonths(1).atDay(1).atStartOfDay());
+                if (target.getAmount().signum() > 0 && achieved.compareTo(target.getAmount()) >= 0) {
+                    notificationService.notify(smartshop.entity.Notification.Type.TARGET_REACHED, "Objectif atteint : " + sale.getSeller().getName(),
+                            DocumentPdfService.money(achieved) + " DH sur un objectif de " + DocumentPdfService.money(target.getAmount()) + " DH",
+                            null, sale.getSeller().getId(), "target:" + sale.getSeller().getId() + ":" + month);
+                }
+            });
+        }
     }
 
     /** Émet la facture de la vente (une seule fois : le même numéro est renvoyé ensuite). */

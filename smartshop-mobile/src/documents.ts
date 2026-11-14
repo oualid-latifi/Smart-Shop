@@ -30,8 +30,12 @@ export async function shareDocument(path: string, fileName: string, dialogTitle:
   if (!(await Sharing.isAvailableAsync())) {
     throw new ApiError(0, '');
   }
-  const isPdf = mimeType === 'application/pdf';
-  await Sharing.shareAsync(file.uri, { mimeType, UTI: isPdf ? 'com.adobe.pdf' : 'org.openxmlformats.spreadsheetml.sheet', dialogTitle });
+  const UTIS: Record<string, string> = {
+    'application/pdf': 'com.adobe.pdf',
+    'application/zip': 'public.zip-archive',
+    'text/csv': 'public.comma-separated-values-text',
+  };
+  await Sharing.shareAsync(file.uri, { mimeType, UTI: UTIS[mimeType] ?? 'org.openxmlformats.spreadsheetml.sheet', dialogTitle });
 }
 
 /** Numéro marocain local (06…, 07…, 05…) -> format international pour WhatsApp (2126…). */

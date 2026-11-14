@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import java.util.TimeZone;
 
 @SpringBootApplication
+@org.springframework.scheduling.annotation.EnableScheduling
 public class SmartShopApplication {
 
     public static void main(String[] args) {

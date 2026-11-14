@@ -17,6 +17,8 @@ import CashScreen from '../screens/CashScreen';
 import ImportScreen from '../screens/ImportScreen';
 import DormantScreen from '../screens/DormantScreen';
 import InsightsScreen from '../screens/InsightsScreen';
+import BackupsScreen from '../screens/BackupsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
 import PromotionsScreen from '../screens/PromotionsScreen';
 import ReplenishmentScreen from '../screens/ReplenishmentScreen';
 import TargetsScreen from '../screens/TargetsScreen';
@@ -69,6 +71,8 @@ export default function MoreStack() {
       <Stack.Screen name="Replenishment" component={ReplenishmentScreen} options={{ title: t('replenish.title') }} />
       <Stack.Screen name="Dormant" component={DormantScreen} options={{ title: t('dormant.title') }} />
       <Stack.Screen name="Insights" component={InsightsScreen} options={{ title: t('insights.title') }} />
+      <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: t('notifs.title') }} />
+      <Stack.Screen name="Backups" component={BackupsScreen} options={{ title: t('backups.title') }} />
 
       <Stack.Screen
         name="Checks"

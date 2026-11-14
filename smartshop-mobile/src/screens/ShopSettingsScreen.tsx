@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Switch, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { api, ApiError } from '../api/client';
 import { errorMessage } from '../api/errors';
@@ -11,7 +11,7 @@ import { parseNumber } from '../format';
 import { colors, radius, spacing } from '../theme';
 import { useUnsavedChanges } from '../useUnsavedChanges';
 
-type TextKey = Exclude<keyof ShopSettings, 'defaultVatRate' | 'quoteValidityDays' | 'maxDiscountPercent' | 'hasApprovalPin'>;
+type TextKey = Exclude<keyof ShopSettings, 'defaultVatRate' | 'quoteValidityDays' | 'maxDiscountPercent' | 'hasApprovalPin' | 'bigSaleAmount' | 'weeklyReportEnabled'>;
 
 /** Informations de la boutique imprimées sur les factures, devis, BL et tickets. */
 export default function ShopSettingsScreen() {
@@ -24,6 +24,22 @@ export default function ShopSettingsScreen() {
   const [dirty, setDirty] = useState(false);
   const [pin, setPin] = useState('');
   const [pinSaved, setPinSaved] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sentTo, setSentTo] = useState<number | null>(null);
+
+  async function sendReport() {
+    setError(null);
+    setSentTo(null);
+    setSending(true);
+    try {
+      const r = await api<{ recipients: number }>('/api/reports/weekly/send', { method: 'POST' });
+      setSentTo(r.recipients);
+    } catch (e) {
+      setError(errorMessage(e, t));
+    } finally {
+      setSending(false);
+    }
+  }
 
   async function savePin() {
     setError(null);
@@ -75,8 +91,10 @@ export default function ShopSettingsScreen() {
         defaultVatRate: parseNumber(form.defaultVatRate ?? '') ?? 20,
         quoteValidityDays: Math.round(parseNumber(form.quoteValidityDays ?? '') ?? 30),
         maxDiscountPercent: form.maxDiscountPercent?.trim() ? Math.round(parseNumber(form.maxDiscountPercent) ?? 0) : null,
+        bigSaleAmount: form.bigSaleAmount?.trim() ? parseNumber(form.bigSaleAmount) : null,
+        weeklyReportEnabled: form.weeklyReportEnabled === 'true',
       };
-      const textKeys: TextKey[] = ['shopName', 'address', 'city', 'phone', 'email', 'ice', 'fiscalId', 'tradeRegister', 'patente', 'documentFooter', 'ticketFooter'];
+      const textKeys: TextKey[] = ['shopName', 'address', 'city', 'phone', 'email', 'ice', 'fiscalId', 'tradeRegister', 'patente', 'documentFooter', 'ticketFooter', 'reportEmails'];
       textKeys.forEach((k) => ((body as Record<string, unknown>)[k] = form[k]?.trim() || null));
       await api<ShopSettings>('/api/settings', { method: 'PUT', body });
       setDirty(false);
@@ -132,6 +150,25 @@ export default function ShopSettingsScreen() {
       />
       <PrimaryButton icon="lock-closed-outline" title={t('approval.setTitle')} variant="outline" onPress={savePin} disabled={pin.length > 0 && pin.length < 4} />
       {pinSaved ? <Text style={styles.saved}>{t('approval.saved')}</Text> : null}
+
+      <Text style={styles.section}>{t('shop.alerts')}</Text>
+      {field('bigSaleAmount', t('shop.bigSale'), { keyboardType: 'decimal-pad', hint: t('shop.bigSaleHint') })}
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>{t('shop.weekly')}</Text>
+        <Switch
+          accessibilityLabel={t('shop.weekly')}
+          value={form.weeklyReportEnabled === 'true'}
+          onValueChange={(on) => {
+            setForm((current) => ({ ...(current ?? {}), weeklyReportEnabled: on ? 'true' : 'false' }));
+            setDirty(true);
+            setSaved(false);
+          }}
+          trackColor={{ true: colors.primary, false: colors.border }}
+        />
+      </View>
+      {field('reportEmails', t('shop.reportEmails'), { keyboardType: 'email-address', autoCapitalize: 'none', hint: t('shop.reportEmailsHint') })}
+      <PrimaryButton icon="mail-outline" title={t('shop.sendNow')} variant="outline" onPress={() => void sendReport()} loading={sending} />
+      {sentTo !== null ? <Text style={styles.saved}>{t('shop.sent', { n: sentTo })}</Text> : null}
       <View style={{ height: spacing.md }} />
 
       {error ? <Text style={styles.error} accessibilityLiveRegion="polite">{error}</Text> : null}
@@ -145,5 +182,7 @@ const styles = StyleSheet.create({
   intro: { color: colors.muted, marginBottom: spacing.sm },
   section: { fontSize: 13, fontWeight: '800', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: spacing.md, marginBottom: spacing.sm },
   error: { color: colors.danger, backgroundColor: colors.dangerBg, padding: spacing.sm, borderRadius: radius, marginBottom: spacing.md },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, minHeight: 48, marginBottom: spacing.sm },
+  switchLabel: { flex: 1, color: colors.text, fontWeight: '600' },
   saved: { color: colors.success, backgroundColor: colors.successBg, padding: spacing.sm, borderRadius: radius, marginBottom: spacing.md, fontWeight: '700' },
 });

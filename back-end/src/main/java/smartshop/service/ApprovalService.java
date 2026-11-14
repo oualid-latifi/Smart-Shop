@@ -46,6 +46,14 @@ public class ApprovalService {
         requirePin(settings, pin, "L'annulation d'une vente nécessite le code du propriétaire");
     }
 
+    public void checkRestore(String pin) {
+        ShopSettings settings = settingsService.get();
+        if (settings.getApprovalPinHash() == null) return;
+        if (pin == null || !passwordEncoder.matches(pin, settings.getApprovalPinHash())) {
+            throw new ApprovalRequiredException("La restauration remplace toutes les données : saisis le code du propriétaire");
+        }
+    }
+
     @Transactional
     public void setPin(String pin) {
         ShopSettings settings = settingsService.get();

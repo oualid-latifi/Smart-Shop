@@ -64,6 +64,17 @@ public class ShopSettings {
     @Column(name = "max_discount_percent")
     private Integer maxDiscountPercent;
 
+    // Une vente à partir de ce montant déclenche une notification (null = jamais)
+    @Column(name = "big_sale_amount", precision = 12, scale = 2)
+    private BigDecimal bigSaleAmount;
+
+    // Rapport hebdomadaire par email : activé ? destinataires (séparés par des virgules)
+    @Column(name = "weekly_report_enabled")
+    private Boolean weeklyReportEnabled;
+
+    @Column(name = "report_emails", length = 500)
+    private String reportEmails;
+
     // Code PIN du propriétaire, haché (BCrypt)
     @Column(name = "approval_pin_hash", length = 100)
     private String approvalPinHash;
@@ -108,6 +119,15 @@ public class ShopSettings {
 
     public Integer getMaxDiscountPercent() { return maxDiscountPercent; }
     public void setMaxDiscountPercent(Integer maxDiscountPercent) { this.maxDiscountPercent = maxDiscountPercent; }
+
+    public BigDecimal getBigSaleAmount() { return bigSaleAmount; }
+    public void setBigSaleAmount(BigDecimal bigSaleAmount) { this.bigSaleAmount = bigSaleAmount; }
+
+    public Boolean getWeeklyReportEnabled() { return weeklyReportEnabled; }
+    public void setWeeklyReportEnabled(Boolean weeklyReportEnabled) { this.weeklyReportEnabled = weeklyReportEnabled; }
+
+    public String getReportEmails() { return reportEmails; }
+    public void setReportEmails(String reportEmails) { this.reportEmails = reportEmails; }
 
     public String getApprovalPinHash() { return approvalPinHash; }
     public void setApprovalPinHash(String approvalPinHash) { this.approvalPinHash = approvalPinHash; }

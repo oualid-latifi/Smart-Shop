@@ -26,14 +26,18 @@ public record ShopSettingsDto(
         @Size(max = 500) String documentFooter,
         @Size(max = 255) String ticketFooter,
         @Min(0) @Max(100) Integer maxDiscountPercent,
-        Boolean hasApprovalPin            // lecture seule : un code PIN est-il défini ?
+        Boolean hasApprovalPin,           // lecture seule : un code PIN est-il défini ?
+        @DecimalMin("0.00") BigDecimal bigSaleAmount,
+        Boolean weeklyReportEnabled,
+        @Size(max = 500) String reportEmails
 ) {
 
     public static ShopSettingsDto from(ShopSettings s) {
         return new ShopSettingsDto(s.getShopName(), s.getAddress(), s.getCity(), s.getPhone(), s.getEmail(),
                 s.getIce(), s.getFiscalId(), s.getTradeRegister(), s.getPatente(), s.getDefaultVatRate(),
                 s.getQuoteValidityDays(), s.getDocumentFooter(), s.getTicketFooter(),
-                s.getMaxDiscountPercent(), s.getApprovalPinHash() != null);
+                s.getMaxDiscountPercent(), s.getApprovalPinHash() != null,
+                s.getBigSaleAmount(), Boolean.TRUE.equals(s.getWeeklyReportEnabled()), s.getReportEmails());
     }
 
     public void applyTo(ShopSettings s) {
@@ -51,6 +55,9 @@ public record ShopSettingsDto(
         s.setDocumentFooter(blankToNull(documentFooter));
         s.setTicketFooter(blankToNull(ticketFooter));
         s.setMaxDiscountPercent(maxDiscountPercent);
+        s.setBigSaleAmount(bigSaleAmount);
+        s.setWeeklyReportEnabled(Boolean.TRUE.equals(weeklyReportEnabled));
+        s.setReportEmails(blankToNull(reportEmails));
     }
 
     private static String blankToNull(String value) {

@@ -193,6 +193,39 @@ export interface ShopSettings {
   ticketFooter: string | null;
   maxDiscountPercent: number | null;
   hasApprovalPin: boolean;
+  bigSaleAmount: number | null;
+  weeklyReportEnabled: boolean;
+  reportEmails: string | null;
+}
+
+export type NotificationType = 'LOW_STOCK' | 'CHECK_DUE' | 'BIG_SALE' | 'TARGET_REACHED' | 'BACKUP_FAILED';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string | null;
+  referenceId: string | null;
+  createdAt: string;
+  read: boolean;
+}
+
+export interface NotificationFeed {
+  unread: number;
+  items: AppNotification[];
+}
+
+export interface BackupInfo {
+  name: string;
+  size: number;
+  createdAt: string;
+}
+
+export interface WeeklyReport {
+  from: string;
+  to: string;
+  subject: string;
+  text: string;
 }
 
 export type QuoteStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CONVERTED' | 'EXPIRED';

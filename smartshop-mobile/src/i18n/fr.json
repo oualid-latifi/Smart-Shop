@@ -253,7 +253,9 @@
     "lowStock": "Produits en stock bas",
     "periodLabel": "Période",
     "exportExcel": "Rapport Excel détaillé",
-    "exportPdf": "Résumé PDF"
+    "exportPdf": "Résumé PDF",
+    "weeklyWhatsApp": "Semaine sur WhatsApp",
+    "weeklyEmail": "Semaine par email"
   },
   "expenses": {
     "title": "Dépenses",
@@ -380,7 +382,15 @@
     "quoteDays": "Validité des devis (jours)",
     "documentFooter": "Pied de page des factures",
     "ticketFooter": "Message en bas du ticket",
-    "saved": "Paramètres enregistrés ✓"
+    "saved": "Paramètres enregistrés ✓",
+    "alerts": "Alertes et rapport hebdomadaire",
+    "bigSale": "Alerte « grosse vente » à partir de (DH)",
+    "bigSaleHint": "Vide = pas d’alerte",
+    "weekly": "Envoyer le rapport chaque lundi par email",
+    "reportEmails": "Emails du rapport",
+    "reportEmailsHint": "Séparés par des virgules. Vide = comptes propriétaires",
+    "sendNow": "Envoyer le rapport maintenant",
+    "sent": "Rapport envoyé à {{n}} destinataire(s) ✓"
   },
   "payments": {
     "method": "Mode de paiement",
@@ -698,5 +708,29 @@
     "A4": "Planche A4",
     "THERMAL": "Imprimante d'étiquettes",
     "cancel": "Annuler"
+  },
+  "notifs": {
+    "title": "Notifications",
+    "subtitle": "Stock bas, grosses ventes, chèques à encaisser",
+    "unread": "{{n}} non lue(s)",
+    "allRead": "Tout est lu",
+    "markAll": "Tout marquer comme lu",
+    "empty": "Aucune notification pour le moment.",
+    "bell": "Notifications ({{n}} non lues)"
+  },
+  "backups": {
+    "title": "Sauvegardes",
+    "subtitle": "Sauvegarde automatique chaque nuit et restauration",
+    "help": "Toutes les données (produits, ventes, clients, caisse…) sont sauvegardées automatiquement chaque nuit sur le serveur. Télécharge régulièrement une copie sur ton téléphone ou ton Drive.",
+    "create": "Sauvegarder maintenant",
+    "fromFile": "Restaurer depuis un fichier",
+    "list": "Sauvegardes du serveur",
+    "empty": "Aucune sauvegarde pour le moment.",
+    "created": "Sauvegarde créée ✓ ({{name}})",
+    "download": "Télécharger",
+    "restore": "Restaurer",
+    "restoring": "Restauration en cours…",
+    "restored": "Données restaurées ✓",
+    "confirm": "Restaurer remplace TOUTES les données actuelles par celles de la sauvegarde. Continuer ?"
   }
 }

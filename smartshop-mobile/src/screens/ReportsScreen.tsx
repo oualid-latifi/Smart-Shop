@@ -17,7 +17,8 @@ import { errorMessage } from '../api/errors';
 import type { ReportSummary } from '../api/types';
 import DocumentActions from '../components/DocumentActions';
 import PrimaryButton from '../components/PrimaryButton';
-import { shareDocument } from '../documents';
+import { openWhatsApp, shareDocument } from '../documents';
+import type { WeeklyReport } from '../api/types';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 import { formatDate, formatMoney } from '../format';
@@ -104,6 +105,10 @@ export default function ReportsScreen() {
                   onPress: () => shareDocument(`/api/reports/export/excel?from=${report.from}&to=${report.to}`, `rapport-${report.from}-${report.to}.xlsx`, t('docs.shareTitle'), XLSX) },
                 { key: 'pdf', label: t('reports.exportPdf'), icon: 'document-text-outline',
                   onPress: () => shareDocument(`/api/reports/export/pdf?from=${report.from}&to=${report.to}`, `rapport-${report.from}-${report.to}.pdf`, t('docs.shareTitle')) },
+                { key: 'weekly', label: t('reports.weeklyWhatsApp'), icon: 'logo-whatsapp',
+                  onPress: async () => openWhatsApp((await api<WeeklyReport>('/api/reports/weekly')).text) },
+                { key: 'weeklyMail', label: t('reports.weeklyEmail'), icon: 'mail-outline', tone: 'violet',
+                  onPress: async () => { await api('/api/reports/weekly/send', { method: 'POST' }); } },
               ]}
             />
 

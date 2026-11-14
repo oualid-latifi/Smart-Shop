@@ -50,6 +50,8 @@ export type MoreStackParamList = {
   Replenishment: undefined;
   Dormant: undefined;
   Insights: undefined;
+  Notifications: undefined;
+  Backups: undefined;
 };
 
 export type QuotesStackParamList = {
