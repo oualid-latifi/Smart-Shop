@@ -15,7 +15,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { api } from '../api/client';
 import { errorMessage } from '../api/errors';
 import type { ReportSummary } from '../api/types';
+import DocumentActions from '../components/DocumentActions';
 import PrimaryButton from '../components/PrimaryButton';
+import { shareDocument } from '../documents';
+
+const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 import { formatDate, formatMoney } from '../format';
 import { colors, radius, spacing } from '../theme';
 
@@ -91,6 +95,17 @@ export default function ReportsScreen() {
               {formatDate(report.from)} → {formatDate(report.to)} ·{' '}
               {t('reports.salesCount', { n: report.salesCount })}
             </Text>
+
+            {/* Export de la période affichée : rapport Excel détaillé ou résumé PDF */}
+            <DocumentActions
+              onError={(e) => setError(errorMessage(e, t))}
+              actions={[
+                { key: 'xlsx', label: t('reports.exportExcel'), icon: 'grid-outline', tone: 'success',
+                  onPress: () => shareDocument(`/api/reports/export/excel?from=${report.from}&to=${report.to}`, `rapport-${report.from}-${report.to}.xlsx`, t('docs.shareTitle'), XLSX) },
+                { key: 'pdf', label: t('reports.exportPdf'), icon: 'document-text-outline',
+                  onPress: () => shareDocument(`/api/reports/export/pdf?from=${report.from}&to=${report.to}`, `rapport-${report.from}-${report.to}.pdf`, t('docs.shareTitle')) },
+              ]}
+            />
 
             <View style={styles.grid}>
               <Kpi icon="cash-outline" label={t('reports.revenue')} value={formatMoney(report.revenue)} />

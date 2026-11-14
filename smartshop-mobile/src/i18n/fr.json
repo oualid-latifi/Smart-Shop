@@ -251,7 +251,9 @@
     "supplierDebt": "Dettes aux fournisseurs",
     "stockValue": "Valeur du stock",
     "lowStock": "Produits en stock bas",
-    "periodLabel": "Période"
+    "periodLabel": "Période",
+    "exportExcel": "Rapport Excel détaillé",
+    "exportPdf": "Résumé PDF"
   },
   "expenses": {
     "title": "Dépenses",
@@ -305,11 +307,12 @@
   "server": {
     "title": "Adresse du serveur",
     "address": "Adresse",
-    "hint": "Exemple : http://192.168.1.47:8080. Change-la ici si l'IP de ton PC change, sans refaire l'application.",
+    "hint": "Normalement détectée automatiquement. Ne la change que pour un serveur à adresse fixe (ex. https://api.maboutique.ma).",
     "save": "Enregistrer et tester",
-    "reset": "Remettre l'adresse par défaut",
+    "reset": "Revenir à la détection automatique",
     "ok": "Connexion au serveur réussie ✓",
-    "invalid": "L'adresse doit commencer par http:// ou https://"
+    "invalid": "L'adresse doit commencer par http:// ou https://",
+    "autoHint": "Détectée automatiquement en développement. Pour une adresse fixe (serveur en ligne), saisis-la ici, ex. https://api.maboutique.ma"
   },
   "home": {
     "welcome": "Bienvenue {{name}}",

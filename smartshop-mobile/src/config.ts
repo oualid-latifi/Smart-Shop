@@ -1,26 +1,32 @@
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// En production : définir EXPO_PUBLIC_API_URL (en HTTPS) dans smartshop-mobile/.env,
-// par exemple EXPO_PUBLIC_API_URL=https://api.ma-boutique.com
-const ENV_API_URL = process.env.EXPO_PUBLIC_API_URL;
+// Port du back-end Spring Boot
+const API_PORT = 8080;
 
-// Développement : mets ici l'IP de ton PC sur le Wi-Fi (commande ipconfig, ligne "Adresse IPv4")
-const PC_IP = '192.168.1.47';
-
-// Mets true seulement si tu testes avec l'émulateur Android
-const USE_ANDROID_EMULATOR = false;
-
+/**
+ * Adresse du serveur, sans rien à modifier quand l'IP du PC change :
+ * 1. EXPO_PUBLIC_API_URL (fichier .env) : adresse fixe, à utiliser en production (https://…)
+ * 2. En développement : l'IP du PC qui lance "npx expo start" (le back-end tourne sur le même PC)
+ * 3. Sinon : localhost (navigateur web sur le PC)
+ * L'adresse peut aussi être forcée depuis l'application (écran de connexion ou Réglages).
+ */
 function resolveApiUrl(): string {
-  if (ENV_API_URL && ENV_API_URL.trim()) {
-    return ENV_API_URL.trim();
-  }
-  if (Platform.OS === 'web') {
-    return 'http://localhost:8080';
-  }
-  if (Platform.OS === 'android' && USE_ANDROID_EMULATOR) {
-    return 'http://10.0.2.2:8080';
-  }
-  return `http://${PC_IP}:8080`;
+  const fromEnv = process.env.EXPO_PUBLIC_API_URL?.trim();
+  if (fromEnv) return fromEnv;
+
+  if (Platform.OS === 'web') return `http://localhost:${API_PORT}`;
+
+  // hostUri vaut par exemple "192.168.1.25:8081" : c'est l'adresse du PC sur le Wi-Fi
+  const host = Constants.expoConfig?.hostUri?.split(':')[0];
+  if (host && isLocalAddress(host)) return `http://${host}:${API_PORT}`;
+
+  return `http://localhost:${API_PORT}`;
+}
+
+/** Adresse IP du réseau local (pas un tunnel Expo "*.exp.direct", qui ne mène pas au back-end). */
+function isLocalAddress(host: string): boolean {
+  return /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|127\.|localhost$)/.test(host);
 }
 
 export const API_URL = resolveApiUrl();
