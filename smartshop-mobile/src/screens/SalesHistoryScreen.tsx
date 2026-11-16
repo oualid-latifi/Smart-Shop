@@ -12,7 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
+import { localSales } from '../offline';
 import { errorMessage } from '../api/errors';
 import type { Sale } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -35,6 +36,11 @@ export default function SalesHistoryScreen({ navigation }: Props) {
       const data = await api<Sale[]>('/api/sales');
       setSales([...data].sort((a, b) => b.saleDate.localeCompare(a.saleDate)));
     } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        setSales(await localSales());
+        setError(t('offline.localData'));
+        return;
+      }
       setError(errorMessage(e, t));
     }
   }, [t]);

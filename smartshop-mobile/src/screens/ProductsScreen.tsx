@@ -15,7 +15,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
+import { localProducts } from '../offline';
 import { errorMessage } from '../api/errors';
 import type { Product } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
@@ -70,6 +71,11 @@ export default function ProductsScreen({ navigation }: Props) {
       const data = await api<Product[]>('/api/products');
       setProducts(data);
     } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        setProducts(await localProducts());
+        setError(t('offline.localData'));
+        return;
+      }
       setError(errorMessage(e, t));
     }
   }, [t]);

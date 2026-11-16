@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
+import { localDb } from '../db';
+import { LOCAL_PREFIX, newClientRef, useOffline } from '../offline';
 import { errorMessage } from '../api/errors';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -16,6 +18,7 @@ type Props = NativeStackScreenProps<CustomersStackParamList, 'CustomerForm'>;
 
 export default function CustomerFormScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
+  const offline = useOffline();
   const customer = route.params?.customer;
   const editing = !!customer;
   const [name, setName] = useState(customer?.name ?? '');
@@ -47,21 +50,32 @@ export default function CustomerFormScreen({ route, navigation }: Props) {
 
     setSaving(true);
     setError(null);
+    const body = {
+      name: name.trim(),
+      phone: phone.trim() || null,
+      address: address.trim() || null,
+      ice: ice.trim() || null,
+      creditLimit: limit,
+    };
     try {
       await api(editing && customer ? `/api/customers/${customer.id}` : '/api/customers', {
         method: editing ? 'PUT' : 'POST',
-        body: {
-          name: name.trim(),
-          phone: phone.trim() || null,
-          address: address.trim() || null,
-          ice: ice.trim() || null,
-          creditLimit: limit,
-        },
+        body,
       });
       setDirty(false);
       navigation.goBack();
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (e instanceof ApiError && e.status === 0 && !editing) {
+        // Sans serveur : le client est gardé sur le téléphone et utilisable tout de suite pour vendre
+        const opId = newClientRef();
+        await localDb.putRecords('customer', [{ id: `${LOCAL_PREFIX}${opId}`, ...body, balance: 0, active: true }]);
+        await offline.enqueue({ opId, type: 'CUSTOMER_CREATE', payload: body, label: body.name });
+        setDirty(false);
+        Alert.alert('', t('offline.customerQueued'));
+        navigation.goBack();
+        return;
+      }
+      setError(e instanceof ApiError && e.status === 0 ? t('offline.editOffline') : errorMessage(e, t));
       setSaving(false);
     }
   }

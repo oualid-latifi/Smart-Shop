@@ -53,7 +53,8 @@ public class EnumConstraintUpdater implements ApplicationRunner {
             new EnumColumn("promotions", "kind", smartshop.entity.Promotion.Kind.class),
             new EnumColumn("notifications", "type", smartshop.entity.Notification.Type.class),
             new EnumColumn("notifications", "audience", smartshop.entity.Permission.class),
-            new EnumColumn("online_orders", "status", smartshop.entity.OnlineOrder.Status.class));
+            new EnumColumn("online_orders", "status", smartshop.entity.OnlineOrder.Status.class),
+            new EnumColumn("sync_operations", "type", smartshop.entity.SyncOperation.Type.class));
 
     private final DataSource dataSource;
     private final JdbcTemplate jdbc;
@@ -65,6 +66,17 @@ public class EnumConstraintUpdater implements ApplicationRunner {
 
     @Override
     public void run(ApplicationArguments args) throws Exception {
+        // Lignes créées avant la synchronisation : on leur donne une date de modification
+        for (String sql : List.of(
+                "update products set updated_at = created_at where updated_at is null",
+                "update customers set updated_at = created_at where updated_at is null",
+                "update sales set updated_at = sale_date where updated_at is null")) {
+            try {
+                jdbc.update(sql);
+            } catch (RuntimeException e) {
+                log.warn("Dates de modification non initialisées : {}", e.getMessage());
+            }
+        }
         try (Connection connection = dataSource.getConnection()) {
             if (!connection.getMetaData().getDatabaseProductName().toLowerCase().contains("postgres")) {
                 return; // H2 des tests : la base est recréée à chaque lancement

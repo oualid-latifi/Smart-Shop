@@ -72,13 +72,25 @@ public class Product {
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
+    // Date de dernière modification : la synchronisation n'envoie au téléphone que ce qui a changé
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     public Product() {
     }
 
     @PrePersist
     void onCreate() {
         this.createdAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt;
     }
+
+    @PreUpdate
+    void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     public UUID getId() { return id; }
 

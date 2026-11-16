@@ -31,7 +31,13 @@ import { confirmAction } from '../confirm';
 import { formatMoney, parseNumber } from '../format';
 import { Ionicons } from '@expo/vector-icons';
 import OfflineBanner from '../components/OfflineBanner';
-import { newClientRef, readLocal, useOffline, writeLocal } from '../offline';
+import { LOCAL_PREFIX, localCustomers, localProducts, newClientRef, useOffline } from '../offline';
+
+/** Garde l'ordre d'affichage actuel quand la base locale change (nouveaux produits à la fin). */
+function keepOrder(previous: Product[], next: Product[]): Product[] {
+  const rank = new Map(previous.map((p, i) => [p.id, i]));
+  return [...next].sort((a, b) => (rank.get(a.id) ?? Number.MAX_SAFE_INTEGER) - (rank.get(b.id) ?? Number.MAX_SAFE_INTEGER));
+}
 import { colors, radius, spacing } from '../theme';
 
 interface CartLine {
@@ -97,7 +103,6 @@ export default function SaleScreen({ navigation }: Props) {
   const offline = useOffline();
   const clientRef = useRef<string | null>(null);
   const [offlineSaved, setOfflineSaved] = useState(false);
-  const [cachedCatalog, setCachedCatalog] = useState(false);
   const [discountMode, setDiscountMode] = useState<'DH' | '%'>('DH');
   const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
   const [saving, setSaving] = useState(false);
@@ -107,43 +112,31 @@ export default function SaleScreen({ navigation }: Props) {
   const scrollRef = useRef<ScrollViewInstance>(null);
   const [cartY, setCartY] = useState(0);
 
-  const load = useCallback(async () => {
+  // Catalogue et clients lus dans la base locale du téléphone : la vente marche sans réseau ni serveur
+  const load = useCallback(async (reshuffle: boolean) => {
     try {
-      const [p, c] = await Promise.all([
-        api<Product[]>('/api/products'),
-        api<Customer[]>('/api/customers'),
-      ]);
-      const available = p.filter((item) => item.active);
-      // Mélange l'ordre du catalogue à chaque ouverture/actualisation de l'écran.
-      setProducts(shuffle(available));
-      setCustomers(c.filter((customer) => customer.active));
-      setCachedCatalog(false);
-      offline.setOffline(false);
-      // Copie sur le téléphone pour pouvoir vendre sans réseau
-      void writeLocal('catalog-products', available);
-      void writeLocal('catalog-customers', c);
+      const [p, c] = await Promise.all([localProducts(), localCustomers()]);
+      // Mélange l'ordre du catalogue à chaque ouverture de l'écran, pas pendant qu'on vend
+      setProducts((current) => (reshuffle || current.length === 0 ? shuffle(p) : keepOrder(current, p)));
+      setCustomers(c);
     } catch (e) {
-      if (e instanceof ApiError && e.status === 0) {
-        const [p, c] = await Promise.all([readLocal<Product[]>('catalog-products'), readLocal<Customer[]>('catalog-customers')]);
-        if (p) {
-          setProducts(p);
-          setCustomers((c ?? []).filter((customer) => customer.active));
-          setCachedCatalog(true);
-          offline.setOffline(true);
-          return;
-        }
-      }
       setError(errorMessage(e, t));
     }
-  }, [t, offline.setOffline]);
+  }, [t]);
 
-  // Recharge produits (stock à jour) et clients à chaque retour sur l'écran
+  const { version, sync } = offline;
+  // À l'ouverture : base locale tout de suite, puis synchronisation avec le serveur
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      void load().finally(() => setLoading(false));
-    }, [load]),
+      void load(true).finally(() => setLoading(false));
+      void sync();
+    }, [load, sync]),
   );
+  // Base locale mise à jour (synchronisation, vente en attente) : stock et dettes rafraîchis
+  useEffect(() => {
+    void load(false);
+  }, [version, load]);
 
   const brands = useMemo(
     () => [...new Set(products.map((p) => p.brand?.trim()).filter((b): b is string => !!b))].sort((a, b) => a.localeCompare(b)),
@@ -212,7 +205,8 @@ export default function SaleScreen({ navigation }: Props) {
 
   async function refresh() {
     setRefreshing(true);
-    await load();
+    await sync();
+    await load(false);
     setRefreshing(false);
   }
 
@@ -311,10 +305,14 @@ export default function SaleScreen({ navigation }: Props) {
             unitPrice: unitPrice(line),
           })),
           approvalPin: approvalPin ?? null,
-          clientRef: clientRef.current,
         };
+    const opId = clientRef.current;
+    // Client créé hors-ligne : pas encore connu du serveur, la vente passe par la file de synchronisation
+    const localCustomer = customerId?.startsWith(LOCAL_PREFIX) ? customerId.slice(LOCAL_PREFIX.length) : null;
+    const payload = { ...body, customerId: localCustomer ? null : customerId };
     try {
-      const created = await api<Sale>('/api/sales', { method: 'POST', body });
+      if (localCustomer) throw new ApiError(0, 'network');
+      const created = await api<Sale>('/api/sales', { method: 'POST', body: { ...payload, clientRef: opId } });
       clientRef.current = null;
       setOfflineSaved(false);
       setCart([]);
@@ -326,17 +324,21 @@ export default function SaleScreen({ navigation }: Props) {
       setSearch('');
       setLastSale(created);
       scrollRef.current?.scrollTo({ y: 0, animated: true });
-      await load();
+      void sync();
     } catch (e) {
       if (e instanceof ApiError && e.code === 'APPROVAL_REQUIRED') {
         setPinMessage(e.message);
       } else if (e instanceof ApiError && e.status === 0) {
         // Pas de réseau : la vente part dans la file d'attente et le stock affiché baisse tout de suite
-        await offline.enqueue({ clientRef: body.clientRef, body, total, createdAt: new Date().toISOString() });
-        const sold = new Map(cart.map((line) => [line.product.id, unitsOf(line)]));
-        const next = products.map((p) => (sold.has(p.id) ? { ...p, stockQuantity: p.stockQuantity - (sold.get(p.id) ?? 0) } : p));
-        setProducts(next);
-        void writeLocal('catalog-products', next);
+        const customerName = customers.find((c) => c.id === customerId)?.name;
+        await offline.enqueue({
+          opId,
+          type: 'SALE_CREATE',
+          payload,
+          customerOpId: localCustomer,
+          label: [customerName, cart.map((line) => `${line.quantity} × ${line.product.name}`).join(', ')].filter(Boolean).join(' · '),
+          total,
+        });
         clientRef.current = null;
         setCart([]);
         setDiscount('');
@@ -378,7 +380,7 @@ export default function SaleScreen({ navigation }: Props) {
             <Ionicons name="cloud-offline-outline" size={20} color={colors.warning} />
             <Text style={[styles.successText, styles.flex]}>{t('offline.saved')}</Text>
           </View>
-        ) : cachedCatalog && cart.length === 0 ? (
+        ) : offline.offline && cart.length === 0 ? (
           <Text style={styles.muted}>{t('offline.cached')}</Text>
         ) : null}
         {success ? (

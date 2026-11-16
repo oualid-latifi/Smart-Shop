@@ -49,7 +49,8 @@
           "recordAudioAndroid": false
         }
       ],
-      "expo-notifications"
+      "expo-notifications",
+      "expo-sqlite"
     ],
     "scheme": "smartshop",
     "backgroundColor": "#0a1224"

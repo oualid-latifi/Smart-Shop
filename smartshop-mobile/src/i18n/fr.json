@@ -760,11 +760,11 @@
     }
   },
   "offline": {
-    "title": "Ventes hors-ligne",
+    "title": "Synchronisation",
     "noNetwork": "Hors-ligne : les ventes seront envoyées au retour du réseau",
     "pending": "{{n}} vente(s) en attente d’envoi",
     "failed": "{{n}} vente(s) refusée(s) par le serveur",
-    "help": "Pas de connexion au serveur. Tu peux continuer à vendre : les ventes sont gardées sur le téléphone et envoyées automatiquement dès que le réseau revient.",
+    "help": "L’application garde une copie des produits, clients et ventes dans le téléphone (SQLite). Sans réseau, tu continues à vendre, créer des clients et encaisser : tout est envoyé automatiquement au serveur dès qu’il répond, une seule fois, dans l’ordre.",
     "helpOnline": "Les ventes en attente sont envoyées automatiquement toutes les 30 secondes.",
     "syncNow": "Envoyer maintenant",
     "empty": "Aucune vente en attente.",
@@ -774,7 +774,21 @@
     "discard": "Supprimer",
     "discardConfirm": "Supprimer cette vente ? Elle ne sera jamais enregistrée.",
     "saved": "Vente enregistrée hors-ligne ✓ Elle sera envoyée dès le retour du réseau.",
-    "cached": "Hors-ligne : catalogue enregistré sur le téléphone"
+    "cached": "Hors-ligne : catalogue enregistré sur le téléphone",
+    "noServer": "Serveur injoignable : mode hors-ligne",
+    "connected": "Synchronisé avec le serveur",
+    "lastSync": "Dernière synchronisation : {{date}}",
+    "neverSynced": "Jamais synchronisé",
+    "pendingTitle": "En attente d’envoi ({{n}})",
+    "localData": "Hors-ligne : données enregistrées sur le téléphone",
+    "customerQueued": "Client enregistré sur le téléphone ✓ Il sera envoyé au serveur dès le retour du réseau.",
+    "paymentQueued": "Paiement enregistré sur le téléphone ✓ Il sera envoyé au serveur dès le retour du réseau.",
+    "editOffline": "La modification d’un client nécessite le serveur.",
+    "type": {
+      "SALE_CREATE": "Vente",
+      "CUSTOMER_CREATE": "Nouveau client",
+      "PAYMENT_CREATE": "Paiement client"
+    }
   },
   "profile": {
     "title": "Mon profil",
