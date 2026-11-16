@@ -50,6 +50,7 @@ export default function MoreScreen({ navigation }: Props) {
     { title: t('warehouses.title'), subtitle: t('warehouses.subtitle'), icon: 'business-outline', screen: 'Warehouses', anyOf: ['STOCK'] },
     { title: isAr ? 'التقارير والمصاريف' : 'Rapports et dépenses', subtitle: isAr ? 'ملخص النشاط والمصاريف' : 'Consulter les rapports et les dépenses', icon: 'bar-chart-outline', screen: 'Reports', anyOf: ['REPORTS'] },
     { title: t('users.title'), subtitle: t('users.subtitle'), icon: 'people-circle-outline', screen: 'Users', anyOf: ['USERS'] },
+    { title: t('register.title'), subtitle: t('register.menuHint'), icon: 'person-add-outline', screen: 'RegisterAccount', anyOf: ['USERS'], ownerOnly: true },
     { title: t('activity.title'), subtitle: t('activity.subtitle'), icon: 'pulse-outline', screen: 'Activity', anyOf: ['USERS'] },
     { title: t('import.title'), subtitle: t('import.subtitle'), icon: 'cloud-upload-outline', screen: 'Import', anyOf: ['SETTINGS'] },
     { title: t('shop.title'), subtitle: t('shop.subtitle'), icon: 'storefront-outline', screen: 'ShopSettings', anyOf: ['SETTINGS'] },
