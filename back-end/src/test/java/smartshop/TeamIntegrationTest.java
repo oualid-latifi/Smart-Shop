@@ -63,6 +63,11 @@ class TeamIntegrationTest {
         call(seller, get("/api/reports/today"), null, 403);
         call(seller, post("/api/products"), "{\"reference\":\"X\",\"name\":\"X\",\"salePrice\":1}", 403);
         call(seller, get("/api/users"), null, 403);
+        // Seul le propriétaire crée des comptes ; l'inscription publique est fermée après le premier compte
+        call(seller, post("/api/users"), """
+                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026","role":"OWNER"}""", 403);
+        call(null, post("/api/auth/register"), """
+                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026"}""", 400);
         call(seller, post("/api/sales/" + sale.get("id").asText() + "/cancel"), "{\"reason\":\"test\"}", 403);
 
         // Le propriétaire voit tout

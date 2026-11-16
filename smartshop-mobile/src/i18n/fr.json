@@ -790,5 +790,31 @@
     "serverHint": "Connexion de l’application au serveur",
     "logoutConfirm": "Se déconnecter de SmartShop ?",
     "logoutPending": "Attention : {{n}} vente(s) hors-ligne pas encore envoyée(s). Se déconnecter quand même ?"
+  },
+  "register": {
+    "title": "Créer un compte",
+    "subtitle": "Ajoute un membre de ton équipe et choisis ce qu’il peut faire dans l’application.",
+    "menuHint": "Nouveau compte pour un employé",
+    "identity": "Identité",
+    "security": "Mot de passe",
+    "name": "Nom complet",
+    "email": "Email (identifiant de connexion)",
+    "emailInvalid": "Adresse email invalide.",
+    "submit": "Créer le compte",
+    "ownerWarning": "Un propriétaire a tous les droits, y compris créer des comptes, voir les marges et restaurer les sauvegardes.",
+    "created": "Compte créé ✓",
+    "createdHint": "Donne le mot de passe de vive voix à ton employé.",
+    "share": "Envoyer l’accès sur WhatsApp",
+    "another": "Créer un autre compte",
+    "team": "Voir l’équipe",
+    "shareText": "Bonjour {{name}}, ton compte SmartShop ({{role}}) est prêt.\nIdentifiant : {{email}}\nAdresse du serveur : {{server}}\nJe te donne le mot de passe de vive voix.",
+    "ownerOnly": "Réservé au propriétaire",
+    "ownerOnlyHint": "Seul le propriétaire de la boutique peut créer de nouveaux comptes.",
+    "strength": "Solidité du mot de passe : {{level}}",
+    "level0": "",
+    "level1": "Trop faible",
+    "level2": "Moyen",
+    "level3": "Bon",
+    "level4": "Très solide"
   }
 }

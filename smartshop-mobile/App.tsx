@@ -16,6 +16,7 @@ import AppTabs from './src/navigation/AppTabs';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import RegisterAccountScreen from './src/screens/RegisterAccountScreen';
 import { OfflineProvider } from './src/offline';
 import { useTranslation } from 'react-i18next';
 import { colors, isDark } from './src/theme';
@@ -75,6 +76,12 @@ function Root() {
           name="Profile"
           component={ProfileScreen}
           options={{ headerShown: true, title: t('profile.title') }}
+        />
+
+        <RootStack.Screen
+          name="RegisterAccount"
+          component={RegisterAccountScreen}
+          options={{ headerShown: true, title: t('register.title') }}
         />
       </RootStack.Navigator>
      </OfflineProvider>

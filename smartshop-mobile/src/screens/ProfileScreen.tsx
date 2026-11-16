@@ -35,6 +35,9 @@ export default function ProfileScreen() {
   if (!user) return null;
 
   const rows: { icon: IconName; tone: Tone; label: string; hint: string; onPress: () => void }[] = [
+    ...(user.role === 'OWNER'
+      ? [{ icon: 'person-add-outline' as IconName, tone: 'success' as Tone, label: t('register.title'), hint: t('register.menuHint'), onPress: () => navigation.navigate('RegisterAccount') }]
+      : []),
     { icon: 'key-outline', tone: 'warning', label: t('profile.password'), hint: t('profile.passwordHint'), onPress: () => navigation.navigate('Settings') },
     { icon: 'server-outline', tone: 'primary', label: t('profile.server'), hint: t('profile.serverHint'), onPress: () => navigation.navigate('Settings') },
     { icon: 'notifications-outline', tone: 'violet', label: t('notifs.title'), hint: t('notifs.subtitle'), onPress: () => navigation.navigate('Main', { screen: 'More', params: { screen: 'Notifications' } }) },
