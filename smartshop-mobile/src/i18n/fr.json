@@ -775,5 +775,20 @@
     "discardConfirm": "Supprimer cette vente ? Elle ne sera jamais enregistrée.",
     "saved": "Vente enregistrée hors-ligne ✓ Elle sera envoyée dès le retour du réseau.",
     "cached": "Hors-ligne : catalogue enregistré sur le téléphone"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "open": "Ouvrir mon profil",
+    "month": "Mon mois en cours",
+    "revenue": "Chiffre d’affaires",
+    "sales": "Ventes",
+    "target": "Objectif",
+    "noTarget": "Aucun objectif fixé ce mois-ci",
+    "password": "Mot de passe",
+    "passwordHint": "Changer mon mot de passe",
+    "server": "Adresse du serveur",
+    "serverHint": "Connexion de l’application au serveur",
+    "logoutConfirm": "Se déconnecter de SmartShop ?",
+    "logoutPending": "Attention : {{n}} vente(s) hors-ligne pas encore envoyée(s). Se déconnecter quand même ?"
   }
 }

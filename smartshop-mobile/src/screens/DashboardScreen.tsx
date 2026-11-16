@@ -116,7 +116,7 @@ export default function DashboardScreen() {
               </View>
             ) : null}
           </Pressable>
-          <Pressable accessibilityRole="button" accessibilityLabel={t('tabs.more')} onPress={() => navigation.navigate('More')}>
+          <Pressable accessibilityRole="button" accessibilityLabel={t('profile.open')} onPress={() => navigation.navigate('Profile')}>
             <Avatar name={user?.name ?? 'S'} size={46} />
           </Pressable>
         </View>

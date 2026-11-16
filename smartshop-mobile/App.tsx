@@ -15,6 +15,9 @@ import { initI18n } from './src/i18n';
 import AppTabs from './src/navigation/AppTabs';
 import AuthScreen from './src/screens/AuthScreen';
 import HomeScreen from './src/screens/HomeScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
+import { OfflineProvider } from './src/offline';
+import { useTranslation } from 'react-i18next';
 import { colors, isDark } from './src/theme';
 
 const RootStack = createNativeStackNavigator();
@@ -43,6 +46,7 @@ function Splash() {
 
 function Root() {
   const { status } = useAuth();
+  const { t } = useTranslation();
 
   if (status === 'loading') {
     return <Splash />;
@@ -54,6 +58,7 @@ function Root() {
 
   return (
     <NavigationContainer theme={navTheme}>
+     <OfflineProvider>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Main" component={AppTabs} />
 
@@ -65,7 +70,14 @@ function Root() {
             title: 'Paramètres',
           }}
         />
+
+        <RootStack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ headerShown: true, title: t('profile.title') }}
+        />
       </RootStack.Navigator>
+     </OfflineProvider>
     </NavigationContainer>
   );
 }
