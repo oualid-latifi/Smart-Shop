@@ -18,6 +18,8 @@ public interface ProductRepository extends JpaRepository<Product, UUID> {
 
     List<Product> findByActiveTrue();
 
+    List<Product> findByUpdatedAtAfter(java.time.LocalDateTime since);
+
     @Query("select p from Product p where p.active = true and p.stockQuantity <= p.alertThreshold")
     List<Product> findLowStock();
 

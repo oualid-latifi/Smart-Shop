@@ -4,7 +4,8 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
+import { LOCAL_PREFIX, localCustomers, localSales, useOffline } from '../offline';
 import { errorMessage } from '../api/errors';
 import { confirmAction } from '../confirm';
 import { openWhatsApp, shareDocument } from '../documents';
@@ -22,6 +23,7 @@ type Props = NativeStackScreenProps<CustomersStackParamList, 'CustomerDetail'>;
 
 export default function CustomerDetailScreen({ route, navigation }: Props) {
   const { t } = useTranslation();
+  const offline = useOffline();
   const [customer, setCustomer] = useState<Customer>(route.params.customer);
   const [amount, setAmount] = useState('');
   const [payment, setPayment] = useState<PaymentValue>(EMPTY_PAYMENT);
@@ -44,7 +46,11 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
       setCustomer(updatedCustomer);
       setSales(data);
     } catch {
-      setSales([]);
+      // Sans serveur : fiche et ventes depuis la base du téléphone
+      const [customers, all] = await Promise.all([localCustomers(), localSales()]);
+      const local = customers.find((c) => c.id === customer.id);
+      if (local) setCustomer(local);
+      setSales(all.filter((s) => s.customerId === customer.id));
     } finally {
       setHistoryLoading(false);
     }
@@ -103,7 +109,23 @@ export default function CustomerDetailScreen({ route, navigation }: Props) {
       setSuccess(true);
       await loadHistory();
     } catch (e) {
-      setError(errorMessage(e, t));
+      if (e instanceof ApiError && e.status === 0) {
+        // Sans serveur : le paiement attend dans le téléphone, la dette affichée baisse tout de suite
+        const localCustomer = customer.id.startsWith(LOCAL_PREFIX) ? customer.id.slice(LOCAL_PREFIX.length) : null;
+        await offline.enqueue({
+          type: 'PAYMENT_CREATE',
+          payload: { customerId: localCustomer ? null : customer.id, amount: value, ...paymentBody(payment) },
+          customerOpId: localCustomer,
+          label: customer.name,
+          total: value,
+        });
+        setCustomer({ ...customer, balance: customer.balance - value });
+        setAmount('');
+        setPayment(EMPTY_PAYMENT);
+        setError(t('offline.paymentQueued'));
+      } else {
+        setError(errorMessage(e, t));
+      }
     } finally {
       setSaving(false);
     }

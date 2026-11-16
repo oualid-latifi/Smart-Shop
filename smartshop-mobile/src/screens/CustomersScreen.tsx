@@ -14,7 +14,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
-import { api } from '../api/client';
+import { api, ApiError } from '../api/client';
+import { localCustomers } from '../offline';
 import { errorMessage } from '../api/errors';
 import type { Customer } from '../api/types';
 import PrimaryButton from '../components/PrimaryButton';
@@ -49,6 +50,11 @@ export default function CustomersScreen({ navigation }: Props) {
         setOldestDays(Object.fromEntries(aging.map((a) => [a.customerId, a.oldestDays])));
       }
     } catch (e) {
+      if (e instanceof ApiError && e.status === 0) {
+        setCustomers(await localCustomers());
+        setError(t('offline.localData'));
+        return;
+      }
       setError(errorMessage(e, t));
     }
   }, [t, can]);

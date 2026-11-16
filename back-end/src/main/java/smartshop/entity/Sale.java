@@ -55,6 +55,10 @@ public class Sale {
     @Column(name = "sale_date", nullable = false)
     private LocalDateTime saleDate;
 
+    // Date de dernière modification : la synchronisation n'envoie au téléphone que ce qui a changé
+    @Column(name = "updated_at")
+    private LocalDateTime updatedAt;
+
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal discount = BigDecimal.ZERO;
 
@@ -101,8 +105,19 @@ public class Sale {
 
     @PrePersist
     void onCreate() {
-        this.saleDate = LocalDateTime.now();
+        // Une vente faite hors-ligne garde l'heure réelle de la vente (voir SyncService)
+        if (this.saleDate == null) this.saleDate = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
     }
+
+    public void setSaleDate(LocalDateTime saleDate) { this.saleDate = saleDate; }
+
+    @PreUpdate
+    void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     public void addLine(SaleLine line) {
         line.setSale(this);
