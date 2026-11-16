@@ -1,6 +1,9 @@
 
 import React from 'react';
+import { Pressable } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../theme';
 
 import { useTranslation } from 'react-i18next';
 import MoreScreen from '../screens/MoreScreen';
@@ -41,7 +44,20 @@ export default function MoreStack() {
       <Stack.Screen
         name="MoreHome"
         component={MoreScreen}
-        options={{ title: t('tabs.more', { defaultValue: 'Plus' }) }}
+        options={({ navigation }) => ({
+          title: t('tabs.more', { defaultValue: 'Plus' }),
+          // Paramètres (langue, adresse du serveur, compte) : écran du navigateur principal
+          headerRight: () => (
+            <Pressable
+              onPress={() => navigation.navigate('Settings' as never)}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel={t('tabs.settings')}
+            >
+              <Ionicons name="settings-outline" size={24} color={colors.text} />
+            </Pressable>
+          ),
+        })}
       />
 
       <Stack.Screen
