@@ -24,7 +24,62 @@ export interface OutboxOp {
   error: string | null;
 }
 
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
+
+// Structure attendue de chaque table (CREATE TABLE IF NOT EXISTS ne corrige pas une table existante)
+const TABLES: Record<string, { columns: string[]; create: string }> = {
+  records: {
+    columns: ['kind', 'id', 'data'],
+    create: 'CREATE TABLE records (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (kind, id))',
+  },
+  meta: {
+    columns: ['key', 'value'],
+    create: 'CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value TEXT)',
+  },
+  outbox: {
+    columns: ['seq', 'op_id', 'type', 'payload', 'customer_op_id', 'occurred_at', 'user_email', 'label', 'total', 'status', 'error'],
+    create: `CREATE TABLE outbox (
+      seq INTEGER PRIMARY KEY AUTOINCREMENT,
+      op_id TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      customer_op_id TEXT,
+      occurred_at TEXT NOT NULL,
+      user_email TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      total REAL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      error TEXT
+    )`,
+  },
+};
+
+/**
+ * Crée les tables manquantes et répare celles qui n'ont pas la bonne structure (ancienne version de l'app) :
+ * la table est reconstruite et les lignes existantes recopiées pour les colonnes communes — rien n'est perdu.
+ */
+async function migrate(database: SQLite.SQLiteDatabase) {
+  for (const [name, table] of Object.entries(TABLES)) {
+    const info = await database.getAllAsync<{ name: string }>(`PRAGMA table_info(${name})`);
+    if (info.length === 0) {
+      await database.execAsync(table.create);
+      continue;
+    }
+    const existing = info.map((c) => c.name);
+    if (table.columns.every((c) => existing.includes(c))) continue;
+    const common = table.columns.filter((c) => c !== 'seq' && existing.includes(c));
+    await database.withExclusiveTransactionAsync(async (txn) => {
+      await txn.execAsync(`ALTER TABLE ${name} RENAME TO ${name}_old`);
+      await txn.execAsync(table.create);
+      if (common.length > 0) {
+        const cols = common.join(', ');
+        await txn.execAsync(`INSERT OR IGNORE INTO ${name} (${cols}) SELECT ${cols} FROM ${name}_old`).catch(() => undefined);
+      }
+      await txn.execAsync(`DROP TABLE ${name}_old`);
+    });
+  }
+  await database.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
+}
 
 let opening: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -32,25 +87,14 @@ function db(): Promise<SQLite.SQLiteDatabase> {
   if (!opening) {
     opening = (async () => {
       const database = await SQLite.openDatabaseAsync('smartshop.db');
-      await database.execAsync(`
-        PRAGMA journal_mode = WAL;
-        CREATE TABLE IF NOT EXISTS records (kind TEXT NOT NULL, id TEXT NOT NULL, data TEXT NOT NULL, PRIMARY KEY (kind, id));
-        CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY NOT NULL, value TEXT);
-        CREATE TABLE IF NOT EXISTS outbox (
-          seq INTEGER PRIMARY KEY AUTOINCREMENT,
-          op_id TEXT NOT NULL UNIQUE,
-          type TEXT NOT NULL,
-          payload TEXT NOT NULL,
-          customer_op_id TEXT,
-          occurred_at TEXT NOT NULL,
-          user_email TEXT NOT NULL,
-          label TEXT NOT NULL DEFAULT '',
-          total REAL,
-          status TEXT NOT NULL DEFAULT 'PENDING',
-          error TEXT
-        );
-        PRAGMA user_version = ${SCHEMA_VERSION};
-      `);
+      await database.execAsync('PRAGMA journal_mode = WAL');
+      try {
+        await migrate(database);
+      } catch {
+        // Base locale illisible : on repart d'une base vide (le serveur reste la référence)
+        for (const name of Object.keys(TABLES)) await database.execAsync(`DROP TABLE IF EXISTS ${name}; DROP TABLE IF EXISTS ${name}_old`);
+        await migrate(database);
+      }
       return database;
     })();
     opening.catch(() => (opening = null));

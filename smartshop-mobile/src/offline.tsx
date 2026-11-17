@@ -173,7 +173,11 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   const running = useRef(false);
 
   const refreshQueue = useCallback(async () => {
-    setQueue(await localDb.ops());
+    try {
+      setQueue(await localDb.ops());
+    } catch (e) {
+      console.warn('Base locale indisponible', e);
+    }
     setVersion((v) => v + 1);
   }, []);
 
@@ -237,6 +241,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       setOffline(false);
     } catch (e) {
       if (e instanceof ApiError && e.status === 0) setOffline(true);
+      else if (!(e instanceof ApiError)) console.warn('Synchronisation impossible', e);
     } finally {
       running.current = false;
       setSyncing(false);
@@ -245,7 +250,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
   }, [push, pull, refreshQueue]);
 
   useEffect(() => {
-    void localDb.getMeta('lastSync').then(setLastSync);
+    localDb.getMeta('lastSync').then(setLastSync).catch(() => undefined);
     void refreshQueue().then(sync);
     const timer = setInterval(() => {
       if (AppState.currentState === 'active') void sync();
