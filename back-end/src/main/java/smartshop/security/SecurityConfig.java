@@ -55,7 +55,7 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/verify/**").permitAll()
                         // Boutique en ligne : page et API publiques
-                        .requestMatchers("/shop", "/shop/", "/api/public/**").permitAll()
+                        .requestMatchers("/shop/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/online-orders/**").hasAuthority("SALES")
                         // Comptes, journal, objectifs, paramètres
                         .requestMatchers("/api/users/**", "/api/activity/**").hasAuthority("USERS")

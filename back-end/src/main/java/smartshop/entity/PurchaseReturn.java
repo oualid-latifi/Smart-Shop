@@ -8,7 +8,7 @@ import java.util.UUID;
 /** Retour de marchandise au fournisseur : le stock sort, la dette envers le fournisseur baisse. */
 @Entity
 @Table(name = "purchase_returns")
-public class PurchaseReturn {
+public class PurchaseReturn extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

@@ -7,7 +7,7 @@ import java.util.UUID;
 /** Journal d'activité : qui a fait quoi, et quand. */
 @Entity
 @Table(name = "activity_logs", indexes = @Index(name = "idx_activity_at", columnList = "at"))
-public class ActivityLog {
+public class ActivityLog extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "sale_returns")
-public class SaleReturn {
+public class SaleReturn extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

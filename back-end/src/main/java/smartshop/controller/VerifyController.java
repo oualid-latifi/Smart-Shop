@@ -31,9 +31,9 @@ public class VerifyController {
 
     @GetMapping(value = "/verify/{code}", produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public String verify(@PathVariable String code) {
-        ShopSettings settings = settingsService.get();
-        String shop = escape(settings.getShopName() != null ? settings.getShopName() : "SmartShop");
         Optional<Sale> found = code.matches("[A-Z0-9]{20}") ? saleService.findByVerificationCode(code) : Optional.empty();
+        ShopSettings settings = found.map(s -> settingsService.forShop(s.getShopId())).orElseGet(ShopSettings::new);
+        String shop = escape(settings.getShopName() != null ? settings.getShopName() : "SmartShop");
 
         String body;
         if (found.isEmpty()) {

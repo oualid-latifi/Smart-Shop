@@ -5,7 +5,7 @@ import jakarta.persistence.*;
 /** Compteur de numérotation par type de document et par année (ex : clé "FAC-2026"). */
 @Entity
 @Table(name = "document_counters")
-public class DocumentCounter {
+public class DocumentCounter extends TenantEntity {
 
     @Id
     @Column(name = "counter_key", length = 20)

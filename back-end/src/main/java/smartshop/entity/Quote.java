@@ -10,14 +10,14 @@ import java.util.UUID;
 
 /** Devis (DEV-2026-00001) : proposition de prix qui ne touche pas au stock tant qu'il n'est pas converti en vente. */
 @Entity
-@Table(name = "quotes")
-public class Quote {
+@Table(name = "quotes", uniqueConstraints = @UniqueConstraint(name = "uk_quotes_shop_number", columnNames = {"shop_id", "number"}))
+public class Quote extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 20, unique = true)
+    @Column(nullable = false, length = 20)
     private String number;
 
     // null = prospect non enregistré : on garde alors son nom en texte libre

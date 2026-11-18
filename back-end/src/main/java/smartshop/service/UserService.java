@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.tenancy.TenantContext;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,7 +31,7 @@ public class UserService {
 
     @Transactional(readOnly = true)
     public List<UserResponse> findAll() {
-        return userRepository.findAll().stream()
+        return userRepository.findByShopId(TenantContext.require()).stream()
                 .sorted(Comparator.comparing((AppUser u) -> u.getRole().ordinal()).thenComparing(AppUser::getName))
                 .map(UserResponse::from)
                 .toList();
@@ -48,6 +49,7 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
         user.setActive(true);
+        user.setShopId(TenantContext.require());
         return UserResponse.from(userRepository.save(user));
     }
 
@@ -82,10 +84,10 @@ public class UserService {
     }
 
     private long countActiveOwners() {
-        return userRepository.findAll().stream().filter(u -> u.getRole() == Role.OWNER && u.isActive()).count();
+        return userRepository.findByShopId(TenantContext.require()).stream().filter(u -> u.getRole() == Role.OWNER && u.isActive()).count();
     }
 
     private AppUser get(UUID id) {
-        return userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
+        return userRepository.findByIdAndShopId(id, TenantContext.require()).orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
     }
 }

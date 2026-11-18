@@ -130,12 +130,14 @@
           none: 'لا يوجد منتج.', closed: 'المتجر الإلكتروني مغلق حاليا.', error: 'تعذر الاتصال بالمتجر. حاول مجددا.', lang: 'Fr', dir: 'rtl' }
   };
   var $ = function (id) { return document.getElementById(id); };
+  // Adresse /shop/{boutique} : chaque boutique a son propre catalogue
+  var API = '/api/public/' + encodeURIComponent(location.pathname.split('/').filter(Boolean)[1] || '');
   var store = {
     get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } },
     set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* stockage indisponible */ } }
   };
   var lang = store.get('shop.lang') || ((navigator.language || '').indexOf('ar') === 0 ? 'ar' : 'fr');
-  var data = null, brand = null, cart = store.get('shop.cart') || {};
+  var data = null, brand = null, cart = store.get(API + '.cart') || {};
   var t = function (k) { return T[lang][k]; };
   var money = function (v) { return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DH'; };
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
@@ -221,7 +223,7 @@
 
   function setQty(id, n) {
     if (n <= 0) delete cart[id]; else cart[id] = Math.min(n, 20);
-    store.set('shop.cart', cart);
+    store.set(API + '.cart', cart);
     render();
   }
 
@@ -264,14 +266,14 @@
       lines: Object.keys(cart).filter(byId).map(function (id) { return { productId: id, quantity: cart[id] }; })
     };
     store.set('shop.customer', { name: body.name, phone: body.phone, address: body.address });
-    fetch('/api/public/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    fetch(API + '/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { ok: r.ok, j: j }; }); })
       .then(function (res) {
         if (!res.ok) {
           var errors = res.j.errors ? Object.keys(res.j.errors).map(function (k) { return res.j.errors[k]; }).join(' · ') : '';
           throw new Error(errors || res.j.message || t('error'));
         }
-        cart = {}; store.set('shop.cart', cart);
+        cart = {}; store.set(API + '.cart', cart);
         $('cartView').hidden = true; $('doneView').hidden = false;
         $('doneText').textContent = t('done').replace('{n}', res.j.number);
         if (data.phone) {
@@ -285,7 +287,7 @@
   };
 
   function load() {
-    fetch('/api/public/catalog').then(function (r) {
+    fetch(API + '/catalog').then(function (r) {
       if (r.status === 404) throw new Error('closed');
       if (!r.ok) throw new Error('error');
       return r.json();

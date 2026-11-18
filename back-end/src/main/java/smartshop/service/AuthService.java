@@ -25,11 +25,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
+    private final ShopService shopService;
 
     public AuthService(AppUserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       LoginAttemptService loginAttemptService) {
+                       LoginAttemptService loginAttemptService,
+                       ShopService shopService) {
+        this.shopService = shopService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -41,13 +44,18 @@ public class AuthService {
         return userRepository.count() > 0;
     }
 
-    /** Création du compte du propriétaire : possible une seule fois. */
+    /** Un nouveau propriétaire crée sa boutique : ses données sont séparées de celles des autres boutiques. */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.count() > 0) {
-            throw new IllegalArgumentException("Un compte existe déjà : utilise la connexion");
+        String email = normalize(request.email());
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Un compte utilise déjà cet email : connecte-toi");
         }
+        String shopName = request.shopName() != null && !request.shopName().isBlank()
+                ? request.shopName().trim() : "Boutique de " + request.name().trim();
+        smartshop.entity.Shop shop = shopService.create(shopName);
         AppUser user = new AppUser();
+        user.setShopId(shop.getId());
         user.setName(request.name().trim());
         user.setEmail(normalize(request.email()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
@@ -101,6 +109,7 @@ public class AuthService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setRole(request.role());
         user.setActive(true);
+        user.setShopId(owner.getShopId());
         return toResponse(userRepository.save(user));
     }
 

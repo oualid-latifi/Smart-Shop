@@ -7,7 +7,7 @@ import java.util.UUID;
 /** Objectif de chiffre d'affaires d'un vendeur pour un mois (format "2026-11"). */
 @Entity
 @Table(name = "sales_targets", uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "target_month"}))
-public class SalesTarget {
+public class SalesTarget extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

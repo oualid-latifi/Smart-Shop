@@ -6,7 +6,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "purchase_lines")
-public class PurchaseLine {
+public class PurchaseLine extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

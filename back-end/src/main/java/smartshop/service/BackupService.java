@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.tenancy.TenantContext;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -59,7 +60,12 @@ public class BackupService {
     public record BackupInfo(String name, long size, LocalDateTime createdAt) {
     }
 
-    private record Manifest(int version, String createdAt, List<String> tables, Map<String, Integer> rows) {
+    // version 2 : sauvegarde d'une seule boutique (shopId) ; version 1 : base entière d'avant le multi-boutiques
+    private record Manifest(int version, String createdAt, List<String> tables, Map<String, Integer> rows, UUID shopId) {
+    }
+
+    /** Lignes d'une table qui appartiennent à la boutique : condition SQL et nombre de paramètres. */
+    private record Scope(String where, int params) {
     }
 
     private final DataSource dataSource;
@@ -68,8 +74,9 @@ public class BackupService {
     private final Path dir;
     private final int keep;
     private final NotificationService notificationService;
+    private final smartshop.repository.ShopRepository shopRepository;
 
-    public BackupService(DataSource dataSource, ObjectMapper json,
+    public BackupService(DataSource dataSource, ObjectMapper json, smartshop.repository.ShopRepository shopRepository,
                          @Value("${app.backup.dir:backups}") String dir,
                          @Value("${app.backup.keep:14}") int keep,
                          @org.springframework.context.annotation.Lazy NotificationService notificationService) {
@@ -79,10 +86,10 @@ public class BackupService {
         this.dir = Path.of(dir).toAbsolutePath();
         this.keep = Math.max(1, keep);
         this.notificationService = notificationService;
+        this.shopRepository = shopRepository;
     }
 
-    // Chaque nuit (heure du Maroc), désactivable avec BACKUP_CRON=-
-    @Scheduled(cron = "${app.backup.cron:0 30 2 * * *}")
+    // Chaque nuit pour chaque boutique (TenantJobs), désactivable avec BACKUP_CRON=-
     public void nightly() {
         try {
             BackupInfo info = create();
@@ -97,15 +104,16 @@ public class BackupService {
     /** Crée une sauvegarde sur le disque du serveur et supprime les plus anciennes. */
     public BackupInfo create() throws IOException {
         byte[] zip = export();
-        Files.createDirectories(dir);
+        Files.createDirectories(shopDir());
         String name = PREFIX + NAME.format(LocalDateTime.now()) + ".zip";
-        Path file = dir.resolve(name);
+        Path file = shopDir().resolve(name);
         Files.write(file, zip);
         prune();
         return new BackupInfo(name, zip.length, LocalDateTime.now());
     }
 
     public List<BackupInfo> list() throws IOException {
+        Path dir = shopDir();
         if (!Files.isDirectory(dir)) return List.of();
         try (Stream<Path> files = Files.list(dir)) {
             return files.filter(p -> p.getFileName().toString().matches(PREFIX + "[0-9_-]+\\.zip"))
@@ -126,30 +134,34 @@ public class BackupService {
         return Files.readAllBytes(resolve(name));
     }
 
-    /** Toutes les tables -> ZIP (JSON). */
+    /** Données de la boutique en cours -> ZIP (un fichier JSON par table). */
     @Transactional(readOnly = true)
     public byte[] export() throws IOException {
-        List<String> tables = tablesInDependencyOrder();
+        UUID shopId = TenantContext.require();
+        Map<String, Scope> scopes = scopes();
+        List<String> tables = tablesInDependencyOrder().stream().filter(scopes::containsKey).toList();
         Map<String, Integer> counts = new LinkedHashMap<>();
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         try (ZipOutputStream zip = new ZipOutputStream(out, StandardCharsets.UTF_8)) {
             for (String table : tables) {
-                List<Map<String, Object>> rows = jdbc.query("select * from " + quote(table), (rs, i) -> row(rs));
+                Scope scope = scopes.get(table);
+                List<Map<String, Object>> rows = jdbc.query("select * from " + quote(table) + " where " + scope.where(),
+                        (rs, i) -> row(rs), params(scope, shopId));
                 counts.put(table, rows.size());
                 zip.putNextEntry(new ZipEntry(table + ".json"));
                 zip.write(json.writeValueAsBytes(rows));
                 zip.closeEntry();
             }
             zip.putNextEntry(new ZipEntry("manifest.json"));
-            zip.write(json.writeValueAsBytes(new Manifest(1, LocalDateTime.now().toString(), tables, counts)));
+            zip.write(json.writeValueAsBytes(new Manifest(2, LocalDateTime.now().toString(), tables, counts, shopId)));
             zip.closeEntry();
         }
         return out.toByteArray();
     }
 
     /**
-     * Remplace toutes les données par celles de la sauvegarde, en une seule transaction :
-     * si une ligne échoue, rien n'est modifié.
+     * Remplace les données de la boutique en cours par celles de la sauvegarde, en une seule transaction :
+     * si une ligne échoue, rien n'est modifié. Les autres boutiques ne sont jamais touchées.
      */
     @Transactional
     public Map<String, Integer> restore(byte[] zip) throws IOException {
@@ -162,10 +174,23 @@ public class BackupService {
             throw new IllegalArgumentException("Ce fichier n'est pas une sauvegarde SmartShop");
         }
         Manifest manifest = json.readValue(entries.get("manifest.json"), Manifest.class);
+        UUID shopId = TenantContext.require();
+        if (manifest.shopId() != null && !manifest.shopId().equals(shopId)) {
+            throw new IllegalArgumentException("Cette sauvegarde appartient à une autre boutique");
+        }
+        // Ancienne sauvegarde de toute la base : seulement s'il n'existe qu'une boutique
+        if (manifest.shopId() == null && shopRepository.count() > 1) {
+            throw new IllegalArgumentException("Ancienne sauvegarde (avant le multi-boutiques) : restauration impossible");
+        }
 
-        // Tables actuelles : parents d'abord. On vide dans l'ordre inverse, on recharge dans l'ordre.
-        List<String> order = tablesInDependencyOrder();
-        for (int i = order.size() - 1; i >= 0; i--) jdbc.update("delete from " + quote(order.get(i)));
+        // Tables de la boutique : parents d'abord. On vide dans l'ordre inverse, on recharge dans l'ordre.
+        // La ligne de la boutique elle-même (table shops) n'est ni effacée ni remplacée.
+        Map<String, Scope> scopes = scopes();
+        List<String> order = tablesInDependencyOrder().stream().filter(t -> scopes.containsKey(t) && !t.equals("shops")).toList();
+        for (int i = order.size() - 1; i >= 0; i--) {
+            Scope scope = scopes.get(order.get(i));
+            jdbc.update("delete from " + quote(order.get(i)) + " where " + scope.where(), params(scope, shopId));
+        }
 
         Map<String, Integer> restored = new LinkedHashMap<>();
         for (String table : order) {
@@ -174,6 +199,13 @@ public class BackupService {
             });
             Map<String, Integer> types = columnTypes(table);
             for (Map<String, Object> row : rows) {
+                if (types.containsKey("shop_id")) {
+                    Object owner = row.get("shop_id");
+                    if (owner != null && !shopId.toString().equals(owner.toString())) {
+                        throw new IllegalArgumentException("Cette sauvegarde contient les données d'une autre boutique");
+                    }
+                    row.put("shop_id", shopId.toString());
+                }
                 List<String> columns = row.keySet().stream().filter(types::containsKey).toList();
                 if (columns.isEmpty()) continue;
                 String sql = "insert into " + quote(table) + " (" + String.join(", ", columns.stream().map(BackupService::quote).toList())
@@ -187,6 +219,57 @@ public class BackupService {
     }
 
     // ---------------------------------------------------------------- Outils
+
+    private Path shopDir() {
+        return dir.resolve(TenantContext.require().toString());
+    }
+
+    private static Object[] params(Scope scope, UUID shopId) {
+        Object[] values = new Object[scope.params()];
+        java.util.Arrays.fill(values, shopId);
+        return values;
+    }
+
+    /**
+     * Comment trouver les lignes de la boutique dans chaque table : colonne shop_id, table shops elle-même,
+     * ou table de détail sans shop_id (ex : lignes de commande) via la table parente.
+     * Les tables techniques sans lien avec une boutique ne sont pas sauvegardées.
+     */
+    private Map<String, Scope> scopes() {
+        try (Connection connection = dataSource.getConnection()) {
+            DatabaseMetaData meta = connection.getMetaData();
+            String schema = connection.getSchema();
+            List<String> tables = tablesInDependencyOrder();
+            Map<String, Scope> scopes = new LinkedHashMap<>();
+            for (String table : tables) {
+                if (table.equals("shops")) {
+                    scopes.put(table, new Scope("id = ?", 1));
+                } else if (columnTypes(table).containsKey("shop_id")) {
+                    scopes.put(table, new Scope("shop_id = ?", 1));
+                }
+            }
+            // Tables de détail : parents déjà traités grâce à l'ordre des dépendances
+            for (String table : tables) {
+                if (scopes.containsKey(table)) continue;
+                for (String name : List.of(table, table.toUpperCase(Locale.ROOT))) {
+                    try (ResultSet rs = meta.getImportedKeys(connection.getCatalog(), schema, name)) {
+                        while (rs.next() && !scopes.containsKey(table)) {
+                            String parent = rs.getString("PKTABLE_NAME").toLowerCase(Locale.ROOT);
+                            Scope parentScope = scopes.get(parent);
+                            if (parentScope == null) continue;
+                            String fk = quote(rs.getString("FKCOLUMN_NAME").toLowerCase(Locale.ROOT));
+                            String pk = quote(rs.getString("PKCOLUMN_NAME").toLowerCase(Locale.ROOT));
+                            scopes.put(table, new Scope(fk + " in (select " + pk + " from " + quote(parent) + " where " + parentScope.where() + ")",
+                                    parentScope.params()));
+                        }
+                    }
+                }
+            }
+            return scopes;
+        } catch (SQLException e) {
+            throw new IllegalStateException("Lecture du schéma impossible : " + e.getMessage(), e);
+        }
+    }
 
     private Map<String, Object> row(ResultSet rs) throws SQLException {
         ResultSetMetaData meta = rs.getMetaData();
@@ -275,11 +358,12 @@ public class BackupService {
 
     private void prune() throws IOException {
         List<BackupInfo> all = list();
-        for (int i = keep; i < all.size(); i++) Files.deleteIfExists(dir.resolve(all.get(i).name()));
+        for (int i = keep; i < all.size(); i++) Files.deleteIfExists(shopDir().resolve(all.get(i).name()));
     }
 
     private Path resolve(String name) {
         if (!name.matches(PREFIX + "[0-9_-]+\\.zip")) throw new IllegalArgumentException("Nom de sauvegarde invalide");
+        Path dir = shopDir();
         Path file = dir.resolve(name).normalize();
         if (!file.startsWith(dir) || !Files.exists(file)) throw new smartshop.exception.ResourceNotFoundException("Sauvegarde introuvable");
         return file;

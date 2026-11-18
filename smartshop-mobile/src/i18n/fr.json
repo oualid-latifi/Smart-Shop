@@ -18,8 +18,8 @@
   },
   "auth": {
     "loginTitle": "Connexion",
-    "registerTitle": "Créer le compte du propriétaire",
-    "registerHint": "Première utilisation : crée le compte unique de ta boutique.",
+    "registerTitle": "Créer ma boutique",
+    "registerHint": "Crée ta boutique et ton compte propriétaire. Tes produits, ventes et clients restent séparés de ceux des autres boutiques.",
     "name": "Nom",
     "email": "Email",
     "password": "Mot de passe",
@@ -28,7 +28,11 @@
     "registerButton": "Créer le compte",
     "brandHint": "Gestion simple et intelligente de votre boutique",
     "showPassword": "Afficher le mot de passe",
-    "hidePassword": "Masquer le mot de passe"
+    "hidePassword": "Masquer le mot de passe",
+    "shopName": "Nom de la boutique",
+    "shopNameHint": "Ex. Phone Nour Casablanca",
+    "createShopLink": "Nouvelle boutique ? Créer ma boutique",
+    "backToLogin": "J’ai déjà un compte : me connecter"
   },
   "errors": {
     "network": "Impossible de joindre le serveur. Vérifie que le backend est lancé et que l'adresse est correcte.",

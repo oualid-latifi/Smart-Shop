@@ -6,21 +6,23 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Entity
-@Table(name = "products")
-public class Product {
+@Table(name = "products", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_products_shop_reference", columnNames = {"shop_id", "reference"}),
+        @UniqueConstraint(name = "uk_products_shop_barcode", columnNames = {"shop_id", "barcode"})})
+public class Product extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    @Column(nullable = false, length = 50)
     private String reference;
 
     @Column(nullable = false, length = 150)
     private String name;
 
     // Code-barres EAN/UPC imprimé sur l'emballage (facultatif, unique)
-    @Column(length = 64, unique = true)
+    @Column(length = 64)
     private String barcode;
 
     @Column(length = 80)

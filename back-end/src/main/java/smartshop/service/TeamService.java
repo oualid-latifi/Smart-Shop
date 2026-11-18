@@ -1,5 +1,6 @@
 package smartshop.service;
 
+import smartshop.tenancy.TenantContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.entity.AppUser;
@@ -51,7 +52,7 @@ public class TeamService {
     /** Ce que chaque employé a encaissé en espèces et doit encore remettre. */
     @Transactional(readOnly = true)
     public List<CashBalance> balances() {
-        return userRepository.findAll().stream()
+        return userRepository.findByShopId(TenantContext.require()).stream()
                 .filter(u -> u.isActive() && u.getRole().has(Permission.SALES))
                 .map(u -> {
                     BigDecimal collected = handinRepository.sumCashCollected(u.getId()).add(handinRepository.sumWalkInCash(u.getId()));
@@ -63,7 +64,7 @@ public class TeamService {
 
     @Transactional
     public HandinResponse handin(UUID employeeId, BigDecimal amount, String note) {
-        AppUser employee = userRepository.findById(employeeId)
+        AppUser employee = userRepository.findByIdAndShopId(employeeId, TenantContext.require())
                 .orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
         CashHandin h = new CashHandin();
         h.setEmployee(employee);
@@ -85,7 +86,7 @@ public class TeamService {
         YearMonth ym = month != null ? YearMonth.parse(month) : YearMonth.now();
         LocalDateTime start = ym.atDay(1).atStartOfDay();
         LocalDateTime end = ym.plusMonths(1).atDay(1).atStartOfDay();
-        return userRepository.findAll().stream()
+        return userRepository.findByShopId(TenantContext.require()).stream()
                 .filter(u -> u.isActive() && u.getRole().has(Permission.SALES))
                 .map(u -> {
                     BigDecimal target = targetRepository.findByUser_IdAndMonth(u.getId(), ym.toString())
@@ -103,7 +104,7 @@ public class TeamService {
     @Transactional
     public TargetProgress setTarget(UUID userId, String month, BigDecimal amount) {
         YearMonth ym = YearMonth.parse(month);
-        AppUser user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
+        AppUser user = userRepository.findByIdAndShopId(userId, TenantContext.require()).orElseThrow(() -> new ResourceNotFoundException("Compte introuvable"));
         SalesTarget target = targetRepository.findByUser_IdAndMonth(userId, ym.toString()).orElseGet(SalesTarget::new);
         target.setUser(user);
         target.setMonth(ym.toString());
