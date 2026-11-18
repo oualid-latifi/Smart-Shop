@@ -12,11 +12,22 @@ interface User {
   permissions: Permission[];
 }
 
+export interface EmployeeRegistration {
+  name: string;
+  email: string;
+  password: string;
+  role: Role;
+  ownerEmail: string;
+  ownerPassword: string;
+}
+
 interface AuthContextValue {
   status: Status;
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  register: (name: string, email: string, password: string, shopName?: string) => Promise<void>;
+  /** Compte employé créé depuis l'écran de connexion, autorisé par les identifiants du propriétaire. */
+  registerEmployee: (body: EmployeeRegistration) => Promise<void>;
   logout: () => Promise<void>;
   /** Le compte connecté a-t-il ce droit ? */
   can: (permission: Permission) => boolean;
@@ -109,11 +120,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 
   const register = useCallback(
-    async (name: string, email: string, password: string) => {
+    async (name: string, email: string, password: string, shopName?: string) => {
       const response = await api<AuthResponse>('/api/auth/register', {
         method: 'POST',
-        body: { name, email, password },
+        body: { name, email, password, shopName: shopName || null },
         auth: false,
+      });
+      await startSession(response);
+    },
+    [startSession],
+  );
+
+  const registerEmployee = useCallback(
+    async (body: EmployeeRegistration) => {
+      const response = await api<AuthResponse>('/api/auth/register-employee', {
+        method: 'POST',
+        body,
+        auth: false,
+        logoutOn401: false,
       });
       await startSession(response);
     },
@@ -123,8 +147,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const can = useCallback((permission: Permission) => !!user?.permissions.includes(permission), [user]);
 
   const value = useMemo(
-    () => ({ status, user, login, register, logout, can }),
-    [status, user, login, register, logout, can],
+    () => ({ status, user, login, register, registerEmployee, logout, can }),
+    [status, user, login, register, registerEmployee, logout, can],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

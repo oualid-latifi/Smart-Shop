@@ -90,7 +90,7 @@ public class WeeklyReportService {
     }
 
     // Chaque lundi à 8 h (heure du Maroc)
-    @Scheduled(cron = "${app.report.weekly-cron:0 0 8 * * MON}")
+    // Chaque lundi pour chaque boutique (TenantJobs)
     public void sendWeekly() {
         if (!Boolean.TRUE.equals(settingsService.get().getWeeklyReportEnabled())) return;
         try {
@@ -129,7 +129,7 @@ public class WeeklyReportService {
             return Arrays.stream(configured.split("[,;\\s]+")).map(String::trim).filter(s -> s.contains("@")).toList();
         }
         List<String> owners = new ArrayList<>();
-        for (AppUser u : userRepository.findAll()) if (u.isActive() && u.getRole() == Role.OWNER) owners.add(u.getEmail());
+        for (AppUser u : userRepository.findByShopId(smartshop.tenancy.TenantContext.require())) if (u.isActive() && u.getRole() == Role.OWNER) owners.add(u.getEmail());
         return owners;
     }
 

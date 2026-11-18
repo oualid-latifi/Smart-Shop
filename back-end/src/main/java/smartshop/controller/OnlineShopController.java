@@ -35,19 +35,19 @@ public class OnlineShopController {
 
     // ---------------------------------------------------------------- Public
 
-    /** Page web de la boutique, à partager avec les clients (WhatsApp, Instagram, Facebook…). */
-    @GetMapping(value = {"/shop", "/shop/"}, produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
+    /** Page web de la boutique (/shop/{boutique}, boutique fixée par PublicShopFilter), à partager avec les clients (WhatsApp, Instagram, Facebook…). */
+    @GetMapping(value = {"/shop/{slug}", "/shop/{slug}/"}, produces = MediaType.TEXT_HTML_VALUE + ";charset=UTF-8")
     public ResponseEntity<String> page() throws IOException {
         String html = new ClassPathResource("shop/index.html").getContentAsString(StandardCharsets.UTF_8);
         return ResponseEntity.ok().cacheControl(CacheControl.noCache()).body(html);
     }
 
-    @GetMapping("/api/public/catalog")
+    @GetMapping("/api/public/{slug}/catalog")
     public OnlineShopService.Catalog catalog() {
         return service.catalog();
     }
 
-    @PostMapping("/api/public/orders")
+    @PostMapping("/api/public/{slug}/orders")
     @ResponseStatus(HttpStatus.CREATED)
     public OnlineShopService.OrderPlaced order(@Valid @RequestBody OnlineShopService.OrderRequest request, HttpServletRequest http) {
         return service.place(request, http.getRemoteAddr());

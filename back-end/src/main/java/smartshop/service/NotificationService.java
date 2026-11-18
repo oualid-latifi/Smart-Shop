@@ -105,7 +105,7 @@ public class NotificationService {
     }
 
     /** Chaque matin : rappel des chèques à encaisser aujourd'hui ou dans les 2 jours. */
-    @Scheduled(cron = "${app.notifications.checks-cron:0 0 8 * * *}")
+    // Lancé chaque matin pour chaque boutique par TenantJobs
     @Transactional(readOnly = true)
     public void checksDueSoon() {
         LocalDate today = LocalDate.now();
@@ -121,7 +121,7 @@ public class NotificationService {
     /** Envoi push Expo aux comptes actifs qui ont le droit de voir la notification. */
     private void push(Notification n) {
         List<Map<String, Object>> messages = new ArrayList<>();
-        for (AppUser u : userRepository.findAll()) {
+        for (AppUser u : userRepository.findByShopId(n.getShopId())) {
             if (!u.isActive() || u.getPushToken() == null) continue;
             if (n.getAudience() != null && !u.getRole().has(n.getAudience())) continue;
             messages.add(Map.of("to", u.getPushToken(), "title", n.getTitle(), "body", n.getBody(), "sound", "default",

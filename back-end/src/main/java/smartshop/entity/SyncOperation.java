@@ -11,7 +11,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "sync_operations")
-public class SyncOperation {
+public class SyncOperation extends TenantEntity {
 
     public enum Type { SALE_CREATE, CUSTOMER_CREATE, PAYMENT_CREATE }
 

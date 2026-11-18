@@ -4,17 +4,19 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 
 /**
- * Informations de la boutique imprimées sur les documents (une seule ligne, id = 1).
+ * Informations de la boutique imprimées sur les documents (une ligne par boutique).
  * Au Maroc, l'ICE doit figurer sur les factures.
  */
 @Entity
 @Table(name = "shop_settings")
-public class ShopSettings {
+public class ShopSettings extends TenantEntity {
 
-    public static final long SINGLETON_ID = 1L;
-
+    // Identifiant fixé par ShopSettingsService (1 pour la boutique existante avant le passage multi-boutiques)
     @Id
-    private Long id = SINGLETON_ID;
+    private Long id;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
 
     @Column(name = "shop_name", length = 150)
     private String shopName;
@@ -83,7 +85,6 @@ public class ShopSettings {
     @Column(name = "approval_pin_hash", length = 100)
     private String approvalPinHash;
 
-    public Long getId() { return id; }
 
     public String getShopName() { return shopName; }
     public void setShopName(String shopName) { this.shopName = shopName; }

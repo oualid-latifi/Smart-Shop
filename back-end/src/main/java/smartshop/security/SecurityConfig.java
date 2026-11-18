@@ -49,13 +49,13 @@ public class SecurityConfig {
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/status", "/api/auth/register", "/api/auth/login").permitAll()
+                        .requestMatchers("/api/auth/status", "/api/auth/register", "/api/auth/register-employee", "/api/auth/login").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                         .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/verify/**").permitAll()
                         // Boutique en ligne : page et API publiques
-                        .requestMatchers("/shop", "/shop/", "/api/public/**").permitAll()
+                        .requestMatchers("/shop/**", "/api/public/**").permitAll()
                         .requestMatchers("/api/online-orders/**").hasAuthority("SALES")
                         // Comptes, journal, objectifs, paramètres
                         .requestMatchers("/api/users/**", "/api/activity/**").hasAuthority("USERS")

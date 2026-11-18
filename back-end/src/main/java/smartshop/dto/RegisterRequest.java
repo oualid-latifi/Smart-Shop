@@ -7,6 +7,7 @@ import jakarta.validation.constraints.Size;
 public record RegisterRequest(
         @NotBlank @Size(max = 100) String name,
         @NotBlank @Email @Size(max = 150) String email,
-        @NotBlank @Size(min = 8, max = 100) String password
+        @NotBlank @Size(min = 8, max = 100) String password,
+        @Size(max = 150) String shopName          // nom de la nouvelle boutique (par défaut : "Boutique de …")
 ) {
 }

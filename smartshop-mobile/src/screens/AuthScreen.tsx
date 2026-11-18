@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInputInstance, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInputInstance, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api, getBaseUrl } from '../api/client';
@@ -8,6 +8,7 @@ import { API_URL_KEY, storage } from '../storage';
 import { errorMessage } from '../api/errors';
 import type { AccountStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import EmployeeRegisterForm from '../components/EmployeeRegisterForm';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -21,6 +22,12 @@ export default function AuthScreen() {
   const { login, register } = useAuth();
 
   const [accountExists, setAccountExists] = useState<boolean | null>(null);
+  // Écran de connexion : "employee" = inscription d'un employé validée par le propriétaire
+  const [employeeMode, setEmployeeMode] = useState(false);
+  // Plusieurs boutiques : un nouveau propriétaire peut toujours créer la sienne
+  const [ownerMode, setOwnerMode] = useState(false);
+  const [shopName, setShopName] = useState('');
+  const signingIn = accountExists === true && !ownerMode;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -70,11 +77,11 @@ export default function AuthScreen() {
   async function submit() {
     const cleanEmail = email.trim();
 
-    if (!cleanEmail || !password || (!accountExists && !name.trim())) {
+    if (!cleanEmail || !password || (!signingIn && !name.trim())) {
       setError(t('errors.required'));
       return;
     }
-    if (!accountExists) {
+    if (!signingIn) {
       if (!cleanEmail.includes('@')) {
         setError(t('errors.emailInvalid'));
         return;
@@ -88,10 +95,10 @@ export default function AuthScreen() {
     setLoading(true);
     setError(null);
     try {
-      if (accountExists) {
+      if (signingIn) {
         await login(cleanEmail, password);
       } else {
-        await register(name.trim(), cleanEmail, password);
+        await register(name.trim(), cleanEmail, password, shopName.trim());
       }
     } catch (e) {
       setError(errorMessage(e, t));
@@ -112,14 +119,26 @@ export default function AuthScreen() {
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : null}
 
-      {accountExists !== null ? (
+      {accountExists && employeeMode ? <EmployeeRegisterForm onBack={() => setEmployeeMode(false)} /> : null}
+
+      {accountExists !== null && !(accountExists && employeeMode) ? (
         <View style={styles.card}>
           <Text style={styles.title}>
-            {accountExists ? t('auth.loginTitle') : t('auth.registerTitle')}
+            {signingIn ? t('auth.loginTitle') : t('auth.registerTitle')}
           </Text>
-          {!accountExists ? <Text style={styles.hint}>{t('auth.registerHint')}</Text> : null}
+          {!signingIn ? <Text style={styles.hint}>{t('auth.registerHint')}</Text> : null}
 
-          {!accountExists ? (
+          {!signingIn ? (
+            <TextField
+              label={t('auth.shopName')}
+              hint={t('auth.shopNameHint')}
+              value={shopName}
+              onChangeText={setShopName}
+              autoCapitalize="words"
+              returnKeyType="next"
+            />
+          ) : null}
+          {!signingIn ? (
             <TextField
               label={t('auth.name')}
               value={name}
@@ -140,7 +159,7 @@ export default function AuthScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             autoComplete="email"
-            textContentType={accountExists ? 'username' : 'emailAddress'}
+            textContentType={signingIn ? 'username' : 'emailAddress'}
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
             blurOnSubmit={false}
@@ -152,21 +171,39 @@ export default function AuthScreen() {
             onChangeText={setPassword}
             secureTextEntry
             autoCapitalize="none"
-            autoComplete={accountExists ? 'current-password' : 'new-password'}
-            textContentType={accountExists ? 'password' : 'newPassword'}
+            autoComplete={signingIn ? 'current-password' : 'new-password'}
+            textContentType={signingIn ? 'password' : 'newPassword'}
             returnKeyType="go"
-            hint={!accountExists ? t('auth.passwordHint') : undefined}
+            hint={!signingIn ? t('auth.passwordHint') : undefined}
             onSubmitEditing={submit}
           />
 
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <PrimaryButton
-            icon={accountExists ? 'log-in-outline' : 'person-add-outline'}
-            title={accountExists ? t('auth.loginButton') : t('auth.registerButton')}
+            icon={signingIn ? 'log-in-outline' : 'person-add-outline'}
+            title={signingIn ? t('auth.loginButton') : t('auth.registerButton')}
             onPress={submit}
             loading={loading}
           />
+
+          {signingIn ? (
+            <>
+              <Pressable accessibilityRole="button" onPress={() => { setError(null); setOwnerMode(true); }} style={styles.link} hitSlop={8}>
+                <Ionicons name="storefront-outline" size={16} color={colors.primary} />
+                <Text style={styles.linkText}>{t('auth.createShopLink')}</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={() => { setError(null); setEmployeeMode(true); }} style={styles.link} hitSlop={8}>
+                <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+                <Text style={styles.linkText}>{t('employee.link')}</Text>
+              </Pressable>
+            </>
+          ) : accountExists ? (
+            <Pressable accessibilityRole="button" onPress={() => { setError(null); setOwnerMode(false); }} style={styles.link} hitSlop={8}>
+              <Ionicons name="log-in-outline" size={16} color={colors.primary} />
+              <Text style={styles.linkText}>{t('auth.backToLogin')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -223,6 +260,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   language: { marginTop: spacing.lg },
+  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: spacing.md },
+  linkText: { color: colors.primary, fontWeight: '700' },
   server: { marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   spacer: { height: spacing.sm },
 });

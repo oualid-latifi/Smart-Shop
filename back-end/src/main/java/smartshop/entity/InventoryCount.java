@@ -11,8 +11,8 @@ import java.util.UUID;
  * puis la clôture applique les écarts au stock (les ventes faites pendant le comptage sont conservées).
  */
 @Entity
-@Table(name = "inventory_counts")
-public class InventoryCount {
+@Table(name = "inventory_counts", uniqueConstraints = @UniqueConstraint(name = "uk_inventory_counts_shop_number", columnNames = {"shop_id", "number"}))
+public class InventoryCount extends TenantEntity {
 
     public enum Status { OPEN, CLOSED, CANCELLED }
 
@@ -20,7 +20,7 @@ public class InventoryCount {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 20, unique = true)
+    @Column(nullable = false, length = 20)
     private String number;
 
     @Column(name = "opened_at", nullable = false, updatable = false)

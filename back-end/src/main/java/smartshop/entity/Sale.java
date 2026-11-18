@@ -8,19 +8,22 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "sales")
-public class Sale {
+@Table(name = "sales", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_sales_shop_number", columnNames = {"shop_id", "number"}),
+        @UniqueConstraint(name = "uk_sales_shop_invoice", columnNames = {"shop_id", "invoice_number"}),
+        @UniqueConstraint(name = "uk_sales_shop_delivery", columnNames = {"shop_id", "delivery_number"})})
+public class Sale extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
     // Numéro du ticket de vente (VT-2026-00001). Null pour les ventes créées avant la numérotation.
-    @Column(length = 20, unique = true)
+    @Column(length = 20)
     private String number;
 
     // Facture émise à la demande du client (FAC-2026-00001)
-    @Column(name = "invoice_number", length = 20, unique = true)
+    @Column(name = "invoice_number", length = 20)
     private String invoiceNumber;
 
     @Column(name = "invoice_date")
@@ -35,7 +38,7 @@ public class Sale {
     private String clientRef;
 
     // Bon de livraison (BL-2026-00001)
-    @Column(name = "delivery_number", length = 20, unique = true)
+    @Column(name = "delivery_number", length = 20)
     private String deliveryNumber;
 
     // Remise saisie en pourcentage (null si saisie en DH)

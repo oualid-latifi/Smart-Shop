@@ -12,7 +12,7 @@ import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
-import smartshop.service.NotificationService;
+import smartshop.tenancy.TenantJobs;
 
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -37,7 +37,7 @@ class OperationsIntegrationTest {
     private ObjectMapper json;
 
     @Autowired
-    private NotificationService notificationService;
+    private TenantJobs jobs;
 
     private String owner;
     private String productId;
@@ -103,8 +103,8 @@ class OperationsIntegrationTest {
                 {"customerId":"%s","amountPaid":1000,"paymentMethod":"CHECK",
                  "check":{"number":"77","dueDate":"%s"},
                  "lines":[{"productId":"%s","quantity":2}]}""".formatted(customerId, LocalDate.now().plusDays(1), productId), 201);
-        notificationService.checksDueSoon();
-        notificationService.checksDueSoon(); // pas de doublon le même jour
+        jobs.checksDueSoon();
+        jobs.checksDueSoon(); // pas de doublon le même jour
 
         JsonNode feed = call(owner, get("/api/notifications"), null, 200);
         assertThat(feed.get("unread").asInt()).isEqualTo(3);

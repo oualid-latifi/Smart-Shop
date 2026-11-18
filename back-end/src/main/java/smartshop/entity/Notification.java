@@ -12,7 +12,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "notifications", indexes = @Index(name = "idx_notification_created", columnList = "created_at"))
-public class Notification {
+public class Notification extends TenantEntity {
 
     public enum Type { LOW_STOCK, CHECK_DUE, BIG_SALE, TARGET_REACHED, BACKUP_FAILED, ONLINE_ORDER }
 

@@ -36,7 +36,12 @@ export default function OnlineOrdersScreen() {
   }, [status, t]);
 
   useFocusEffect(useCallback(() => { void load(); }, [load]));
-  useEffect(() => { void getBaseUrl().then((base) => setLink(`${base}/shop`)); }, []);
+  useEffect(() => {
+    // Chaque boutique a sa propre adresse : /shop/{boutique}
+    void Promise.all([getBaseUrl(), api<{ slug: string }>('/api/shop')])
+      .then(([base, shop]) => setLink(`${base}/shop/${shop.slug}`))
+      .catch(() => undefined);
+  }, []);
 
   async function run(order: OnlineOrder, action: 'CONFIRMED' | 'CANCELLED' | 'convert') {
     setBusy(order.id);

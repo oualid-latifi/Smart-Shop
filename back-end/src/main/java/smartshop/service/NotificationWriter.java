@@ -25,6 +25,8 @@ public class NotificationWriter {
     /** Renvoie la notification créée, ou null si elle existait déjà (même dedupeKey). */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public Notification write(Notification.Type type, String title, String body, Permission audience, UUID referenceId, String dedupeKey) {
+        // La clé est unique dans toute la base : on la préfixe par la boutique
+        if (dedupeKey != null) dedupeKey = smartshop.tenancy.TenantContext.require() + ":" + dedupeKey;
         if (dedupeKey != null && repository.existsByDedupeKey(dedupeKey)) return null;
         Notification n = new Notification();
         n.setType(type);

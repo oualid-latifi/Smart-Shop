@@ -2,7 +2,7 @@
 
 Tant que le serveur tourne sur ton PC, l'application ne marche que sur le même Wi-Fi.
 Une fois en ligne, elle marche partout (4G, autre boutique, à la maison), et la **boutique en ligne**
-(`/shop`) et le **QR code des factures** deviennent accessibles à tes clients.
+(`/shop/{ta-boutique}`) et le **QR code des factures** deviennent accessibles à tes clients.
 
 Trois façons de faire, de la plus simple à la plus économique :
 
@@ -111,3 +111,13 @@ L'APK exige une adresse **https** : une adresse `http://192.168…` ne marche qu
 - Plus → **Boutique en ligne** → *Partager le lien* (WhatsApp, Instagram, Facebook…).
 - Plus → **Sauvegardes** : télécharge une copie de temps en temps (Drive, email) — une sauvegarde
   qui reste sur le même serveur ne protège pas d'une panne de ce serveur.
+
+---
+
+## Plusieurs boutiques sur le même serveur
+
+Un seul serveur suffit pour plusieurs magasins : chaque propriétaire touche **« Nouvelle boutique ? Créer ma boutique »**
+sur l'écran de connexion. Chaque boutique a ses propres produits, ventes, clients, employés, paramètres,
+numéros de factures (FAC-2026-00001 dans chaque boutique), sauvegardes et boutique en ligne (`/shop/{nom-de-la-boutique}`).
+Une boutique ne voit jamais les données d'une autre. Les données d'avant le passage multi-boutiques sont rattachées
+automatiquement à une première boutique au démarrage du serveur.

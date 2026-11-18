@@ -8,7 +8,7 @@ import java.util.UUID;
 /** Remise de caisse : un employé remet l'argent encaissé au propriétaire. */
 @Entity
 @Table(name = "cash_handins")
-public class CashHandin {
+public class CashHandin extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

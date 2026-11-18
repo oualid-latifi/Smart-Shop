@@ -26,11 +26,18 @@ public class NumberingService {
     @Transactional(propagation = Propagation.MANDATORY)
     public String next(DocumentType type) {
         int year = Year.now().getValue();
-        String key = type.getPrefix() + "-" + year;
+        String label = type.getPrefix() + "-" + year;
+        // Chaque boutique a sa propre suite de numéros (clé unique dans toute la base)
+        String key = counterKey(smartshop.tenancy.TenantContext.require(), label);
         DocumentCounter counter = counterRepository.findForUpdate(key)
                 .orElseGet(() -> counterRepository.saveAndFlush(new DocumentCounter(key)));
         int value = counter.next();
         counterRepository.save(counter);
-        return String.format("%s-%05d", key, value);
+        return String.format("%s-%05d", label, value);
+    }
+
+    /** "1f3a9c2b7d:FAC-2026" (20 caractères au plus). */
+    public static String counterKey(java.util.UUID shopId, String label) {
+        return shopId.toString().replace("-", "").substring(0, 10) + ":" + label;
     }
 }

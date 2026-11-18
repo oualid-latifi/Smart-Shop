@@ -10,8 +10,8 @@ import java.util.UUID;
 
 /** Bon de commande fournisseur (BC-2026-00001). La réception crée un achat et fait entrer le stock. */
 @Entity
-@Table(name = "purchase_orders")
-public class PurchaseOrder {
+@Table(name = "purchase_orders", uniqueConstraints = @UniqueConstraint(name = "uk_purchase_orders_shop_number", columnNames = {"shop_id", "number"}))
+public class PurchaseOrder extends TenantEntity {
 
     public enum Status { ORDERED, PARTIALLY_RECEIVED, RECEIVED, CANCELLED }
 
@@ -19,7 +19,7 @@ public class PurchaseOrder {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 20, unique = true)
+    @Column(nullable = false, length = 20)
     private String number;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

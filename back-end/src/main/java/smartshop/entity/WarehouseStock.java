@@ -5,7 +5,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "warehouse_stocks", uniqueConstraints = @UniqueConstraint(columnNames = {"warehouse_id", "product_id"}))
-public class WarehouseStock {
+public class WarehouseStock extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

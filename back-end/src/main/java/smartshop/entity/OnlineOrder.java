@@ -10,8 +10,8 @@ import java.util.UUID;
 
 /** Commande passée par un client sur la boutique en ligne (CMD-2026-00001), transformée ensuite en vente. */
 @Entity
-@Table(name = "online_orders")
-public class OnlineOrder {
+@Table(name = "online_orders", uniqueConstraints = @UniqueConstraint(name = "uk_online_orders_shop_number", columnNames = {"shop_id", "number"}))
+public class OnlineOrder extends TenantEntity {
 
     public enum Status { NEW, CONFIRMED, CONVERTED, CANCELLED }
 
@@ -49,7 +49,7 @@ public class OnlineOrder {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false, length = 20, unique = true)
+    @Column(nullable = false, length = 20)
     private String number;
 
     @Column(name = "customer_name", nullable = false, length = 100)

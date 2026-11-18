@@ -63,11 +63,23 @@ class TeamIntegrationTest {
         call(seller, get("/api/reports/today"), null, 403);
         call(seller, post("/api/products"), "{\"reference\":\"X\",\"name\":\"X\",\"salePrice\":1}", 403);
         call(seller, get("/api/users"), null, 403);
-        // Seul le propriétaire crée des comptes ; l'inscription publique est fermée après le premier compte
+        // Seul le propriétaire crée des comptes dans sa boutique
         call(seller, post("/api/users"), """
                 {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026","role":"OWNER"}""", 403);
-        call(null, post("/api/auth/register"), """
-                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026"}""", 400);
+        // S'inscrire crée une AUTRE boutique, qui ne voit rien de celle-ci
+        String pirate = call(null, post("/api/auth/register"), """
+                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026"}""", 201).get("token").asText();
+        assertThat(call(pirate, get("/api/users"), null, 200).findValuesAsText("email")).containsExactly("p@shop.test");
+        assertThat(call(pirate, get("/api/sales"), null, 200)).isEmpty();
+        // Depuis l'écran de connexion : seulement avec l'email et le mot de passe du propriétaire
+        call(null, post("/api/auth/register-employee"), """
+                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026","role":"OWNER","ownerEmail":"vendeur@shop.test","ownerPassword":"Vendeur-2026"}""", 400);
+        call(null, post("/api/auth/register-employee"), """
+                {"name":"Pirate","email":"p@shop.test","password":"Pirate-2026","role":"SELLER","ownerEmail":"owner@shop.test","ownerPassword":"mauvais-mot"}""", 400);
+        JsonNode employee = call(null, post("/api/auth/register-employee"), """
+                {"name":"Nadia","email":"nadia@shop.test","password":"Nadia-2026!","role":"CASHIER","ownerEmail":"owner@shop.test","ownerPassword":"Correct-Horse-42"}""", 201);
+        assertThat(employee.get("role").asText()).isEqualTo("CASHIER");
+        assertThat(employee.get("token").asText()).isNotBlank();
         call(seller, post("/api/sales/" + sale.get("id").asText() + "/cancel"), "{\"reason\":\"test\"}", 403);
 
         // Le propriétaire voit tout

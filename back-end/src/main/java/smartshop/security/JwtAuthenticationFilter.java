@@ -36,7 +36,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith("Bearer ")) {
             authenticate(header.substring(7).trim());
         }
-        chain.doFilter(request, response);
+        try {
+            chain.doFilter(request, response);
+        } finally {
+            smartshop.tenancy.TenantContext.clear();
+        }
     }
 
     static List<SimpleGrantedAuthority> authorities(smartshop.entity.AppUser user) {
@@ -53,12 +57,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Integer version = claims.get("ver", Integer.class);
 
                 userRepository.findById(userId)
-                        .filter(user -> version != null && version == user.getTokenVersion() && user.isActive())
+                        .filter(user -> version != null && version == user.getTokenVersion() && user.isActive() && user.getShopId() != null)
                         .ifPresent(user -> {
                             UsernamePasswordAuthenticationToken authentication =
                                     new UsernamePasswordAuthenticationToken(
                                             user, null, authorities(user));
                             SecurityContextHolder.getContext().setAuthentication(authentication);
+                            smartshop.tenancy.TenantContext.set(user.getShopId());
                         });
             } catch (IllegalArgumentException ignored) {
                 // token mal formé : on ne connecte personne

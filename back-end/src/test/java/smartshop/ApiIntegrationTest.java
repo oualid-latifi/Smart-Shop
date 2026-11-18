@@ -63,7 +63,12 @@ class ApiIntegrationTest {
     }
 
     @Test
-    void secondRegistrationIsRefused() throws Exception {
+    void anotherOwnerCreatesHisOwnShopButEmailsStayUnique() throws Exception {
+        mvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Other","email":"other@shop.test","password":"Another-Pass-1","shopName":"Autre boutique"}"""))
+                .andExpect(status().isCreated());
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""

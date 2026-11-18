@@ -16,6 +16,10 @@ public class AppUser {
     @Column(nullable = false, length = 100)
     private String name;
 
+    // Boutique du compte : fixe la boutique de toutes ses requêtes (voir JwtAuthenticationFilter)
+    @Column(name = "shop_id")
+    private java.util.UUID shopId;
+
     @Column(nullable = false, unique = true, length = 150)
     private String email;
 
@@ -50,6 +54,8 @@ public class AppUser {
     void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+    public java.util.UUID getShopId() { return shopId; }
+    public void setShopId(java.util.UUID shopId) { this.shopId = shopId; }
 
     public UUID getId() { return id; }
 

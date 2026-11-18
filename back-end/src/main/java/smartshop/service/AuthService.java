@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.AuthResponse;
 import smartshop.dto.ChangePasswordRequest;
+import smartshop.dto.EmployeeRegisterRequest;
 import smartshop.dto.LoginRequest;
 import smartshop.dto.RegisterRequest;
 import smartshop.dto.UserResponse;
@@ -24,11 +25,14 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final LoginAttemptService loginAttemptService;
+    private final ShopService shopService;
 
     public AuthService(AppUserRepository userRepository,
                        PasswordEncoder passwordEncoder,
                        JwtService jwtService,
-                       LoginAttemptService loginAttemptService) {
+                       LoginAttemptService loginAttemptService,
+                       ShopService shopService) {
+        this.shopService = shopService;
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -40,13 +44,18 @@ public class AuthService {
         return userRepository.count() > 0;
     }
 
-    /** Création du compte du propriétaire : possible une seule fois. */
+    /** Un nouveau propriétaire crée sa boutique : ses données sont séparées de celles des autres boutiques. */
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.count() > 0) {
-            throw new IllegalArgumentException("Un compte existe déjà : utilise la connexion");
+        String email = normalize(request.email());
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Un compte utilise déjà cet email : connecte-toi");
         }
+        String shopName = request.shopName() != null && !request.shopName().isBlank()
+                ? request.shopName().trim() : "Boutique de " + request.name().trim();
+        smartshop.entity.Shop shop = shopService.create(shopName);
         AppUser user = new AppUser();
+        user.setShopId(shop.getId());
         user.setName(request.name().trim());
         user.setEmail(normalize(request.email()));
         user.setPasswordHash(passwordEncoder.encode(request.password()));
@@ -69,6 +78,39 @@ public class AuthService {
         }
         loginAttemptService.onSuccess(email);
         return toResponse(user);
+    }
+
+    /**
+     * Un employé crée son compte depuis l'écran de connexion, devant le propriétaire qui saisit
+     * son email et son mot de passe pour l'autoriser. Mêmes protections que la connexion
+     * (blocage après plusieurs essais ratés). Le nouvel employé est connecté directement.
+     */
+    @Transactional
+    public AuthResponse registerWithOwner(EmployeeRegisterRequest request) {
+        String ownerEmail = normalize(request.ownerEmail());
+        loginAttemptService.checkAllowed(ownerEmail);
+        AppUser owner = userRepository.findByEmail(ownerEmail)
+                .filter(u -> u.isActive() && u.getRole() == smartshop.entity.Role.OWNER
+                        && passwordEncoder.matches(request.ownerPassword(), u.getPasswordHash()))
+                .orElse(null);
+        if (owner == null) {
+            loginAttemptService.onFailure(ownerEmail);
+            throw new IllegalArgumentException("Email ou mot de passe du propriétaire incorrect");
+        }
+        loginAttemptService.onSuccess(ownerEmail);
+
+        String email = normalize(request.email());
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Un compte utilise déjà cet email");
+        }
+        AppUser user = new AppUser();
+        user.setName(request.name().trim());
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setRole(request.role());
+        user.setActive(true);
+        user.setShopId(owner.getShopId());
+        return toResponse(userRepository.save(user));
     }
 
     @Transactional(readOnly = true)

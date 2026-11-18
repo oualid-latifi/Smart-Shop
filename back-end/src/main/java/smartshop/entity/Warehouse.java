@@ -10,7 +10,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "warehouses")
-public class Warehouse {
+public class Warehouse extends TenantEntity {
 
     public enum Type { STORAGE, QUARANTINE }
 

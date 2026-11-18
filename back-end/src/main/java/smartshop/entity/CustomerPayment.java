@@ -7,7 +7,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "customer_payments")
-public class CustomerPayment {
+public class CustomerPayment extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)

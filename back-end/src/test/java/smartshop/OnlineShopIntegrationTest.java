@@ -46,9 +46,9 @@ class OnlineShopIntegrationTest {
 
     @Test
     void closedUntilTheOwnerOpensIt() throws Exception {
-        call(null, get("/api/public/catalog"), null, 404);
-        call(null, post("/api/public/orders"), order(1), 404);
-        String page = mvc.perform(get("/shop")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        call(null, get("/api/public/boutique-de-patron/catalog"), null, 404);
+        call(null, post("/api/public/boutique-de-patron/orders"), order(1), 404);
+        String page = mvc.perform(get("/shop/boutique-de-patron")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertThat(page).contains("<!doctype html>");
     }
 
@@ -59,17 +59,17 @@ class OnlineShopIntegrationTest {
                 {"name":"Soldes","kind":"PERCENT_OFF","value":10,"startsOn":"%s","endsOn":"%s"}""".formatted(LocalDate.now(), LocalDate.now().plusDays(3)), 201);
 
         // Catalogue public : prix promo, jamais le prix d'achat ni le stock exact
-        String raw = mvc.perform(get("/api/public/catalog")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        String raw = mvc.perform(get("/api/public/boutique-de-patron/catalog")).andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         assertThat(raw).doesNotContain("350").doesNotContain("purchase").doesNotContain("stockQuantity");
         JsonNode p = json.readTree(raw).get("products").get(0);
         assertThat(p.get("price").decimalValue()).isEqualByComparingTo("450");
         assertThat(p.get("oldPrice").decimalValue()).isEqualByComparingTo("500");
         assertThat(p.get("inStock").asBoolean()).isTrue();
 
-        call(null, post("/api/public/orders"), order(5), 400); // plus que le stock
-        call(null, post("/api/public/orders"), """
+        call(null, post("/api/public/boutique-de-patron/orders"), order(5), 400); // plus que le stock
+        call(null, post("/api/public/boutique-de-patron/orders"), """
                 {"name":"Karim","phone":"abc","lines":[{"productId":"%s","quantity":1}]}""".formatted(productId), 400);
-        JsonNode placed = call(null, post("/api/public/orders"), order(2), 201);
+        JsonNode placed = call(null, post("/api/public/boutique-de-patron/orders"), order(2), 201);
         assertThat(placed.get("number").asText()).startsWith("CMD-");
         assertThat(placed.get("total").decimalValue()).isEqualByComparingTo("900");
 
@@ -93,8 +93,8 @@ class OnlineShopIntegrationTest {
     @Test
     void ordersAreRateLimited() throws Exception {
         call(owner, put("/api/settings"), "{\"onlineShopEnabled\":true}", 200);
-        for (int i = 0; i < 5; i++) call(null, post("/api/public/orders"), order(1), -1);
-        call(null, post("/api/public/orders"), order(1), 429);
+        for (int i = 0; i < 5; i++) call(null, post("/api/public/boutique-de-patron/orders"), order(1), -1);
+        call(null, post("/api/public/boutique-de-patron/orders"), order(1), 429);
     }
 
     @Test

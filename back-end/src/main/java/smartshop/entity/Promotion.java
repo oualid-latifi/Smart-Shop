@@ -13,7 +13,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "promotions")
-public class Promotion {
+public class Promotion extends TenantEntity {
 
     public enum Kind { PERCENT_OFF, FIXED_PRICE, SECOND_ITEM_PERCENT }
 
