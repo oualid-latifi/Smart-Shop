@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, TextInputInstance, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, TextInputInstance, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { api, getBaseUrl } from '../api/client';
@@ -8,6 +8,7 @@ import { API_URL_KEY, storage } from '../storage';
 import { errorMessage } from '../api/errors';
 import type { AccountStatus } from '../api/types';
 import { useAuth } from '../auth/AuthContext';
+import EmployeeRegisterForm from '../components/EmployeeRegisterForm';
 import LanguageSwitcher from '../components/LanguageSwitcher';
 import PrimaryButton from '../components/PrimaryButton';
 import Screen from '../components/Screen';
@@ -21,6 +22,8 @@ export default function AuthScreen() {
   const { login, register } = useAuth();
 
   const [accountExists, setAccountExists] = useState<boolean | null>(null);
+  // Écran de connexion : "employee" = inscription d'un employé validée par le propriétaire
+  const [employeeMode, setEmployeeMode] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -112,7 +115,9 @@ export default function AuthScreen() {
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : null}
 
-      {accountExists !== null ? (
+      {accountExists && employeeMode ? <EmployeeRegisterForm onBack={() => setEmployeeMode(false)} /> : null}
+
+      {accountExists !== null && !(accountExists && employeeMode) ? (
         <View style={styles.card}>
           <Text style={styles.title}>
             {accountExists ? t('auth.loginTitle') : t('auth.registerTitle')}
@@ -167,6 +172,13 @@ export default function AuthScreen() {
             onPress={submit}
             loading={loading}
           />
+
+          {accountExists ? (
+            <Pressable accessibilityRole="button" onPress={() => { setError(null); setEmployeeMode(true); }} style={styles.link} hitSlop={8}>
+              <Ionicons name="person-add-outline" size={16} color={colors.primary} />
+              <Text style={styles.linkText}>{t('employee.link')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
@@ -223,6 +235,8 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   language: { marginTop: spacing.lg },
+  link: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, minHeight: 44, marginTop: spacing.md },
+  linkText: { color: colors.primary, fontWeight: '700' },
   server: { marginTop: spacing.lg, paddingTop: spacing.md, borderTopWidth: 1, borderTopColor: colors.border },
   spacer: { height: spacing.sm },
 });

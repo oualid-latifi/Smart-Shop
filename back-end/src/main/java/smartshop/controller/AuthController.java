@@ -36,6 +36,13 @@ public class AuthController {
         return authService.register(request);
     }
 
+    // Public : création d'un compte employé, autorisée par l'email et le mot de passe du propriétaire
+    @PostMapping("/register-employee")
+    @ResponseStatus(HttpStatus.CREATED)
+    public AuthResponse registerEmployee(@Valid @RequestBody smartshop.dto.EmployeeRegisterRequest request) {
+        return authService.registerWithOwner(request);
+    }
+
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return authService.login(request);

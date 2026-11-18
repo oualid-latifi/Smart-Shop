@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import smartshop.dto.AuthResponse;
 import smartshop.dto.ChangePasswordRequest;
+import smartshop.dto.EmployeeRegisterRequest;
 import smartshop.dto.LoginRequest;
 import smartshop.dto.RegisterRequest;
 import smartshop.dto.UserResponse;
@@ -69,6 +70,38 @@ public class AuthService {
         }
         loginAttemptService.onSuccess(email);
         return toResponse(user);
+    }
+
+    /**
+     * Un employé crée son compte depuis l'écran de connexion, devant le propriétaire qui saisit
+     * son email et son mot de passe pour l'autoriser. Mêmes protections que la connexion
+     * (blocage après plusieurs essais ratés). Le nouvel employé est connecté directement.
+     */
+    @Transactional
+    public AuthResponse registerWithOwner(EmployeeRegisterRequest request) {
+        String ownerEmail = normalize(request.ownerEmail());
+        loginAttemptService.checkAllowed(ownerEmail);
+        AppUser owner = userRepository.findByEmail(ownerEmail)
+                .filter(u -> u.isActive() && u.getRole() == smartshop.entity.Role.OWNER
+                        && passwordEncoder.matches(request.ownerPassword(), u.getPasswordHash()))
+                .orElse(null);
+        if (owner == null) {
+            loginAttemptService.onFailure(ownerEmail);
+            throw new IllegalArgumentException("Email ou mot de passe du propriétaire incorrect");
+        }
+        loginAttemptService.onSuccess(ownerEmail);
+
+        String email = normalize(request.email());
+        if (userRepository.findByEmail(email).isPresent()) {
+            throw new IllegalArgumentException("Un compte utilise déjà cet email");
+        }
+        AppUser user = new AppUser();
+        user.setName(request.name().trim());
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(request.password()));
+        user.setRole(request.role());
+        user.setActive(true);
+        return toResponse(userRepository.save(user));
     }
 
     @Transactional(readOnly = true)

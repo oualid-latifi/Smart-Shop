@@ -830,5 +830,16 @@
     "level2": "Moyen",
     "level3": "Bon",
     "level4": "Très solide"
+  },
+  "employee": {
+    "link": "Nouvel employé ? Créer un compte",
+    "title": "Créer un compte employé",
+    "hint": "Remplis ton compte, puis demande au propriétaire de valider avec ses identifiants.",
+    "ownerTitle": "Validation du propriétaire",
+    "ownerHint": "Seul le propriétaire peut autoriser un nouveau compte : il saisit ici son email et son mot de passe.",
+    "ownerEmail": "Email du propriétaire",
+    "ownerPassword": "Mot de passe du propriétaire",
+    "submit": "Créer mon compte",
+    "back": "J’ai déjà un compte : me connecter"
   }
 }
