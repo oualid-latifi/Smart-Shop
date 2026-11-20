@@ -87,6 +87,9 @@ public class PurchaseService {
             total = total.add(lineRequest.unitPrice()
                     .multiply(BigDecimal.valueOf(lineRequest.quantity())));
 
+            if (lineRequest.salePrice() != null) {
+                product.setSalePrice(lineRequest.salePrice());
+            }
             addToStock(product, units, unitCost);
         }
 
