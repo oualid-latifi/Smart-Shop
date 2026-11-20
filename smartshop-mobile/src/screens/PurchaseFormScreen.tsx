@@ -27,6 +27,7 @@ interface CartLine {
   product: Product;
   quantity: number;
   unitPrice: string; // texte tapé par l'utilisateur
+  salePrice: string; // nouveau prix de vente (vide = inchangé)
 }
 
 export default function PurchaseFormScreen({ navigation }: Props) {
@@ -67,11 +68,12 @@ export default function PurchaseFormScreen({ navigation }: Props) {
   );
 
   const matches = useMemo(() => {
+    // Sans recherche : tous les produits actifs ; la recherche ne sert qu'à filtrer
     const query = search.trim().toLowerCase();
-    if (!query) return [];
-    return products
-      .filter((p) => p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query))
-      .slice(0, 6);
+    if (!query) return products;
+    return products.filter(
+      (p) => p.name.toLowerCase().includes(query) || p.reference.toLowerCase().includes(query),
+    );
   }, [products, search]);
 
   const total = cart.reduce(
@@ -91,7 +93,12 @@ export default function PurchaseFormScreen({ navigation }: Props) {
       }
       return [
         ...current,
-        { product, quantity: 1, unitPrice: String(product.averagePurchasePrice || '') },
+        {
+          product,
+          quantity: 1,
+          unitPrice: String(product.averagePurchasePrice || ''),
+          salePrice: String(product.salePrice || ''),
+        },
       ];
     });
     setSearch('');
@@ -107,16 +114,17 @@ export default function PurchaseFormScreen({ navigation }: Props) {
     );
   }
 
-  function changePrice(productId: string, value: string) {
+  function changePrice(productId: string, field: 'unitPrice' | 'salePrice', value: string) {
     setCart((current) =>
-      current.map((line) => (line.product.id === productId ? { ...line, unitPrice: value } : line)),
+      current.map((line) => (line.product.id === productId ? { ...line, [field]: value } : line)),
     );
   }
 
   async function submit() {
     const invalidPrice = cart.some((line) => {
       const price = parseNumber(line.unitPrice);
-      return price === null || price < 0;
+      const sale = parseNumber(line.salePrice);
+      return price === null || price < 0 || (line.salePrice.trim() !== '' && (sale === null || sale < 0));
     });
     if (cart.length === 0 || invalidPrice) {
       setError(t('purchases.invalid'));
@@ -140,6 +148,7 @@ export default function PurchaseFormScreen({ navigation }: Props) {
             productId: line.product.id,
             quantity: line.quantity,
             unitPrice: parseNumber(line.unitPrice) ?? 0,
+            salePrice: line.salePrice.trim() === '' ? null : parseNumber(line.salePrice),
           })),
         },
       });
@@ -170,12 +179,17 @@ export default function PurchaseFormScreen({ navigation }: Props) {
           autoCorrect={false}
         />
 
-        {search.trim() !== '' ? (
-          <View style={styles.results}>
-            {matches.length === 0 ? (
-              <Text style={styles.muted}>{t('purchases.noProducts')}</Text>
-            ) : (
-              matches.map((p) => (
+        <ScrollView
+          style={styles.results}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {matches.length === 0 ? (
+            <Text style={styles.muted}>{t('purchases.noProducts')}</Text>
+          ) : (
+            matches.map((p) => {
+              const inCart = cart.find((line) => line.product.id === p.id);
+              return (
                 <Pressable accessibilityRole="button" key={p.id} style={styles.resultRow} onPress={() => addProduct(p)}>
                   <View style={styles.flex}>
                     <Text style={styles.name}>{p.name}</Text>
@@ -183,11 +197,12 @@ export default function PurchaseFormScreen({ navigation }: Props) {
                       {p.reference} · {t('products.stock')} : {p.stockQuantity}
                     </Text>
                   </View>
+                  {inCart ? <Text style={styles.badge}>× {inCart.quantity}</Text> : null}
                 </Pressable>
-              ))
-            )}
-          </View>
-        ) : null}
+              );
+            })
+          )}
+        </ScrollView>
 
         <Text style={styles.sectionTitle}>{t('purchases.items')}</Text>
         {cart.length === 0 ? (
@@ -217,10 +232,22 @@ export default function PurchaseFormScreen({ navigation }: Props) {
                   <TextInput
                     style={styles.priceInput}
                     value={line.unitPrice}
-                    onChangeText={(value) => changePrice(line.product.id, value)}
+                    onChangeText={(value) => changePrice(line.product.id, 'unitPrice', value)}
                     keyboardType="decimal-pad"
                   />
                 </View>
+              </View>
+              <View style={styles.salePriceRow}>
+                <View style={styles.flex}>
+                  <Text style={styles.muted}>{t('purchases.salePrice')}</Text>
+                  <Text style={styles.hint}>{t('purchases.salePriceHint')}</Text>
+                </View>
+                <TextInput
+                  style={[styles.priceInput, styles.priceBox]}
+                  value={line.salePrice}
+                  onChangeText={(value) => changePrice(line.product.id, 'salePrice', value)}
+                  keyboardType="decimal-pad"
+                />
               </View>
             </View>
           ))
@@ -321,8 +348,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.sm,
+    maxHeight: 320,
   },
   resultRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: spacing.sm },
+  badge: {
+    color: colors.onPrimary,
+    backgroundColor: colors.primary,
+    fontWeight: '700',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
@@ -361,6 +398,8 @@ const styles = StyleSheet.create({
     color: colors.text,
   },
   priceBox: { width: 130 },
+  salePriceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  hint: { color: colors.muted, fontSize: 11 },
   priceInput: {
     borderWidth: 1,
     borderColor: colors.border,

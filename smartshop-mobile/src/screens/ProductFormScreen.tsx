@@ -59,7 +59,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const [vatRate, setVatRate] = useState(product?.vatRate == null ? '' : String(product.vatRate));
   const [unitsPerPack, setUnitsPerPack] = useState(product?.unitsPerPack == null ? '' : String(product.unitsPerPack));
   const [packPrice, setPackPrice] = useState(product?.packPrice == null ? '' : String(product.packPrice));
-  const [purchasePrice, setPurchasePrice] = useState('');
   const [initialStock, setInitialStock] = useState('');
 
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
@@ -74,7 +73,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   const capacityRef = useRef<TextInputInstance>(null);
   const priceRef = useRef<TextInputInstance>(null);
   const thresholdRef = useRef<TextInputInstance>(null);
-  const purchaseRef = useRef<TextInputInstance>(null);
   const stockRef = useRef<TextInputInstance>(null);
 
   useUnsavedChanges(dirty && !saving);
@@ -91,8 +89,8 @@ export default function ProductFormScreen({ route, navigation }: Props) {
   }
 
   const salePriceValue = parseNumber(salePrice);
-  const purchasePriceValue = parseNumber(purchasePrice);
-  const costForMargin = editing ? product?.averagePurchasePrice ?? null : purchasePriceValue;
+  // Les prix d'achat et de vente d'un nouveau produit se saisissent lors de l'achat fournisseur
+  const costForMargin = editing ? product?.averagePurchasePrice ?? null : null;
   const margin =
     salePriceValue !== null && costForMargin !== null && costForMargin > 0 ? salePriceValue - costForMargin : null;
 
@@ -100,8 +98,10 @@ export default function ProductFormScreen({ route, navigation }: Props) {
     const errors: FieldErrors = {};
     if (!reference.trim()) errors.reference = t('form.required');
     if (!name.trim()) errors.name = t('form.required');
-    if (!salePrice.trim()) errors.salePrice = t('form.required');
-    else if (salePriceValue === null || salePriceValue < 0) errors.salePrice = t('form.invalidNumber');
+    if (editing) {
+      if (!salePrice.trim()) errors.salePrice = t('form.required');
+      else if (salePriceValue === null || salePriceValue < 0) errors.salePrice = t('form.invalidNumber');
+    }
 
     const upp = parseNumber(unitsPerPack);
     if (unitsPerPack.trim() !== '' && (upp === null || upp < 2 || !Number.isInteger(upp))) errors.unitsPerPack = t('form.invalidInteger');
@@ -115,9 +115,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       errors.alertThreshold = t('form.invalidInteger');
     }
     if (!editing) {
-      if (purchasePrice.trim() !== '' && (purchasePriceValue === null || purchasePriceValue < 0)) {
-        errors.purchasePrice = t('form.invalidNumber');
-      }
       const stock = parseNumber(initialStock);
       if (initialStock.trim() !== '' && (stock === null || stock < 0 || !Number.isInteger(stock))) {
         errors.initialStock = t('form.invalidInteger');
@@ -148,7 +145,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         color: color.trim() || null,
         capacity: capacity.trim() || null,
         imageUrl: imageUrl.trim() || null,
-        salePrice: salePriceValue,
         vatRate: parseNumber(vatRate),
         unitsPerPack: parseNumber(unitsPerPack),
         packPrice: unitsPerPack.trim() === '' ? null : parseNumber(packPrice),
@@ -156,7 +152,7 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       if (editing && product) {
         await api(`/api/products/${product.id}`, {
           method: 'PUT',
-          body: { ...common, alertThreshold: Math.round(threshold ?? 5) },
+          body: { ...common, salePrice: salePriceValue, alertThreshold: Math.round(threshold ?? 5) },
         });
       } else {
         const stock = parseNumber(initialStock);
@@ -164,7 +160,6 @@ export default function ProductFormScreen({ route, navigation }: Props) {
           method: 'POST',
           body: {
             ...common,
-            purchasePrice: purchasePriceValue,
             initialStock: stock === null ? null : Math.round(stock),
             alertThreshold: threshold === null ? null : Math.round(threshold),
           },
@@ -284,18 +279,22 @@ export default function ProductFormScreen({ route, navigation }: Props) {
       </View>
 
       <Text style={styles.section}>{t('products.sectionPrice')}</Text>
-      <TextField
-        ref={priceRef}
-        label={`${t('products.salePrice')} (DH)`}
-        required
-        value={salePrice}
-        onChangeText={bind(setSalePrice, 'salePrice')}
-        error={fieldErrors.salePrice}
-        keyboardType="decimal-pad"
-        returnKeyType="next"
-        onSubmitEditing={() => (editing ? thresholdRef : purchaseRef).current?.focus()}
-        blurOnSubmit={false}
-      />
+      {editing ? (
+        <TextField
+          ref={priceRef}
+          label={`${t('products.salePrice')} (DH)`}
+          required
+          value={salePrice}
+          onChangeText={bind(setSalePrice, 'salePrice')}
+          error={fieldErrors.salePrice}
+          keyboardType="decimal-pad"
+          returnKeyType="next"
+          onSubmitEditing={() => thresholdRef.current?.focus()}
+          blurOnSubmit={false}
+        />
+      ) : (
+        <Text style={styles.hintText}>{t('products.pricesOnPurchase')}</Text>
+      )}
       <View style={styles.row}>
         <View style={styles.half}>
           <TextField label={t('products.unitsPerPack')} hint={t('products.unitsPerPackHint')} value={unitsPerPack}
@@ -315,36 +314,18 @@ export default function ProductFormScreen({ route, navigation }: Props) {
         keyboardType="decimal-pad"
       />
       {!editing ? (
-        <View style={styles.row}>
-          <View style={styles.half}>
-            <TextField
-              ref={purchaseRef}
-              label={`${t('products.purchasePrice')} (DH)`}
-              hint={t('products.optional')}
-              value={purchasePrice}
-              onChangeText={bind(setPurchasePrice, 'purchasePrice')}
-              error={fieldErrors.purchasePrice}
-              keyboardType="decimal-pad"
-              returnKeyType="next"
-              onSubmitEditing={() => stockRef.current?.focus()}
-              blurOnSubmit={false}
-            />
-          </View>
-          <View style={styles.half}>
-            <TextField
-              ref={stockRef}
-              label={t('products.initialStock')}
-              hint={t('products.optional')}
-              value={initialStock}
-              onChangeText={bind(setInitialStock, 'initialStock')}
-              error={fieldErrors.initialStock}
-              keyboardType="number-pad"
-              returnKeyType="next"
-              onSubmitEditing={() => thresholdRef.current?.focus()}
-              blurOnSubmit={false}
-            />
-          </View>
-        </View>
+        <TextField
+          ref={stockRef}
+          label={t('products.initialStock')}
+          hint={t('products.optional')}
+          value={initialStock}
+          onChangeText={bind(setInitialStock, 'initialStock')}
+          error={fieldErrors.initialStock}
+          keyboardType="number-pad"
+          returnKeyType="next"
+          onSubmitEditing={() => thresholdRef.current?.focus()}
+          blurOnSubmit={false}
+        />
       ) : null}
       {margin !== null ? (
         <View style={[styles.margin, margin < 0 && styles.marginNegative]}>

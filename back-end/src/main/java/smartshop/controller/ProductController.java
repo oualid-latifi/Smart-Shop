@@ -40,7 +40,7 @@ public class ProductController {
         product.setReference(request.reference());
         product.setName(request.name());
         product.setBarcode(request.barcode() == null || request.barcode().isBlank() ? null : request.barcode().trim());
-        product.setSalePrice(request.salePrice());
+        product.setSalePrice(request.salePrice() != null ? request.salePrice() : java.math.BigDecimal.ZERO);
         product.setVatRate(request.vatRate());
         product.setUnitsPerPack(request.unitsPerPack());
         product.setPackPrice(request.packPrice());
