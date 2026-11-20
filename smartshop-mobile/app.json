@@ -50,7 +50,15 @@
         }
       ],
       "expo-notifications",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ],
     "scheme": "smartshop",
     "backgroundColor": "#0a1224"

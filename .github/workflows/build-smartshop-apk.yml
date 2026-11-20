@@ -2,9 +2,14 @@ name: Build SmartShop Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      api_url:
+        description: "Adresse du back-end (ex. http://192.168.1.25:8080). Vide = à saisir dans l'application."
+        required: false
+        default: ""
   push:
     branches:
-      - feature/full-offline-app
+      - feature/new-design
     paths:
       - "smartshop-mobile/**"
       - ".github/workflows/build-smartshop-apk.yml"
@@ -19,6 +24,8 @@ jobs:
     defaults:
       run:
         working-directory: smartshop-mobile
+    env:
+      EXPO_PUBLIC_API_URL: ${{ github.event.inputs.api_url }}
 
     steps:
       - name: Checkout repository
@@ -39,6 +46,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       - name: Generate native Android project
         run: npx expo prebuild --platform android --non-interactive
