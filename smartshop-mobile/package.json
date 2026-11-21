@@ -44,5 +44,12 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
+  "expo": {
+    "autolinking": {
+      "android": {
+        "buildFromSource": ["expo-sqlite"]
+      }
+    }
+  },
   "private": true
 }
